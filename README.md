@@ -88,7 +88,7 @@ without editing `/etc/hosts`. `eventFromHost()` handles the port.
 |---|---|
 | Host routing, auth, session, code redemption | ✅ |
 | Submission pipeline, rate limiting, timestamping | ✅ |
-| Hunt / CTF / Quiz graders | ✅ logic written, not yet run against a live DB |
+| Hunt / CTF / Quiz graders | ✅ hunt + CTF verified end to end against live Cosmos |
 | Score ledger, leaderboard materializer, APIs | ✅ |
 | Code grader + judge subsystem | ⛔ **stubbed** — returns `pending`, nothing enqueued |
 | Event UIs | ⛔ placeholder pages |

@@ -36,7 +36,12 @@ function createClient(): Promise<MongoClient> {
     minPoolSize: 0,
     // Fail fast rather than hanging a request for 30s if the DB is unreachable.
     serverSelectionTimeoutMS: 5_000,
-    retryWrites: true,
+    // retryWrites is deliberately NOT set here. Cosmos DB's RU-based Mongo API
+    // rejects retryable writes outright ("Retryable writes are not supported"),
+    // and its connection string carries retrywrites=false to say so. An explicit
+    // driver option overrides the URI, so hardcoding `true` breaks every write
+    // against Cosmos while looking harmless. Leaving it unset lets the URI
+    // decide: false on Cosmos, the driver's default true on a plain mongod.
   }).connect();
 }
 
