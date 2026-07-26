@@ -40,17 +40,25 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # Built on the runner rather than with `az acr build`: ACR Tasks is not
+      # permitted on this subscription (TasksOperationsNotAllowed), which is a
+      # standing restriction on Azure for Students. `az acr login` mints a
+      # short-lived Docker credential from the service principal token, so the
+      # registry keeps its admin user disabled and no password is stored.
       - name: Build and push image
         run: |
           set -euo pipefail
           # Tag with the commit SHA so a rollback is just re-pointing at an
           # older tag, and so revisions are traceable to source.
           TAG="${GITHUB_SHA::7}"
-          az acr build \
-            --registry "${{ vars.ACR_NAME }}" \
-            --image "xplore26-events:${TAG}" \
-            --image "xplore26-events:latest" \
+          REGISTRY="${{ vars.ACR_NAME }}.azurecr.io"
+          az acr login --name "${{ vars.ACR_NAME }}"
+          docker build \
+            --tag "${REGISTRY}/xplore26-events:${TAG}" \
+            --tag "${REGISTRY}/xplore26-events:latest" \
             --file Dockerfile .
+          docker push "${REGISTRY}/xplore26-events:${TAG}"
+          docker push "${REGISTRY}/xplore26-events:latest"
           echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
 
       - name: Update Container App
