@@ -2,30 +2,27 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReticleShape } from "@/lib/quiz/avatars";
-import WebShooterRig, { type NozzleReport, type TargetRect } from "./WebShooterRig";
 
 /**
- * A real 3D gauntlet (see WebShooterRig.tsx — actual Three.js geometry, not
- * a flat image) fixed in the bottom-right corner, firing a physically
+ * A static hand image, fixed in the bottom-right corner, firing a physically
  * simulated web strand at whatever `[data-web-target]` element was actually
  * clicked. Decoration over a working control: this never calls
  * preventDefault or stopPropagation, so keyboard, screen reader and touch
  * interaction with the real button are completely unaffected.
  *
- * The glove is an ORIGINAL design, built from primitive 3D shapes (capsule
- * fingers, box palm, a lit wrist unit) — not an imported mesh and not a
- * recreation of any licensed character's hardware. The assets repo this
- * event draws from is explicit that the theme is carried by the interface,
- * not by borrowed frames, and this component holds that line.
+ * The image lives at `/quiz/webshooter-hand.png` — an original piece
+ * generated from a prompt written specifically to avoid any licensed
+ * character's suit pattern, insignia or specific gauntlet design. It's
+ * rendered with `mix-blend-mode: screen`, which is what makes its own dark
+ * background melt into this app's already-dark page background even if the
+ * source file isn't a clean alpha-transparent PNG — black pixels vanish,
+ * only the bright glove/glow survives.
  *
  * The web itself is a real verlet-integrated rope simulation (gravity +
  * iterative distance constraints across ~14 points), not a pre-drawn curve —
  * that's what gives it natural sag in flight and a genuine spring-back on
- * impact. It renders on its own full-viewport 2D canvas, separate from the
- * 3D layer; a click pushes the target onto `fireQueueRef`, the rig's render
- * loop drains it and reports back the muzzle's actual on-screen projected
- * position via `onFire`, and THAT is what launches the strand — so it always
- * starts from where the hand really is, including mid-recoil.
+ * impact. It renders on its own full-viewport 2D canvas, launching from
+ * wherever the hand image's marked muzzle point actually sits on screen.
  */
 
 const ROPE_POINTS = 14;
@@ -241,11 +238,10 @@ function drawFilm(ctx: CanvasRenderingContext2D, target: Shot["target"], alpha: 
   ctx.fill();
 }
 
+const HAND_IMAGE = "/quiz/webshooter-hand.png";
+
 export default function WebShooter({
-  colour = "#3a86ff",
   webColour = "#ffffff",
-  gloveColour = "#e5223b",
-  shape = "classic",
 }: {
   colour?: string;
   webColour?: string;
@@ -253,10 +249,12 @@ export default function WebShooter({
   shape?: ReticleShape;
 }) {
   const [enabled, setEnabled] = useState(false);
+  const [imageOk, setImageOk] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const handRef = useRef<HTMLDivElement>(null);
+  const muzzleRef = useRef<HTMLDivElement>(null);
   const shotsRef = useRef<Shot[]>([]);
   const rafRef = useRef<number | null>(null);
-  const fireQueueRef = useRef<TargetRect[]>([]);
   const webColourRef = useRef(webColour);
 
   useEffect(() => {
@@ -357,30 +355,6 @@ export default function WebShooter({
     rafRef.current = requestAnimationFrame(draw);
   }, []);
 
-  const handleFire = useCallback(
-    (report: NozzleReport) => {
-      const { x: nx, y: ny, target } = report;
-      const dist = Math.hypot(target.x - nx, target.y - ny) || 1;
-      const segLen = dist / (ROPE_POINTS - 1) || 1;
-
-      const shot: Shot = {
-        phase: "flight",
-        startedAt: performance.now(),
-        impactStartedAt: 0,
-        nozzle: { x: nx, y: ny },
-        target,
-        main: makeRope(nx, ny, ROPE_POINTS, segLen),
-        strands: [],
-        released: 1,
-        dir: { x: (target.x - nx) / dist, y: (target.y - ny) / dist },
-      };
-      shot.main.points[0].pinned = true;
-      shotsRef.current.push(shot);
-      startLoop();
-    },
-    [startLoop]
-  );
-
   useEffect(() => {
     if (!enabled) return;
     const canvas = canvasRef.current;
@@ -404,7 +378,36 @@ export default function WebShooter({
       if (!btn || btn.hasAttribute("disabled")) return;
 
       const rect = btn.getBoundingClientRect();
-      fireQueueRef.current.push({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, w: rect.width, h: rect.height, el: btn });
+      const muzzle = muzzleRef.current?.getBoundingClientRect();
+      const nozzle = muzzle
+        ? { x: muzzle.left + muzzle.width / 2, y: muzzle.top + muzzle.height / 2 }
+        : { x: window.innerWidth - 60, y: window.innerHeight - 30 };
+
+      const tx = rect.left + rect.width / 2;
+      const ty = rect.top + rect.height / 2;
+      const dist = Math.hypot(tx - nozzle.x, ty - nozzle.y) || 1;
+      const segLen = dist / (ROPE_POINTS - 1) || 1;
+
+      const shot: Shot = {
+        phase: "flight",
+        startedAt: performance.now(),
+        impactStartedAt: 0,
+        nozzle,
+        target: { x: tx, y: ty, w: rect.width, h: rect.height, el: btn },
+        main: makeRope(nozzle.x, nozzle.y, ROPE_POINTS, segLen),
+        strands: [],
+        released: 1,
+        dir: { x: (tx - nozzle.x) / dist, y: (ty - nozzle.y) / dist },
+      };
+      shot.main.points[0].pinned = true;
+      shotsRef.current.push(shot);
+      startLoop();
+
+      if (handRef.current) {
+        handRef.current.classList.remove("web-shooter-recoil");
+        void handRef.current.offsetWidth; // restart the CSS animation
+        handRef.current.classList.add("web-shooter-recoil");
+      }
       playThwip();
     };
 
@@ -415,15 +418,58 @@ export default function WebShooter({
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-  }, [enabled]);
+  }, [enabled, startLoop]);
 
-  if (!enabled) return null;
+  if (!enabled || !imageOk) return null;
 
   return (
     <>
       <canvas ref={canvasRef} className="pointer-events-none fixed inset-0 z-[9998]" aria-hidden="true" />
-      <WebShooterRig gloveColour={gloveColour} accentColour={colour} shape={shape} fireQueueRef={fireQueueRef} onFire={handleFire} reducedMotion={false} />
+      <div className="pointer-events-none fixed bottom-0 right-0 z-[9998]" aria-hidden="true">
+        <div ref={handRef} className="web-shooter-idle relative" style={{ width: 190, height: 260 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={HAND_IMAGE}
+            alt=""
+            onError={() => setImageOk(false)}
+            className="h-full w-full object-contain object-bottom"
+            style={{ mixBlendMode: "screen" }}
+          />
+          {/* Muzzle marker — where the fingertips/glow converge near the top
+              of the frame. Percentage-based since the exact source image's
+              proportions can change without touching this code. */}
+          <div ref={muzzleRef} className="absolute" style={{ left: "45%", top: "10%", width: 8, height: 8 }} />
+        </div>
+      </div>
       <style jsx global>{`
+        .web-shooter-idle {
+          animation: web-shooter-sway 2.8s ease-in-out infinite;
+        }
+        @keyframes web-shooter-sway {
+          0%,
+          100% {
+            transform: translateY(0) rotate(0deg);
+          }
+          50% {
+            transform: translateY(-6px) rotate(-0.6deg);
+          }
+        }
+        .web-shooter-recoil {
+          animation:
+            web-shooter-sway 2.8s ease-in-out infinite,
+            web-shooter-fire 270ms ease-out;
+        }
+        @keyframes web-shooter-fire {
+          0% {
+            transform: translateY(0) rotate(0deg) scale(1);
+          }
+          35% {
+            transform: translateY(-14px) rotate(-4deg) scale(1.03);
+          }
+          100% {
+            transform: translateY(0) rotate(0deg) scale(1);
+          }
+        }
         .web-caught {
           animation: web-caught-shake 90ms ease-in-out 2;
           filter: saturate(0.75);
@@ -435,6 +481,13 @@ export default function WebShooter({
           }
           50% {
             transform: translateX(2px);
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .web-shooter-idle,
+          .web-shooter-recoil,
+          .web-caught {
+            animation: none !important;
           }
         }
       `}</style>
