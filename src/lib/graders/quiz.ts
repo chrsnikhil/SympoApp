@@ -1,38 +1,84 @@
+import { collections } from "@/lib/db/client";
+import { closeQuestionForComeback } from "@/lib/quiz/comeback";
+import { isQualified } from "@/lib/quiz/rounds";
+import { markAnswered, serveFor } from "@/lib/quiz/serve";
+import { acceptEstimate, acceptPromptImage, scoreMcq } from "@/lib/quiz/scoring";
+import type { QuizRound } from "@/lib/db/types";
 import type { GradeInput, GradeResult } from "./types";
 
 /**
- * QUIZ — correct option plus a speed bonus, both judged on the server clock.
+ * QUIZ — three rounds behind one grader, per the Spider Multiverse Tech Quiz
+ * rules (this replaced an earlier 20-MCQ/gadget-round/three-minigame draft;
+ * see the build guide for the full reasoning).
  *
- * The time limit is checked against `receivedAt` vs when the question was
- * served. A client-supplied elapsed time would be trivially forgeable, so it
- * is never trusted.
+ * The submission pipeline is untouched by any of this: it verifies the
+ * session, stamps the server clock, rate-limits, and hands off here.
+ * Everything round-shaped lives below.
+ *
+ * TIMING. Elapsed time for the MCQ rounds is measured from a serve record
+ * written server-side when the question was handed out (`lib/quiz/serve.ts`),
+ * never from anything the client sends. The scaffold this replaced read a
+ * `servedAt` timestamp out of the submitted payload itself — any team could
+ * post a fresh one and never be "late". The client may say what it chose,
+ * never when.
+ *
+ * Round 1's Memory Game isn't reachable through here at all — it's driven by
+ * its own flip endpoint (`/api/quiz/memory/flip`), not the generic submit
+ * pipeline, because "flip cell 7" isn't a single graded answer.
  */
 export async function gradeQuiz(input: GradeInput): Promise<GradeResult> {
-  const { challenge, payload, receivedAt } = input;
-  const limit = challenge.config.limitSeconds ?? 30;
+  const { challenge, teamId, payload, receivedAt } = input;
+  const format = challenge.config.format ?? "mcq";
+  const round = (challenge.config.round ?? 2) as QuizRound;
 
-  // `servedAt` is carried on the submission payload as "<choice>|<servedAtISO>"
-  // — the serve time is issued and signed server-side when the question is
-  // handed out, so it can't be back-dated by the client.
-  const [choiceRaw, servedAtRaw] = payload.split("|");
-  const choice = Number.parseInt(choiceRaw, 10);
-  const servedAt = servedAtRaw ? new Date(servedAtRaw) : null;
-
-  if (Number.isNaN(choice)) return { correct: false, points: 0, meta: { reason: "bad-choice" } };
-
-  if (servedAt) {
-    const elapsed = (receivedAt.getTime() - servedAt.getTime()) / 1000;
-    if (elapsed > limit) {
-      return { correct: false, points: 0, meta: { reason: "too-late", elapsed } };
-    }
-    if (choice !== challenge.config.correctIndex) return { correct: false, points: 0 };
-
-    // Scale the bonus by how much time was left.
-    const remaining = Math.max(0, limit - elapsed) / limit;
-    const bonus = Math.round((challenge.config.speedBonus ?? 0) * remaining);
-    return { correct: true, points: challenge.points + bonus, meta: { elapsed, bonus } };
+  // Every round past the first is a closed field. Without this, a knocked-out
+  // team could keep POSTing at later rounds' questions and appear in their
+  // standings — the UI won't show them the page, but the UI isn't a security
+  // boundary.
+  if (!(await isQualified(teamId, round))) {
+    return { correct: false, points: 0, meta: { reason: "not-qualified", round } };
   }
 
-  if (choice !== challenge.config.correctIndex) return { correct: false, points: 0 };
-  return { correct: true, points: challenge.points };
+  // Round 1's Guess-the-Number and Image-Replication games are shared-window,
+  // coordinator-paced: there's no per-team serve to close, so nothing else
+  // stops a team submitting repeatedly until it lands on the right answer.
+  if (format === "estimate" || format === "prompt-image") {
+    const subs = await collections.submissions();
+    const prior = await subs.findOne({
+      challengeId: challenge._id,
+      teamId,
+      _id: { $ne: input.submissionId }, // the pipeline already inserted this one
+    });
+    if (prior) return { correct: false, points: 0, meta: { reason: "already-answered" } };
+
+    if (format === "estimate") return acceptEstimate(payload);
+    return acceptPromptImage(payload, teamId, challenge.slug);
+  }
+
+  if (format === "memory") {
+    // Never reached in practice (the client never submits this format here),
+    // but fail closed rather than silently mis-scoring if it ever is.
+    return { correct: false, points: 0, meta: { reason: "wrong-endpoint" } };
+  }
+
+  // Only "mcq" reaches here — rounds 2 and 3, the two-phase read/select clock.
+  const serve = await serveFor(teamId, challenge.slug);
+  if (!serve) {
+    return { correct: false, points: 0, meta: { reason: "not-served" } };
+  }
+  if (serve.answeredAt) {
+    return { correct: false, points: 0, meta: { reason: "already-answered" } };
+  }
+
+  const result = scoreMcq(challenge, payload, serve, receivedAt);
+
+  // Close the serve either way — a wrong or late answer still ends the
+  // question, and leaving it open would let a team keep guessing.
+  await markAnswered(teamId, challenge.slug, receivedAt);
+
+  if (round === 3) {
+    await closeQuestionForComeback(teamId, round, challenge.slug);
+  }
+
+  return result;
 }

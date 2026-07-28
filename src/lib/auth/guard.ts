@@ -28,3 +28,22 @@ export async function requireSession(): Promise<SessionClaims> {
   if (!session) throw new UnauthorizedError();
   return session;
 }
+
+export class ForbiddenError extends Error {
+  constructor() {
+    super("Admin only");
+    this.name = "ForbiddenError";
+  }
+}
+
+/**
+ * For the operations that decide the event: cutting to the next round,
+ * settling the comparative Round 1 games, and reading the admin dashboard's
+ * data. The role is a signed claim in the session, so this is still a
+ * zero-DB-read check.
+ */
+export async function requireAdmin(): Promise<SessionClaims> {
+  const session = await requireSession();
+  if (session.role !== "admin") throw new ForbiddenError();
+  return session;
+}

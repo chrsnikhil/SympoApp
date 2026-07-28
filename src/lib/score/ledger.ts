@@ -1,6 +1,7 @@
 import type { ObjectId } from "mongodb";
 import type { EventKey } from "@/lib/config";
 import { collections } from "@/lib/db/client";
+import { withThrottleRetry } from "@/lib/db/retry";
 
 /**
  * Append-only score ledger.
@@ -21,5 +22,8 @@ export async function appendScore(entry: {
   at: Date;
 }): Promise<void> {
   const scores = await collections.scoreEvents();
-  await scores.insertOne(entry);
+  // Retried on Cosmos throttling: dropping a ledger row loses points a team
+  // actually earned, at exactly the moment throughput is tightest — everyone
+  // scoring at once.
+  await withThrottleRetry(() => scores.insertOne(entry));
 }

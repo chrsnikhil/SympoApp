@@ -1,26 +1,467 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════
+   SPIDER MULTIVERSE DESIGN SYSTEM
+
+   Contrast is measured, not eyeballed — the audience reads a projector from
+   across a room, not a monitor twelve inches away:
+     paper-white     17.25:1  safe for body text
+     glitch-cyan     12.87:1  safe for body text
+     spider-red       4.54:1  display only — clears AA by 0.04
+     web-blue-light    3.45:1  large/UI only
+     web-blue          2.29:1  FILL ONLY — never text
+   ═══════════════════════════════════════════════════ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --spider-red: #e23636;
+  --spider-red-dark: #b82020;
+  --web-blue: #0d47a1;
+  --web-blue-light: #1565c0;
+  --web-blue-dark: #062654;
+  --ink-black: #0a0a0a;
+  --paper-white: #f2efe9;
+  --glitch-cyan: #00e5ff;
+
+  /* Outside the brand palette on purpose. Red is Spider-Verse here, so it
+     cannot also mean "wrong" — a missed answer must never look like a design
+     flourish. */
+  --signal-wrong: #f87171;
+  --signal-good: #4ade80;
+  /* The only "you have a power" colour — reserved for the Comeback Meter. */
+  --gadget-pink: #ff6ec7;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-spider-red: #e23636;
+  --color-spider-red-dark: #b82020;
+  --color-web-blue: #0d47a1;
+  --color-web-blue-light: #1565c0;
+  --color-web-blue-dark: #062654;
+  --color-ink-black: #0a0a0a;
+  --color-paper-white: #f2efe9;
+  --color-glitch-cyan: #00e5ff;
+  --color-signal-wrong: #f87171;
+  --color-signal-good: #4ade80;
+  --color-gadget-pink: #ff6ec7;
+
+  --font-display: var(--font-anton), sans-serif;
+  --font-comic: var(--font-bangers), cursive;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--ink-black);
+  color: var(--paper-white);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--spider-red);
+  color: var(--paper-white);
+}
+
+/* ═══════════════════════════════════════════════════
+   TEXTURE — generated, nothing downloaded. Zero bytes over the wire, no
+   licensing question, stays sharp at any display density.
+   ═══════════════════════════════════════════════════ */
+
+.halftone {
+  position: relative;
+}
+
+.halftone::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle, var(--paper-white) 0.8px, transparent 0.8px);
+  background-size: 8px 8px;
+  opacity: 0.06;
+}
+
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+/* ═══════════════════════════════════════════════════
+   COMIC PANEL — hard offset shadow, never blurred; square corners. Blur and
+   rounded corners are the two fastest ways to turn this back into generic
+   dark-mode SaaS.
+   ═══════════════════════════════════════════════════ */
+
+.panel {
+  position: relative;
+  background: rgba(10, 10, 10, 0.72);
+  border: 3px solid var(--ink-black);
+  box-shadow: 6px 6px 0 var(--ink-black);
+  outline: 1px solid rgba(242, 239, 233, 0.12);
+}
+
+.panel-accent {
+  border-color: var(--spider-red);
+  box-shadow: 6px 6px 0 var(--spider-red-dark);
+}
+
+/* ═══════════════════════════════════════════════════
+   COMIC BUTTON
+   ═══════════════════════════════════════════════════ */
+
+.comic-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.75rem;
+  font-family: var(--font-anton), sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--paper-white);
+  background: var(--spider-red);
+  border: 3px solid var(--ink-black);
+  box-shadow: 4px 4px 0 var(--ink-black);
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.comic-btn:hover:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--ink-black);
+  background: var(--ink-black);
+  color: var(--spider-red);
+  border-color: var(--spider-red);
+}
+
+.comic-btn:active:not(:disabled) {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 var(--ink-black);
+}
+
+.comic-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.comic-btn-cyan {
+  background: var(--glitch-cyan);
+  color: var(--ink-black);
+}
+.comic-btn-cyan:hover:not(:disabled) {
+  background: var(--ink-black);
+  color: var(--glitch-cyan);
+  border-color: var(--glitch-cyan);
+}
+
+.comic-btn-pink {
+  background: var(--gadget-pink);
+  color: var(--ink-black);
+}
+.comic-btn-pink:hover:not(:disabled) {
+  background: var(--ink-black);
+  color: var(--gadget-pink);
+  border-color: var(--gadget-pink);
+}
+
+/* ═══════════════════════════════════════════════════
+   DISPLAY TYPE — chromatic aberration is the "printed slightly out of
+   register" look. Display type ONLY — on question text it's a legibility
+   cost dressed up as a style.
+   ═══════════════════════════════════════════════════ */
+
+.display-title {
+  font-family: var(--font-anton), sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 0.95;
+}
+
+.chromatic {
+  text-shadow:
+    -1.5px 0 0 rgba(226, 54, 54, 0.55),
+    1.5px 0 0 rgba(0, 229, 255, 0.55);
+}
+
+.comic-shout {
+  font-family: var(--font-bangers), cursive;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* ═══════════════════════════════════════════════════
+   MOTION — everything under 400ms. This is a game with a clock; animation
+   must never sit between a team and their next question.
+   ═══════════════════════════════════════════════════ */
+
+@keyframes glitch-in {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) skewX(-4deg);
+  }
+  60% {
+    opacity: 0.9;
+    transform: translateY(-3px) skewX(1.5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) skewX(0);
+  }
+}
+
+@keyframes power-surge {
+  0% {
+    text-shadow:
+      -3px 0 0 rgba(226, 54, 54, 0.8),
+      3px 0 0 rgba(0, 229, 255, 0.8);
+  }
+  25% {
+    text-shadow:
+      3px 0 0 rgba(226, 54, 54, 0.8),
+      -3px 0 0 rgba(0, 229, 255, 0.8);
+  }
+  50% {
+    text-shadow:
+      -1px 2px 0 rgba(226, 54, 54, 0.8),
+      1px -2px 0 rgba(0, 229, 255, 0.8);
+  }
+  100% {
+    text-shadow:
+      -1.5px 0 0 rgba(226, 54, 54, 0.55),
+      1.5px 0 0 rgba(0, 229, 255, 0.55);
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes flip-card {
+  0% {
+    transform: rotateY(0deg);
+  }
+  100% {
+    transform: rotateY(180deg);
+  }
+}
+
+.anim-glitch-in {
+  animation: glitch-in 300ms ease-out;
+}
+.anim-surge {
+  animation: power-surge 400ms ease-out;
+}
+.anim-shake {
+  animation: shake 200ms ease-in-out;
+}
+.anim-pop {
+  animation: pop-in 220ms ease-out;
+}
+
+/* Glitch, flicker and scan-line effects are exactly the class of animation
+   that triggers migraine and vestibular symptoms. In a hall full of people,
+   somebody has that sensitivity. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .chromatic {
+    text-shadow: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   WEB-SHOOTER — see WebShooter.tsx. Scoped to the quiz surface so a hidden
+   cursor can never strand someone on a page with no reticle drawn.
+   ═══════════════════════════════════════════════════ */
+
+html.web-shooter-active,
+html.web-shooter-active body {
+  cursor: none;
+}
+
+html.web-shooter-active a,
+html.web-shooter-active input,
+html.web-shooter-active textarea,
+html.web-shooter-active button {
+  cursor: auto;
+}
+
+[data-web-target]:not(:disabled):hover {
+  transform: translateX(2px);
+}
+
+@keyframes web-land {
+  0% {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.web-land {
+  animation: web-land 260ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .web-land {
+    animation: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   MEMORY GRID CARD — 3D flip, no external art needed.
+   ═══════════════════════════════════════════════════ */
+
+.card-flip-scene {
+  perspective: 800px;
+}
+
+.card-flip-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 300ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.card-flip-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+
+.card-face-back {
+  transform: rotateY(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-flip-inner {
+    transition: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   ADMIN DASHBOARD — deliberately NOT the participant skin. Dense tables,
+   scanned repeatedly under stress, not read once from across a room. Same
+   tokens (fonts, base palette), no halftone motion, no web-shooter cursor.
+   ═══════════════════════════════════════════════════ */
+
+.admin-shell {
+  background: var(--ink-black);
+  color: var(--paper-white);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  min-height: 100dvh;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.admin-table th {
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.65rem;
+  color: rgba(242, 239, 233, 0.5);
+  padding: 0.5rem 0.75rem;
+  border-bottom: 2px solid rgba(242, 239, 233, 0.15);
+  white-space: nowrap;
+}
+
+.admin-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgba(242, 239, 233, 0.08);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  white-space: nowrap;
+}
+
+.admin-table tr:hover td {
+  background: rgba(242, 239, 233, 0.03);
+}
+
+.admin-card {
+  background: rgba(242, 239, 233, 0.03);
+  border: 1px solid rgba(242, 239, 233, 0.12);
+  border-radius: 4px;
+}
+
+.admin-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+/* ═══════════════════════════════════════════════════
+   SCROLLBAR
+   ═══════════════════════════════════════════════════ */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--ink-black);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--spider-red);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--spider-red-dark);
 }

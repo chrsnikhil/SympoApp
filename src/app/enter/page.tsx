@@ -1,32 +1,50 @@
 "use client";
 
 import { useState } from "react";
+import { avatarForCoin, parseCoin } from "@/lib/quiz/avatars";
 
 /**
  * Entry page. Lives on the app/www host — the event subdomains bounce here
  * when there's no valid session, carrying ?rt= so we can send the user back.
+ *
+ * Two paths, one form: type a coin number and you're a quiz team; the
+ * coordinator instead has an access code (a longer X26-XXXXX-XXXXX string —
+ * the input below routes to whichever endpoint the shape implies).
  */
 export default function EnterPage() {
-  const [code, setCode] = useState("");
+  const [value, setValue] = useState("");
+  const [teamName, setTeamName] = useState("");
+  const [needsName, setNeedsName] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const looksLikeCode = value.includes("-");
+  const parsedCoin = looksLikeCode ? null : parseCoin(value);
+  const preview = parsedCoin === null ? null : avatarForCoin(parsedCoin);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
+      const body = looksLikeCode ? { code: value } : { coin: value, teamName: needsName ? teamName : undefined };
       const res = await fetch("/api/enter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
+
       if (!res.ok) {
+        if (data.needsTeamName) {
+          setNeedsName(true);
+          setError(null);
+          return;
+        }
         setError(data.error ?? "That didn't work");
         return;
       }
-      // Return to wherever they were headed, else the app root.
+
       const rt = new URLSearchParams(window.location.search).get("rt");
       window.location.href = rt ?? "/";
     } catch {
@@ -37,20 +55,86 @@ export default function EnterPage() {
   }
 
   return (
-    <main style={{ display: "grid", placeItems: "center", minHeight: "100dvh", fontFamily: "system-ui" }}>
-      <form onSubmit={onSubmit} style={{ width: 320 }}>
-        <h1 style={{ fontSize: 28, marginBottom: 16 }}>Enter</h1>
-        <input
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          placeholder="XXXX-XXXXX-XXXXX"
-          autoComplete="one-time-code"
-          style={{ width: "100%", padding: 12, fontSize: 16, letterSpacing: 1 }}
-        />
-        {error && <p style={{ color: "#c00", marginTop: 8 }}>{error}</p>}
-        <button type="submit" disabled={busy} style={{ width: "100%", padding: 12, marginTop: 12, fontSize: 16 }}>
-          {busy ? "Checking…" : "Continue"}
-        </button>
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden px-5">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{ background: "radial-gradient(ellipse at 50% 0%, var(--web-blue-dark) 0%, transparent 60%)" }}
+      />
+
+      <form onSubmit={onSubmit} className="halftone panel anim-glitch-in relative w-full max-w-sm p-8">
+        <div className="relative">
+          <p className="font-body text-[0.7rem] uppercase tracking-[0.25em] text-glitch-cyan">XPLORE&apos;26</p>
+          <h1 className="display-title chromatic mt-1 text-5xl text-paper-white">Enter</h1>
+          <p className="mt-3 text-sm text-paper-white/60">Type the number stamped on your coin — coordinators, your access code.</p>
+
+          <label htmlFor="value" className="mt-6 block text-[0.65rem] uppercase tracking-[0.2em] text-paper-white/50">
+            Coin or code
+          </label>
+          <input
+            id="value"
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setNeedsName(false);
+              setError(null);
+            }}
+            placeholder="00"
+            autoComplete="off"
+            autoFocus
+            spellCheck={false}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "entry-error" : undefined}
+            className="mt-1.5 w-full border-2 border-paper-white/20 bg-ink-black/60 px-4 py-4 text-center font-mono text-3xl tabular-nums tracking-[0.15em] text-paper-white outline-none transition-colors placeholder:text-paper-white/20 focus:border-glitch-cyan"
+          />
+
+          {!looksLikeCode && (
+            <div className="mt-3 min-h-[3.25rem]">
+              {preview ? (
+                <div className="anim-pop border-l-4 pl-3" style={{ borderColor: preview.colour }}>
+                  <div className="font-comic text-2xl leading-none" style={{ color: preview.colour }}>
+                    {preview.name}
+                  </div>
+                  <div className="mt-1 text-[0.7rem] text-paper-white/50">{preview.tagline}</div>
+                </div>
+              ) : (
+                <p className="text-xs text-paper-white/35">Coins run 01 to 60. The number decides your character.</p>
+              )}
+            </div>
+          )}
+
+          {needsName && (
+            <div className="anim-pop mt-4">
+              <label htmlFor="teamName" className="block text-[0.65rem] uppercase tracking-[0.2em] text-paper-white/50">
+                Team name
+              </label>
+              <input
+                id="teamName"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                placeholder="What should we call you?"
+                maxLength={40}
+                autoFocus
+                className="mt-1.5 w-full border-2 border-paper-white/20 bg-ink-black/60 px-4 py-3 text-base text-paper-white outline-none transition-colors placeholder:text-paper-white/25 focus:border-glitch-cyan"
+              />
+              <p className="mt-2 text-[0.7rem] text-paper-white/40">This coin is new — name your team and it&apos;s yours for the event.</p>
+            </div>
+          )}
+
+          {error && (
+            <p id="entry-error" role="alert" className="anim-shake mt-4 border-l-2 border-signal-wrong pl-3 text-sm text-signal-wrong">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={busy || (!looksLikeCode && !preview) || (needsName && !teamName.trim())}
+            className="comic-btn mt-6 w-full"
+          >
+            {busy ? "Checking…" : needsName ? "Claim it" : "Thwip in"}
+          </button>
+        </div>
       </form>
     </main>
   );

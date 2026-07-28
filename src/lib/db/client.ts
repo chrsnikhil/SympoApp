@@ -3,9 +3,15 @@ import { requireEnv } from "@/lib/config";
 import type {
   AccessCode,
   Challenge,
+  ComebackState,
+  Coin,
   HuntProgress,
   LeaderboardSnapshot,
+  MemoryGameState,
   Participant,
+  PromptImage,
+  QuizServe,
+  RoundQualification,
   ScoreEvent,
   Submission,
   Team,
@@ -23,7 +29,6 @@ import type {
  */
 
 declare global {
-  // eslint-disable-next-line no-var
   var __mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
@@ -74,37 +79,74 @@ export const collections = {
     (await getDb()).collection<HuntProgress>("hunt_progress"),
   leaderboards: async (): Promise<Collection<LeaderboardSnapshot>> =>
     (await getDb()).collection<LeaderboardSnapshot>("leaderboard_snapshots"),
+  coins: async (): Promise<Collection<Coin>> => (await getDb()).collection<Coin>("coins"),
+  promptImages: async (): Promise<Collection<PromptImage>> =>
+    (await getDb()).collection<PromptImage>("prompt_images"),
+  memoryStates: async (): Promise<Collection<MemoryGameState>> =>
+    (await getDb()).collection<MemoryGameState>("memory_states"),
+  quizServes: async (): Promise<Collection<QuizServe>> =>
+    (await getDb()).collection<QuizServe>("quiz_serves"),
+  roundQualifications: async (): Promise<Collection<RoundQualification>> =>
+    (await getDb()).collection<RoundQualification>("round_qualifications"),
+  comebackStates: async (): Promise<Collection<ComebackState>> =>
+    (await getDb()).collection<ComebackState>("comeback_states"),
 };
 
 /**
  * Create the indexes the hot paths depend on. Safe to run repeatedly.
  * Call from a seed/admin script, not per request.
  *
- * These three matter most under load:
- *  - access_codes.codeHash  → login is a single indexed lookup
- *  - score_events.teamId    → the materializer aggregates by team
- *  - submissions.status     → the judge queue reconciler scans by status
+ * Uses allSettled, not all: Cosmos refuses to create a UNIQUE index on a
+ * collection that already holds documents ("Cannot create unique index when
+ * collection contains documents"). With Promise.all a single such rejection
+ * takes down the whole call, and because seeding starts here, the seed then
+ * silently does nothing while appearing to have run. Indexes are an
+ * optimisation and a guard, not the schema — a missing one should be loud,
+ * not fatal.
  */
 export async function ensureIndexes(): Promise<void> {
-  const [codes, challenges, subs, scores, hunt, boards] = await Promise.all([
-    collections.accessCodes(),
-    collections.challenges(),
-    collections.submissions(),
-    collections.scoreEvents(),
-    collections.huntProgress(),
-    collections.leaderboards(),
-  ]);
+  const [codes, challenges, subs, scores, hunt, boards, images, memory, serves, quals, comebacks] =
+    await Promise.all([
+      collections.accessCodes(),
+      collections.challenges(),
+      collections.submissions(),
+      collections.scoreEvents(),
+      collections.huntProgress(),
+      collections.leaderboards(),
+      // No index needed for `coins` — it's keyed by `_id`, unique for free.
+      collections.promptImages(),
+      collections.memoryStates(),
+      collections.quizServes(),
+      collections.roundQualifications(),
+      collections.comebackStates(),
+    ]);
 
-  await Promise.all([
-    codes.createIndex({ codeHash: 1 }, { unique: true }),
-    challenges.createIndex({ type: 1, slug: 1 }, { unique: true }),
-    subs.createIndex({ teamId: 1, receivedAt: -1 }),
-    subs.createIndex({ status: 1 }),
-    // First-blood and duplicate-solve checks hit this one.
-    subs.createIndex({ challengeId: 1, teamId: 1, receivedAt: 1 }),
-    scores.createIndex({ teamId: 1 }),
-    scores.createIndex({ event: 1, at: -1 }),
-    hunt.createIndex({ teamId: 1, challengeSlug: 1 }, { unique: true }),
-    boards.createIndex({ event: 1 }, { unique: true }),
-  ]);
+  const wanted: Array<[string, Promise<unknown>]> = [
+    ["access_codes.codeHash", codes.createIndex({ codeHash: 1 }, { unique: true })],
+    ["challenges.type_slug", challenges.createIndex({ type: 1, slug: 1 }, { unique: true })],
+    ["submissions.team_time", subs.createIndex({ teamId: 1, receivedAt: -1 })],
+    ["submissions.status", subs.createIndex({ status: 1 })],
+    ["submissions.challenge_team", subs.createIndex({ challengeId: 1, teamId: 1, receivedAt: 1 })],
+    ["score_events.team", scores.createIndex({ teamId: 1 })],
+    ["score_events.event_at", scores.createIndex({ event: 1, at: -1 })],
+    ["hunt_progress.team_slug", hunt.createIndex({ teamId: 1, challengeSlug: 1 }, { unique: true })],
+    ["leaderboards.event", boards.createIndex({ event: 1 }, { unique: true })],
+    ["prompt_images.team_slug", images.createIndex({ teamId: 1, challengeSlug: 1 }, { unique: true })],
+    ["memory_states.team_slug", memory.createIndex({ teamId: 1, challengeSlug: 1 }, { unique: true })],
+    // Unique so a team can't be served the same question twice and restart its clock.
+    ["quiz_serves.team_slug", serves.createIndex({ teamId: 1, challengeSlug: 1 }, { unique: true })],
+    ["quiz_serves.team_round", serves.createIndex({ teamId: 1, round: 1 })],
+    ["round_qualifications.round_team", quals.createIndex({ round: 1, teamId: 1 }, { unique: true })],
+    ["comeback_states.team_round", comebacks.createIndex({ teamId: 1, round: 1 }, { unique: true })],
+  ];
+
+  const results = await Promise.allSettled(wanted.map(([, p]) => p));
+  const failed = results
+    .map((r, i) => (r.status === "rejected" ? ([wanted[i][0], r.reason] as const) : null))
+    .filter(Boolean) as Array<readonly [string, unknown]>;
+
+  for (const [name, reason] of failed) {
+    const message = reason instanceof Error ? reason.message : String(reason);
+    console.warn(`[indexes] could not create ${name}: ${message}`);
+  }
 }

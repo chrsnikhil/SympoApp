@@ -1,6 +1,7 @@
 import { ObjectId } from "mongodb";
 import { LIMITS, type EventKey } from "@/lib/config";
 import { collections } from "@/lib/db/client";
+import { withThrottleRetry } from "@/lib/db/retry";
 import { graderFor } from "@/lib/graders";
 import { appendScore } from "@/lib/score/ledger";
 import type { SessionClaims } from "@/lib/auth/session";
@@ -46,14 +47,14 @@ export async function submit(args: SubmitArgs): Promise<SubmitOutcome> {
   const subs = await collections.submissions();
 
   const windowStart = new Date(receivedAt.getTime() - LIMITS.rateLimit.windowMs);
-  const recent = await subs.countDocuments({ teamId, receivedAt: { $gte: windowStart } });
+  const recent = await withThrottleRetry(() => subs.countDocuments({ teamId, receivedAt: { $gte: windowStart } }));
   if (recent >= LIMITS.rateLimit.max) {
     return { ok: false, status: 429, error: "Slow down — too many submissions" };
   }
 
   // 3 ── Resolve the challenge and check its window.
   const challenges = await collections.challenges();
-  const challenge = await challenges.findOne({ type: event, slug: challengeSlug });
+  const challenge = await withThrottleRetry(() => challenges.findOne({ type: event, slug: challengeSlug }));
   if (!challenge?._id) return { ok: false, status: 404, error: "Challenge not found" };
 
   if (challenge.opensAt && receivedAt < challenge.opensAt) {
@@ -65,15 +66,17 @@ export async function submit(args: SubmitArgs): Promise<SubmitOutcome> {
 
   // 4 ── Record the attempt before grading, so even a crash mid-grade leaves a
   //      trail and the receipt time is already committed.
-  const insert = await subs.insertOne({
-    type: event,
-    challengeId: challenge._id,
-    teamId,
-    participantId,
-    receivedAt,
-    payload: event === "code" ? undefined : payload,
-    status: event === "code" ? "queued" : "running",
-  });
+  const insert = await withThrottleRetry(() =>
+    subs.insertOne({
+      type: event,
+      challengeId: challenge._id,
+      teamId,
+      participantId,
+      receivedAt,
+      payload: event === "code" ? undefined : payload,
+      status: event === "code" ? "queued" : "running",
+    })
+  );
   const submissionId = insert.insertedId;
 
   // 5 ── Hand to the per-event grader.
@@ -91,9 +94,11 @@ export async function submit(args: SubmitArgs): Promise<SubmitOutcome> {
     return { ok: true, status: 202, submissionId: submissionId.toString(), pending: true };
   }
 
-  await subs.updateOne(
-    { _id: submissionId },
-    { $set: { status: "done", verdict: { correct: result.correct, points: result.points, meta: result.meta } } }
+  await withThrottleRetry(() =>
+    subs.updateOne(
+      { _id: submissionId },
+      { $set: { status: "done", verdict: { correct: result.correct, points: result.points, meta: result.meta } } }
+    )
   );
 
   // 7 ── Only successful scoring touches the ledger. Zero-point correct
