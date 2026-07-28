@@ -1,27 +1,31 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReticleShape } from "@/lib/quiz/avatars";
+import WebShooterRig, { type NozzleReport, type TargetRect } from "./WebShooterRig";
 
 /**
- * A fixed gauntlet in the bottom-right corner that fires a physically
+ * A real 3D gauntlet (see WebShooterRig.tsx — actual Three.js geometry, not
+ * a flat image) fixed in the bottom-right corner, firing a physically
  * simulated web strand at whatever `[data-web-target]` element was actually
- * clicked. Decoration over a working control, same rule as before: this
- * never calls preventDefault or stopPropagation, so keyboard, screen reader
- * and touch interaction with the real button are completely unaffected.
+ * clicked. Decoration over a working control: this never calls
+ * preventDefault or stopPropagation, so keyboard, screen reader and touch
+ * interaction with the real button are completely unaffected.
  *
- * The glove is an ORIGINAL design — a stylised mechanical gauntlet in this
- * app's own halftone/circuit visual language, not a recreation of any
- * licensed character's suit or hardware. The assets repo this event draws
- * from is explicit that the theme is carried by the interface, not by
- * borrowed frames, and this component holds that line.
+ * The glove is an ORIGINAL design, built from primitive 3D shapes (capsule
+ * fingers, box palm, a lit wrist unit) — not an imported mesh and not a
+ * recreation of any licensed character's hardware. The assets repo this
+ * event draws from is explicit that the theme is carried by the interface,
+ * not by borrowed frames, and this component holds that line.
  *
  * The web itself is a real verlet-integrated rope simulation (gravity +
  * iterative distance constraints across ~14 points), not a pre-drawn curve —
  * that's what gives it natural sag in flight and a genuine spring-back on
- * impact instead of a canned animation. Runs on a single full-viewport
- * canvas driven by one shared requestAnimationFrame loop that starts on the
- * first shot and stops itself the moment nothing is left animating.
+ * impact. It renders on its own full-viewport 2D canvas, separate from the
+ * 3D layer; a click pushes the target onto `fireQueueRef`, the rig's render
+ * loop drains it and reports back the muzzle's actual on-screen projected
+ * position via `onFire`, and THAT is what launches the strand — so it always
+ * starts from where the hand really is, including mid-recoil.
  */
 
 const ROPE_POINTS = 14;
@@ -50,7 +54,6 @@ interface Rope {
 }
 
 interface Shot {
-  id: number;
   phase: "flight" | "impact" | "done";
   startedAt: number;
   impactStartedAt: number;
@@ -238,8 +241,6 @@ function drawFilm(ctx: CanvasRenderingContext2D, target: Shot["target"], alpha: 
   ctx.fill();
 }
 
-let shotId = 0;
-
 export default function WebShooter({
   colour = "#3a86ff",
   webColour = "#ffffff",
@@ -251,14 +252,13 @@ export default function WebShooter({
   gloveColour?: string;
   shape?: ReticleShape;
 }) {
+  const [enabled, setEnabled] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const handRef = useRef<HTMLDivElement>(null);
-  const muzzleRef = useRef<HTMLDivElement>(null);
   const shotsRef = useRef<Shot[]>([]);
   const rafRef = useRef<number | null>(null);
-  const enabledRef = useRef(false);
-
+  const fireQueueRef = useRef<TargetRect[]>([]);
   const webColourRef = useRef(webColour);
+
   useEffect(() => {
     webColourRef.current = webColour;
   }, [webColour]);
@@ -266,36 +266,21 @@ export default function WebShooter({
   useEffect(() => {
     const fine = window.matchMedia("(pointer: fine)");
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const sync = () => {
-      enabledRef.current = fine.matches && !motion.matches;
-      document.documentElement.classList.toggle("web-shooter-active", enabledRef.current);
-    };
+    const sync = () => setEnabled(fine.matches && !motion.matches);
     sync();
     fine.addEventListener("change", sync);
     motion.addEventListener("change", sync);
     return () => {
       fine.removeEventListener("change", sync);
       motion.removeEventListener("change", sync);
-      document.documentElement.classList.remove("web-shooter-active");
     };
   }, []);
 
-  useEffect(() => {
+  const startLoop = useCallback(() => {
+    if (rafRef.current !== null) return;
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * dpr;
-      canvas.style.width = `${window.innerWidth}px`;
-      canvas.style.height = `${window.innerHeight}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-    resize();
-    window.addEventListener("resize", resize);
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
 
     const draw = (now: number) => {
       const shots = shotsRef.current;
@@ -369,49 +354,57 @@ export default function WebShooter({
       rafRef.current = shotsRef.current.length > 0 ? requestAnimationFrame(draw) : null;
     };
 
-    const startLoop = () => {
-      if (rafRef.current === null) rafRef.current = requestAnimationFrame(draw);
+    rafRef.current = requestAnimationFrame(draw);
+  }, []);
+
+  const handleFire = useCallback(
+    (report: NozzleReport) => {
+      const { x: nx, y: ny, target } = report;
+      const dist = Math.hypot(target.x - nx, target.y - ny) || 1;
+      const segLen = dist / (ROPE_POINTS - 1) || 1;
+
+      const shot: Shot = {
+        phase: "flight",
+        startedAt: performance.now(),
+        impactStartedAt: 0,
+        nozzle: { x: nx, y: ny },
+        target,
+        main: makeRope(nx, ny, ROPE_POINTS, segLen),
+        strands: [],
+        released: 1,
+        dir: { x: (target.x - nx) / dist, y: (target.y - ny) / dist },
+      };
+      shot.main.points[0].pinned = true;
+      shotsRef.current.push(shot);
+      startLoop();
+    },
+    [startLoop]
+  );
+
+  useEffect(() => {
+    if (!enabled) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = `${window.innerWidth}px`;
+      canvas.style.height = `${window.innerHeight}px`;
+      canvas.getContext("2d")?.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
+    resize();
+    window.addEventListener("resize", resize);
 
     const onClick = (e: MouseEvent) => {
-      if (!enabledRef.current) return;
       const target = e.target as HTMLElement | null;
       if (!target) return;
       const btn = target.closest<HTMLElement>("[data-web-target]");
       if (!btn || btn.hasAttribute("disabled")) return;
 
       const rect = btn.getBoundingClientRect();
-      const muzzle = muzzleRef.current?.getBoundingClientRect();
-      const nozzle = muzzle
-        ? { x: muzzle.left + muzzle.width / 2, y: muzzle.top + muzzle.height / 2 }
-        : { x: window.innerWidth - 60, y: window.innerHeight - 30 };
-
-      const tx = rect.left + rect.width / 2;
-      const ty = rect.top + rect.height / 2;
-      const dist = Math.hypot(tx - nozzle.x, ty - nozzle.y) || 1;
-      const segLen = dist / (ROPE_POINTS - 1) || 1;
-
-      const shot: Shot = {
-        id: shotId++,
-        phase: "flight",
-        startedAt: performance.now(),
-        impactStartedAt: 0,
-        nozzle,
-        target: { x: tx, y: ty, w: rect.width, h: rect.height, el: btn },
-        main: makeRope(nozzle.x, nozzle.y, ROPE_POINTS, segLen),
-        strands: [],
-        released: 1,
-        dir: { x: (tx - nozzle.x) / dist, y: (ty - nozzle.y) / dist },
-      };
-      shot.main.points[0].pinned = true;
-      shotsRef.current.push(shot);
-      startLoop();
-
-      if (handRef.current) {
-        handRef.current.classList.remove("web-shooter-recoil");
-        void handRef.current.offsetWidth; // restart the CSS animation
-        handRef.current.classList.add("web-shooter-recoil");
-      }
+      fireQueueRef.current.push({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, w: rect.width, h: rect.height, el: btn });
       playThwip();
     };
 
@@ -420,63 +413,17 @@ export default function WebShooter({
       window.removeEventListener("click", onClick, { capture: true });
       window.removeEventListener("resize", resize);
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
     };
-  }, []);
+  }, [enabled]);
+
+  if (!enabled) return null;
 
   return (
     <>
       <canvas ref={canvasRef} className="pointer-events-none fixed inset-0 z-[9998]" aria-hidden="true" />
-      {/* The outer wrapper pushes the forearm below the fold — only the
-          fingers, knuckle and gauntlet band should read as "reaching up into
-          frame." The inner wrapper is what the idle sway / recoil keyframes
-          animate, kept separate so the two transforms don't clobber each other. */}
-      <div className="pointer-events-none fixed bottom-0 right-3 z-[9998] sm:right-4" style={{ transform: "translateY(58px)" }} aria-hidden="true">
-        <div ref={handRef} className="web-shooter-idle relative" style={{ width: 120, height: 170 }}>
-          <Gauntlet gloveColour={gloveColour} accentColour={colour} shape={shape} />
-          <div ref={muzzleRef} className="absolute" style={{ left: 56, top: 30, width: 8, height: 8 }} />
-        </div>
-      </div>
+      <WebShooterRig gloveColour={gloveColour} accentColour={colour} shape={shape} fireQueueRef={fireQueueRef} onFire={handleFire} reducedMotion={false} />
       <style jsx global>{`
-        .web-shooter-idle {
-          animation: web-shooter-sway 2.6s ease-in-out infinite;
-        }
-        @keyframes web-shooter-sway {
-          0%,
-          100% {
-            transform: translateY(0) rotate(0deg);
-          }
-          50% {
-            transform: translateY(-5px) rotate(-1deg);
-          }
-        }
-        .web-shooter-recoil {
-          animation:
-            web-shooter-sway 2.6s ease-in-out infinite,
-            web-shooter-fire 270ms ease-out;
-        }
-        @keyframes web-shooter-fire {
-          0% {
-            transform: translateY(0) rotate(0deg) scale(1);
-          }
-          35% {
-            transform: translateY(-16px) rotate(-6deg) scale(1.04);
-          }
-          100% {
-            transform: translateY(0) rotate(0deg) scale(1);
-          }
-        }
-        .web-shooter-led {
-          animation: web-shooter-led-pulse 2s ease-in-out infinite;
-        }
-        @keyframes web-shooter-led-pulse {
-          0%,
-          100% {
-            opacity: 0.55;
-          }
-          50% {
-            opacity: 1;
-          }
-        }
         .web-caught {
           animation: web-caught-shake 90ms ease-in-out 2;
           filter: saturate(0.75);
@@ -488,14 +435,6 @@ export default function WebShooter({
           }
           50% {
             transform: translateX(2px);
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .web-shooter-idle,
-          .web-shooter-recoil,
-          .web-shooter-led,
-          .web-caught {
-            animation: none !important;
           }
         }
       `}</style>
@@ -546,104 +485,6 @@ function playThwip() {
   } catch {
     // Silent fallback — a missing/blocked AudioContext shouldn't break firing.
   }
-}
-
-const SHAPE_LENS: Record<ReticleShape, string> = {
-  classic: "M-4,0 L4,0 M0,-4 L0,4",
-  spray: "M-3,-3 L3,3 M-3,3 L3,-3",
-  ribbon: "M-4,-2 Q0,4 4,-2",
-  hex: "M-4,0 L-2,-3.5 L2,-3.5 L4,0 L2,3.5 L-2,3.5 Z",
-};
-
-/**
- * Original mechanical gauntlet — a rounded glove silhouette, a wrist unit
- * with a halftone-dot texture and a small ring of accent LEDs around a
- * central lens. `muzzleRef` marks the point web strands actually launch
- * from, read via `getBoundingClientRect()` at fire time.
- */
-const FINGERS = [
-  { angle: -27, length: 44 },
-  { angle: -9, length: 48 },
-  { angle: 9, length: 48 },
-  { angle: 27, length: 44 },
-];
-const KNUCKLE_X = 60;
-const KNUCKLE_Y = 40;
-const THUMB_PIVOT_X = 40;
-const THUMB_PIVOT_Y = 52;
-
-/**
- * Original mechanical gauntlet, built from simple rounded shapes rather than
- * freehand curves — a palm block with four fingers fanned out around a
- * knuckle pivot, a thumb at its own pivot, a wrist band with a lit core and
- * LED bar, and a tapering forearm sleeve. Geometric on purpose: it reads
- * clearly as a stylised glove without leaning on any specific character's
- * silhouette.
- */
-function Gauntlet({ gloveColour, accentColour, shape }: { gloveColour: string; accentColour: string; shape: ReticleShape }) {
-  const ink = "#0a0a0a";
-  const sleeve = "#16181d";
-  const darkGlove = darken(gloveColour, 0.35);
-
-  return (
-    <svg width={120} height={170} viewBox="0 0 120 170" style={{ display: "block", filter: "drop-shadow(0 10px 20px rgba(0,0,0,0.65))" }}>
-      <defs>
-        <pattern id="wsdots" width="6" height="6" patternUnits="userSpaceOnUse">
-          <circle cx="1.2" cy="1.2" r="1.2" fill="#000" opacity="0.3" />
-        </pattern>
-      </defs>
-
-      {/* Forearm sleeve */}
-      <path d="M28 170 L24 104 Q24 92 36 88 L84 88 Q96 92 96 104 L92 170 Z" fill={sleeve} stroke={ink} strokeWidth="5" strokeLinejoin="round" />
-      <path d="M34 170 L31 90 M86 170 L89 90" stroke={accentColour} strokeWidth="2.5" strokeLinecap="round" opacity="0.6" />
-
-      {/* Thumb (behind the palm, angled out to the side) */}
-      <g transform={`rotate(-52 ${THUMB_PIVOT_X} ${THUMB_PIVOT_Y})`}>
-        <rect x={THUMB_PIVOT_X - 6} y={THUMB_PIVOT_Y - 30} width={12} height={34} rx={6} fill={darkGlove} stroke={ink} strokeWidth="4" />
-      </g>
-
-      {/* Fingers, fanned from a shared knuckle pivot */}
-      {FINGERS.map((f, i) => (
-        <g key={i} transform={`rotate(${f.angle} ${KNUCKLE_X} ${KNUCKLE_Y})`}>
-          <rect
-            x={KNUCKLE_X - 6.5}
-            y={KNUCKLE_Y - f.length + 4}
-            width={13}
-            height={f.length}
-            rx={6}
-            fill={i % 2 === 0 ? gloveColour : darkGlove}
-            stroke={ink}
-            strokeWidth="4"
-          />
-          <rect x={KNUCKLE_X - 6.5} y={KNUCKLE_Y - f.length + 4} width={13} height={f.length} rx={6} fill="url(#wsdots)" opacity="0.4" />
-        </g>
-      ))}
-
-      {/* Palm */}
-      <rect x={32} y={34} width={56} height={54} rx={18} fill={gloveColour} stroke={ink} strokeWidth="5" />
-      <rect x={32} y={34} width={56} height={54} rx={18} fill="url(#wsdots)" opacity="0.5" />
-      <path d="M40 54 Q60 48 80 54 M38 68 Q60 62 82 68" stroke={ink} strokeWidth="2" fill="none" opacity="0.5" strokeLinecap="round" />
-
-      {/* Wrist gauntlet unit */}
-      <rect x={22} y={84} width={76} height={26} rx={7} fill="#1c1f24" stroke={ink} strokeWidth="4" />
-      <circle cx={60} cy={97} r={10} fill="#101216" stroke={ink} strokeWidth="2.5" />
-      <circle cx={60} cy={97} r={6.5} fill={accentColour} className="web-shooter-led" opacity="0.85" />
-      <path d={SHAPE_LENS[shape]} transform="translate(60 97) scale(1.1)" stroke="#0a0a0a" strokeWidth="1" opacity="0.5" fill="none" />
-
-      <rect x={28} y={89} width={4} height={7} rx={1.2} fill={accentColour} className="web-shooter-led" />
-      <rect x={88} y={89} width={4} height={7} rx={1.2} fill={accentColour} className="web-shooter-led" />
-      <rect x={28} y={99} width={4} height={7} rx={1.2} fill={accentColour} className="web-shooter-led" />
-      <rect x={88} y={99} width={4} height={7} rx={1.2} fill={accentColour} className="web-shooter-led" />
-    </svg>
-  );
-}
-
-function darken(hex: string, amount: number): string {
-  const n = hex.replace("#", "");
-  const full = n.length === 3 ? n.split("").map((c) => c + c).join("") : n;
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16) || 0);
-  const f = (v: number) => Math.max(0, Math.round(v * (1 - amount)));
-  return `#${[f(r), f(g), f(b)].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
 }
 
 /**
