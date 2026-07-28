@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Celebration from "./Celebration";
 import MemoryGrid from "./MemoryGrid";
+import Standings from "./Standings";
 
 type Phase = "image" | "connections" | "memory" | "done";
 
@@ -99,18 +100,24 @@ export default function Round1Games() {
   return (
     <div className="space-y-6">
       {transition && (
-        <div className="halftone panel panel-accent anim-glitch-in p-4 text-center">
-          <p className="comic-shout text-xl text-glitch-cyan">{transition}</p>
+        <div className="space-y-4">
+          <div className="halftone panel panel-accent anim-glitch-in p-4 text-center">
+            <p className="comic-shout text-xl text-glitch-cyan">{transition}</p>
+          </div>
+          <Standings round={1} />
         </div>
       )}
 
       <PhaseTracker phase={data.phase} />
 
       {data.phase === "done" ? (
-        <div className="halftone panel anim-pop relative overflow-hidden p-8 text-center">
-          <Celebration />
-          <p className="display-title chromatic text-3xl text-paper-white sm:text-4xl">Round 1 Complete</p>
-          <p className="mt-3 text-sm text-paper-white/60">Waiting for the coordinator to start Round 2…</p>
+        <div className="space-y-6">
+          <div className="halftone panel anim-pop relative overflow-hidden p-8 text-center">
+            <Celebration />
+            <p className="display-title chromatic text-3xl text-paper-white sm:text-4xl">Round 1 Complete</p>
+            <p className="mt-3 text-sm text-paper-white/60">Waiting for the coordinator to start Round 2…</p>
+          </div>
+          <Standings round={1} />
         </div>
       ) : (
         <PhaseCard data={data} now={nowMs} onChanged={load} />
@@ -119,6 +126,11 @@ export default function Round1Games() {
   );
 }
 
+/**
+ * Progress only — deliberately no game names. Round 1 is meant to be played
+ * one phase at a time without knowing what's coming next, so the tracker
+ * shows "Game N of 3" and a fill state, never which game N actually is.
+ */
 function PhaseTracker({ phase }: { phase: Phase }) {
   const currentStep = PHASE_STEP[phase];
   return (
@@ -138,7 +150,7 @@ function PhaseTracker({ phase }: { phase: Phase }) {
               }`}
             >
               {state === "done" ? "✓ " : ""}
-              {PHASE_LABEL[s]}
+              Game {step}
             </div>
             {i < STEPS.length - 1 && <span className="text-paper-white/20">→</span>}
           </div>

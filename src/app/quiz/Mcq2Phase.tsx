@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { QuizRound } from "@/lib/db/types";
 import Celebration from "./Celebration";
+import Standings from "./Standings";
 import { WebNet } from "./WebShooter";
 
 /**
@@ -51,7 +52,11 @@ interface ComebackStatus {
   used: boolean;
 }
 
-const AUTO_ADVANCE_DELAY_MS = 1600;
+// Long enough to actually read the standings shown alongside the verdict
+// below — this is a client-side display delay only. It doesn't touch the
+// server clock: the next question's read/select window starts from whenever
+// this team's client actually requests it, exactly as before.
+const AUTO_ADVANCE_DELAY_MS = 3400;
 
 export default function Mcq2Phase({
   round,
@@ -213,19 +218,22 @@ export default function Mcq2Phase({
       {loading && !question && <p className="font-comic text-2xl text-paper-white/40">Loading…</p>}
 
       {done && (
-        <div className="halftone panel anim-pop relative overflow-hidden p-10 text-center">
-          {round === 3 && <Celebration />}
-          <div className="relative">
-            <div className="text-5xl">🕸</div>
-            <h2 className="display-title chromatic mt-4 text-3xl text-paper-white">
-              {round === 3 ? "Universe 2 complete" : "Round complete"}
-            </h2>
-            <p className="mx-auto mt-3 max-w-sm text-sm text-paper-white/60">
-              {round === 3
-                ? "That's every question across every universe. Final standings are live — thanks for playing."
-                : "Every question answered. Standings are live — hold tight while the coordinator makes the cut."}
-            </p>
+        <div className="space-y-6">
+          <div className="halftone panel anim-pop relative overflow-hidden p-10 text-center">
+            {round === 3 && <Celebration />}
+            <div className="relative">
+              <div className="text-5xl">🕸</div>
+              <h2 className="display-title chromatic mt-4 text-3xl text-paper-white">
+                {round === 3 ? "Universe 2 complete" : "Round complete"}
+              </h2>
+              <p className="mx-auto mt-3 max-w-sm text-sm text-paper-white/60">
+                {round === 3
+                  ? "That's every question across every universe. Final standings are live — thanks for playing."
+                  : "Every question answered. Standings are live — hold tight while the coordinator makes the cut."}
+              </p>
+            </div>
           </div>
+          <Standings round={round} />
         </div>
       )}
 
@@ -342,6 +350,12 @@ export default function Mcq2Phase({
             )}
           </div>
         </article>
+      )}
+
+      {verdict && (
+        <div className="mt-6 anim-pop">
+          <Standings round={round} />
+        </div>
       )}
 
       {round === 3 && comeback?.ability && !comeback.used && comeback.usableOnSlug === question?.slug && !verdict && (
