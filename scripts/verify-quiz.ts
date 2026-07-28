@@ -179,8 +179,15 @@ async function main() {
   const r1AfterWrong = await first.get("/api/quiz/round1");
   check("a wrong guess stays on the connections phase", r1AfterWrong.body?.phase === "connections", r1AfterWrong.body);
 
+  const connectionsChallenges = await collections.challenges();
+  const connCh = await connectionsChallenges.findOne({ type: "quiz", slug: "connections-1" });
+
   const rightGuess = await first.post("/api/submit", { event: "quiz", challengeSlug: "connections-1", payload: CONNECTIONS_ANSWER });
-  check("the correct term scores the flat points", rightGuess.body?.correct === true && rightGuess.body?.points > 0, rightGuess.body);
+  check(
+    "the correct term scores full points (solved on the very first revealed tile)",
+    rightGuess.body?.correct === true && rightGuess.body?.points === connCh?.points,
+    rightGuess.body
+  );
 
   const r1AfterConnections = await first.get("/api/quiz/round1");
   check("solving connections unlocks the memory phase", r1AfterConnections.body?.phase === "memory", r1AfterConnections.body);

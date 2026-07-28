@@ -85,6 +85,7 @@ async function main() {
   const promptImages = await collections.promptImages();
   const subs = await collections.submissions();
   const scoreEvents = await collections.scoreEvents();
+  const proctorFlags = await collections.proctorFlags();
 
   console.log("Clearing previous quiz state…");
   const previous = await teams.find({ $or: [{ name: "Quiz Control" }, { coin: { $exists: true } }] }).toArray();
@@ -108,6 +109,7 @@ async function main() {
   await withThrottleRetry(() => promptImages.deleteMany({}));
   await withThrottleRetry(() => subs.deleteMany({ type: "quiz" }));
   await withThrottleRetry(() => scoreEvents.deleteMany({ event: "quiz" }));
+  await withThrottleRetry(() => proctorFlags.deleteMany({}));
 
   const adminTeamId = new ObjectId();
   await teams.insertOne({ _id: adminTeamId, name: "Quiz Control", createdAt: new Date() });
@@ -145,7 +147,9 @@ async function main() {
       format: "connections",
       order: 2,
       connectionsImages: CONNECTIONS_IMAGES,
-      connectionsRevealSeconds: 15,
+      // No connectionsRevealSeconds override — DEFAULT_REVEAL_SECONDS in
+      // lib/quiz/connections.ts is the single source of truth so the server
+      // and every test script that reads the schedule can't drift apart.
       answerHash: hashAnswer(CONNECTIONS_ANSWER),
     },
   });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Celebration from "./Celebration";
 import MemoryGrid from "./MemoryGrid";
 
 type Phase = "image" | "connections" | "memory" | "done";
@@ -106,7 +107,8 @@ export default function Round1Games() {
       <PhaseTracker phase={data.phase} />
 
       {data.phase === "done" ? (
-        <div className="halftone panel p-8 text-center">
+        <div className="halftone panel anim-pop relative overflow-hidden p-8 text-center">
+          <Celebration />
           <p className="display-title chromatic text-3xl text-paper-white sm:text-4xl">Round 1 Complete</p>
           <p className="mt-3 text-sm text-paper-white/60">Waiting for the coordinator to start Round 2…</p>
         </div>

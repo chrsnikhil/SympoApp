@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Avatar } from "@/lib/quiz/avatars";
 import type { QuizRound } from "@/lib/db/types";
+import Celebration from "./Celebration";
 import Mcq2Phase from "./Mcq2Phase";
 import ProctorGate from "./ProctorGate";
 import Round1Games from "./Round1Games";
 import Standings from "./Standings";
-import WebShooter from "./WebShooter";
+import WebShooter, { WebNet } from "./WebShooter";
 
 const DEFAULT_PERSONA = {
   colour: "#3a86ff",
@@ -164,13 +165,17 @@ function RoundTransition({ round, onDone }: { round: QuizRound; onDone: () => vo
   }, [onDone]);
 
   return (
-    <main className="grid min-h-dvh place-items-center overflow-hidden px-5">
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden px-5">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
         style={{ background: "radial-gradient(ellipse at 50% 40%, var(--web-blue-dark) 0%, transparent 60%)" }}
       />
-      <div className="halftone panel panel-accent anim-glitch-in relative max-w-lg p-10 text-center">
+      <span aria-hidden="true" className="web-sweep pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+        <WebNet colour="var(--glitch-cyan)" originX={50} originY={50} animate={false} />
+      </span>
+      <div className="halftone panel panel-accent anim-glitch-in relative max-w-lg overflow-visible p-10 text-center">
+        <Celebration />
         <p className="text-[0.7rem] uppercase tracking-[0.3em] text-glitch-cyan">Round {round} unlocked</p>
         <p className="display-title chromatic anim-surge mt-2 text-4xl text-paper-white sm:text-5xl">{ROUND_TITLES[round]}</p>
         <p className="comic-shout mt-3 text-xl text-spider-red">{ROUND_SUBTITLES[round]}</p>

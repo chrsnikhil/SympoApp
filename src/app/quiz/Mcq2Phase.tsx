@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { QuizRound } from "@/lib/db/types";
+import Celebration from "./Celebration";
 import { WebNet } from "./WebShooter";
 
 /**
@@ -212,12 +213,17 @@ export default function Mcq2Phase({
       {loading && !question && <p className="font-comic text-2xl text-paper-white/40">Loading…</p>}
 
       {done && (
-        <div className="halftone panel anim-pop p-10 text-center">
+        <div className="halftone panel anim-pop relative overflow-hidden p-10 text-center">
+          {round === 3 && <Celebration />}
           <div className="relative">
             <div className="text-5xl">🕸</div>
-            <h2 className="display-title chromatic mt-4 text-3xl text-paper-white">Round complete</h2>
+            <h2 className="display-title chromatic mt-4 text-3xl text-paper-white">
+              {round === 3 ? "Universe 2 complete" : "Round complete"}
+            </h2>
             <p className="mx-auto mt-3 max-w-sm text-sm text-paper-white/60">
-              Every question answered. Standings are live — hold tight while the coordinator makes the cut.
+              {round === 3
+                ? "That's every question across every universe. Final standings are live — thanks for playing."
+                : "Every question answered. Standings are live — hold tight while the coordinator makes the cut."}
             </p>
           </div>
         </div>

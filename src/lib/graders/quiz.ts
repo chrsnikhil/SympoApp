@@ -1,6 +1,7 @@
 import { collections } from "@/lib/db/client";
 import { closeQuestionForComeback } from "@/lib/quiz/comeback";
 import { scoreConnections } from "@/lib/quiz/connections";
+import { scheduleImageJudging } from "@/lib/quiz/judge";
 import { isQualified } from "@/lib/quiz/rounds";
 import { markAnswered, serveFor } from "@/lib/quiz/serve";
 import { acceptEstimate, acceptPromptImage, scoreMcq } from "@/lib/quiz/scoring";
@@ -53,7 +54,10 @@ export async function gradeQuiz(input: GradeInput): Promise<GradeResult> {
     if (prior) return { correct: false, points: 0, meta: { reason: "already-answered" } };
 
     if (format === "estimate") return acceptEstimate(payload);
-    return acceptPromptImage(payload, teamId, challenge.slug);
+
+    const result = await acceptPromptImage(payload, teamId, challenge.slug);
+    if (result.pending) scheduleImageJudging(challenge, teamId, input.submissionId);
+    return result;
   }
 
   // Connections allows retries — a wrong guess shouldn't cost a team the rest
@@ -62,7 +66,7 @@ export async function gradeQuiz(input: GradeInput): Promise<GradeResult> {
     const subs = await collections.submissions();
     const solved = await subs.findOne({ challengeId: challenge._id, teamId, status: "done", "verdict.correct": true });
     if (solved) return { correct: false, points: 0, meta: { reason: "already-solved" } };
-    return scoreConnections(challenge, payload);
+    return scoreConnections(challenge, payload, receivedAt);
   }
 
   if (format === "memory") {

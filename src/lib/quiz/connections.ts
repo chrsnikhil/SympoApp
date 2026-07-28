@@ -15,7 +15,12 @@ import type { GradeResult } from "@/lib/graders/types";
  * client-side clock wearing a costume.
  */
 
-export const DEFAULT_REVEAL_SECONDS = 15;
+export const DEFAULT_REVEAL_SECONDS = 20;
+
+/** Floor a late solve can't fall below — same shape as the Memory Game's
+ *  par/cap falloff, so the two Round 1 games that reward speed agree on how
+ *  hard the penalty bites. */
+const FLOOR_FRACTION = 0.3;
 
 /** Tile paths unlocked as of `now`. Empty until the coordinator opens the game. */
 export function revealedImages(challenge: Challenge, now: Date): string[] {
@@ -44,16 +49,38 @@ export function secondsToNextReveal(challenge: Challenge, now: Date): number | n
 }
 
 /**
- * Unlike Guess the Number (relative to everyone else's guess) or Image
- * Replication (judged), this is a plain hashed-answer check, scored the
- * instant it arrives — so a team can retry after a wrong guess instead of
- * getting one shot at a puzzle they're still working out. The grader is what
- * stops retries after a correct answer (see `graders/quiz.ts`).
+ * Points fall off with how many tiles were already up when a team solved it —
+ * guessing off the first reveal is worth more than needing the whole set, the
+ * same "reward finishing early" idea the Memory Game's flip-count falloff
+ * uses. `revealedCount` is 1-indexed (at least one tile is always up by the
+ * time a guess can even be submitted); solving on the first tile scores full
+ * marks, solving on the last tile scores the 30% floor.
  */
-export function scoreConnections(challenge: Challenge, payload: string): GradeResult {
+export function pointsForReveal(fullPoints: number, revealedCount: number, totalImages: number): number {
+  if (totalImages <= 1) return fullPoints;
+  const floor = Math.round(fullPoints * FLOOR_FRACTION);
+  const position = Math.min(Math.max(revealedCount, 1), totalImages) - 1; // 0 at tile 1, totalImages-1 at the last tile
+  const frac = position / (totalImages - 1);
+  return Math.round(fullPoints - (fullPoints - floor) * frac);
+}
+
+/**
+ * A plain hashed-answer check, scored the instant it arrives — so a team can
+ * retry after a wrong guess instead of getting one shot at a puzzle they're
+ * still working out (the grader is what stops retries after a correct
+ * answer — see `graders/quiz.ts`). A correct guess is worth less the more
+ * tiles were already revealed when it landed, per `pointsForReveal` above —
+ * so this is scored against `now`, not a flat per-question value.
+ */
+export function scoreConnections(challenge: Challenge, payload: string, now: Date = new Date()): GradeResult {
   const guess = payload.trim();
   if (!guess) return { correct: false, points: 0, meta: { reason: "empty" } };
 
   const correct = hashAnswer(guess) === challenge.config.answerHash;
-  return { correct, points: correct ? challenge.points : 0 };
+  if (!correct) return { correct: false, points: 0 };
+
+  const totalImages = (challenge.config.connectionsImages ?? []).length;
+  const revealedCount = revealedImages(challenge, now).length;
+  const points = pointsForReveal(challenge.points, revealedCount, totalImages);
+  return { correct: true, points, meta: { revealedCount, totalImages } };
 }

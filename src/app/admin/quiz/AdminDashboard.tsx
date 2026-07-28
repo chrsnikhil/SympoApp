@@ -217,9 +217,14 @@ export default function AdminDashboard() {
                   onClick={() => callAdvance({ action: "judge-image", slug: "image-1" })}
                   className="comic-btn comic-btn-cyan px-4 py-2 text-xs"
                 >
-                  Judge all
+                  Judge remaining now
                 </button>
               </div>
+              <p className="mb-3 text-xs text-paper-white/45">
+                Each upload is sent to the vision judge automatically the moment it&apos;s submitted — this list is
+                whoever&apos;s still waiting (a slow model response, no GROQ_API_KEY, or a judging error that released
+                them for retry). Use the button to force those stragglers through by hand.
+              </p>
               <div className="overflow-x-auto">
                 <table className="admin-table">
                   <thead>

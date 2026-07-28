@@ -1,3 +1,6 @@
+import { ObjectId } from "mongodb";
+import { collections } from "@/lib/db/client";
+import { resolvePromptImage } from "@/lib/quiz/scoring";
 import type { Challenge } from "@/lib/db/types";
 
 /**
@@ -244,4 +247,55 @@ export async function judgeAll(challenge: Challenge, referenceImage: ImageDataUr
     .map((r) => ({ teamId: r.teamId, reason: r.reason }));
 
   return { judged, failed };
+}
+
+/**
+ * Fire-and-forget: grade ONE team's Image Replication submission the moment
+ * it's accepted, instead of waiting on a coordinator to click "judge" once
+ * everyone's in. This is what makes marking genuinely automatic — every other
+ * Round 1 game scores the instant an answer arrives; this is the one that
+ * can't (a vision call takes real seconds), so it gets its shot the instant
+ * the picture lands rather than sitting queued until someone remembers it.
+ *
+ * Deliberately not awaited by the caller — `gradeQuiz` has already returned
+ * `pending: true` to the team by the time this runs, exactly like the queued
+ * state before this existed. Two things are required for this to actually
+ * fire: a GROQ_API_KEY and a `referenceDataUrl` on the challenge (set via
+ * `scripts/set-reference.ts`). Missing either just leaves the submission
+ * queued for the coordinator's manual "Judge Image" button — the automatic
+ * path is additive, not a new failure mode.
+ *
+ * ON FAILURE, THE TEAM RETRIES — same rule as the manual judge route: a
+ * judging error releases the queued submission (and the image, so a stale
+ * upload doesn't block the retry) rather than leaving a team stuck pending
+ * forever on a call that errored.
+ */
+export function scheduleImageJudging(challenge: Challenge, teamId: ObjectId, submissionId: ObjectId): void {
+  if (!judgeAvailable()) return;
+  const reference = challenge.config.referenceDataUrl;
+  if (!reference) return;
+
+  void runImageJudging(challenge, teamId, submissionId, reference).catch((err) => {
+    console.error(`[image-judge] background grading crashed for ${challenge.slug}/${teamId}`, err);
+  });
+}
+
+async function runImageJudging(challenge: Challenge, teamId: ObjectId, submissionId: ObjectId, reference: string): Promise<void> {
+  const [subs, images] = await Promise.all([collections.submissions(), collections.promptImages()]);
+
+  try {
+    const sub = await subs.findOne({ _id: submissionId, teamId, status: "queued" });
+    if (!sub?.payload || !ObjectId.isValid(sub.payload)) return;
+
+    const image = await images.findOne({ _id: new ObjectId(sub.payload), teamId, challengeSlug: challenge.slug });
+    if (!image) return;
+
+    const verdict = await judgeImage(challenge, reference, image.dataUrl);
+    await resolvePromptImage(challenge.slug, { [String(teamId)]: verdict.similarity });
+  } catch (err) {
+    console.error(`[image-judge] background grading failed for ${challenge.slug}/${teamId} — releasing for retry`, err);
+    await subs.deleteOne({ _id: submissionId, teamId, status: "queued" }).catch((cleanupErr) => {
+      console.error(`[image-judge] release-for-retry cleanup failed for ${challenge.slug}/${teamId}`, cleanupErr);
+    });
+  }
 }
