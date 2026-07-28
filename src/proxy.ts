@@ -33,6 +33,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Every API route lives at the top level (`src/app/api/**`), not nested
+  // under a per-event route group, and every handler re-verifies its own
+  // session via `requireSession` (see the file-level note above). Rewriting
+  // `/api/quiz/round1` to `/quiz/api/quiz/round1` 404s outright, and an HTML
+  // redirect is the wrong response for a fetch() caller anyway — a 401 JSON
+  // body from the handler itself is what the client code expects.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   const host = request.headers.get("host");
   const event = eventFromHost(host);
 
@@ -42,9 +52,14 @@ export async function proxy(request: NextRequest) {
   // Optimistic session check. No DB read: just a signature verification.
   const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
   if (!session) {
-    const entry = new URL("/enter", request.nextUrl.origin);
+    // Built from the real Host header, not request.nextUrl.origin — the latter
+    // collapses to the bare "localhost" origin regardless of which subdomain
+    // the request actually came in on, which sent every login redirect back
+    // to the plain landing page instead of the event the user was on.
+    const origin = `${request.nextUrl.protocol}//${host}`;
+    const entry = new URL("/enter", origin);
     // Send them back where they were trying to go once they're in.
-    entry.searchParams.set("rt", `${request.nextUrl.origin}${pathname}${search}`);
+    entry.searchParams.set("rt", `${origin}${pathname}${search}`);
     return NextResponse.redirect(entry);
   }
 

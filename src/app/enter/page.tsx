@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { avatarForCoin, parseCoin } from "@/lib/quiz/avatars";
+import WebShooter, { WebNet } from "@/app/quiz/WebShooter";
 
 /**
  * Entry page. Lives on the app/www host — the event subdomains bounce here
@@ -54,15 +55,22 @@ export default function EnterPage() {
     }
   }
 
+  // The reticle picks up the previewed character's colours the moment a
+  // coin resolves to one — a small "yes, this is really you" cue before the
+  // form is even submitted.
+  const persona = preview ?? { colour: "#3a86ff", webColour: "#9ec5ff", gloveColour: "#e5223b", reticle: "classic" as const };
+
   return (
     <main className="relative grid min-h-dvh place-items-center overflow-hidden px-5">
+      <WebShooter colour={persona.colour} webColour={persona.webColour} gloveColour={persona.gloveColour} shape={persona.reticle} />
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
         style={{ background: "radial-gradient(ellipse at 50% 0%, var(--web-blue-dark) 0%, transparent 60%)" }}
       />
 
-      <form onSubmit={onSubmit} className="halftone panel anim-glitch-in relative w-full max-w-sm p-8">
+      <form onSubmit={onSubmit} className="halftone panel anim-glitch-in relative w-full max-w-sm overflow-hidden p-8">
+        <WebNet colour={persona.colour} originX={96} originY={2} animate={false} />
         <div className="relative">
           <p className="font-body text-[0.7rem] uppercase tracking-[0.25em] text-glitch-cyan">XPLORE&apos;26</p>
           <h1 className="display-title chromatic mt-1 text-5xl text-paper-white">Enter</h1>
@@ -129,6 +137,7 @@ export default function EnterPage() {
 
           <button
             type="submit"
+            data-web-target=""
             disabled={busy || (!looksLikeCode && !preview) || (needsName && !teamName.trim())}
             className="comic-btn mt-6 w-full"
           >
