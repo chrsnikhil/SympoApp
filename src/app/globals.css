@@ -282,3 +282,142 @@ body {
 .anim-glitch-in {
   animation: glitch-in 300ms ease-out;
 }
+
+@keyframes power-surge {
+  0% {
+    text-shadow: -2px 0 0 rgba(226, 54, 54, 0.85), 2px 0 0 rgba(0, 229, 255, 0.85);
+  }
+  40% {
+    text-shadow: -6px 0 0 rgba(226, 54, 54, 0.9), 6px 0 0 rgba(0, 229, 255, 0.9);
+  }
+  100% {
+    text-shadow: -2px 0 0 rgba(226, 54, 54, 0.85), 2px 0 0 rgba(0, 229, 255, 0.85);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+@keyframes pop-in {
+  0% { opacity: 0; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.anim-surge { animation: power-surge 400ms ease-out; }
+.anim-shake { animation: shake 200ms ease-in-out; }
+.anim-pop { animation: pop-in 220ms ease-out; }
+
+/* Glitch, flicker and scan-line effects are exactly the class of animation
+   that triggers migraine and vestibular symptoms. In a hall of 500 people,
+   somebody has that sensitivity. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .chromatic { text-shadow: none; }
+}
+
+/* ═══════════════════════════════════════════════════
+   CELEBRATION — confetti burst (Celebration.tsx)
+   ═══════════════════════════════════════════════════ */
+
+@keyframes confetti-burst {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--confetti-dx), var(--confetti-dy)) rotate(var(--confetti-rot));
+    opacity: 0;
+  }
+}
+
+.confetti-piece {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  animation: confetti-burst 1100ms ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti-piece { display: none; }
+}
+
+/* Round-transition backdrop cobweb (QuizClient.tsx's RoundTransition). */
+@keyframes web-sweep {
+  0% { opacity: 0; transform: scale(0.6); }
+  40% { opacity: 0.5; }
+  100% { opacity: 0.18; transform: scale(1); }
+}
+
+.web-sweep {
+  animation: web-sweep 1400ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .web-sweep {
+    opacity: 0.18;
+    animation: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   WEB-SHOOTER
+
+   The class is applied by WebShooter.tsx only once it has confirmed a fine
+   pointer, and removed on unmount. Scoped to the quiz surface so a hidden
+   cursor can never strand someone on a page with no reticle drawn.
+   ═══════════════════════════════════════════════════ */
+
+html.web-shooter-active,
+html.web-shooter-active body {
+  cursor: none;
+}
+
+/* Interactive controls keep a real cursor. If the reticle ever fails to draw,
+   the things you must be able to click still tell you they're clickable. */
+html.web-shooter-active a,
+html.web-shooter-active input,
+html.web-shooter-active textarea {
+  cursor: auto;
+}
+
+/* An option the reticle has locked onto. Paired with the reticle scaling up,
+   so the lock reads even for someone who can't distinguish the accent colour. */
+[data-web-target]:not(:disabled):hover {
+  transform: translateX(2px);
+}
+
+/* The web snaps taut on impact rather than fading in — webbing lands, it
+   doesn't dissolve into place. */
+@keyframes web-land {
+  0% { opacity: 0; transform: scale(0.35); }
+  55% { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.web-land {
+  animation: web-land 260ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .web-land { animation: none; }
+}
+
+/* ═══════════════════════════════════════════════════
+   SCROLLBAR
+   ═══════════════════════════════════════════════════ */
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--ink-black); }
+::-webkit-scrollbar-thumb { background: var(--spider-red); }
+::-webkit-scrollbar-thumb:hover { background: var(--spider-red-dark); }
