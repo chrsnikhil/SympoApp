@@ -426,19 +426,37 @@ export default function WebShooter({
     <>
       <canvas ref={canvasRef} className="pointer-events-none fixed inset-0 z-[9998]" aria-hidden="true" />
       <div className="pointer-events-none fixed bottom-0 right-0 z-[9998]" aria-hidden="true">
-        <div ref={handRef} className="web-shooter-idle relative" style={{ width: 190, height: 260 }}>
+        <div ref={handRef} className="web-shooter-idle relative" style={{ width: 150, height: 300 }}>
+          {/*
+            The source image is a full poster composition (hand + lightning +
+            city background), not a hand isolated on empty space — there's no
+            real alpha channel to cut it out with. Two tricks fake it:
+              1. object-fit: cover with a container narrower than the source's
+                 aspect ratio, so the wide lightning bolts get cropped off the
+                 sides instead of the whole rectangle showing letterboxed.
+              2. A radial mask that fades to fully transparent well before the
+                 container's edges, so there's no hard rectangle border at
+                 all — it just fades into the page.
+            mix-blend-mode: screen still handles the remaining dark
+            background within the visible/opaque part of the mask.
+          */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={HAND_IMAGE}
             alt=""
             onError={() => setImageOk(false)}
-            className="h-full w-full object-contain object-bottom"
-            style={{ mixBlendMode: "screen" }}
+            className="h-full w-full object-cover"
+            style={{
+              objectPosition: "50% 8%",
+              mixBlendMode: "screen",
+              WebkitMaskImage: "radial-gradient(ellipse 80% 90% at 50% 36%, #000 50%, transparent 90%)",
+              maskImage: "radial-gradient(ellipse 80% 90% at 50% 36%, #000 50%, transparent 90%)",
+            }}
           />
-          {/* Muzzle marker — where the fingertips/glow converge near the top
-              of the frame. Percentage-based since the exact source image's
-              proportions can change without touching this code. */}
-          <div ref={muzzleRef} className="absolute" style={{ left: "45%", top: "10%", width: 8, height: 8 }} />
+          {/* Muzzle marker — where the fingertips/glow converge. Percentage
+              is an estimate against the cropped/positioned view above; nudge
+              it once the real crop is visible if the launch point looks off. */}
+          <div ref={muzzleRef} className="absolute" style={{ left: "42%", top: "22%", width: 8, height: 8 }} />
         </div>
       </div>
       <style jsx global>{`
