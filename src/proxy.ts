@@ -24,7 +24,7 @@ import { verifySession } from "@/lib/auth/session";
  */
 
 /** Paths that must never be rewritten or gated. */
-const PUBLIC_PREFIXES = ["/_next", "/api/health", "/favicon.ico", "/enter", "/api/enter"];
+const PUBLIC_PREFIXES = ["/_next", "/api/health", "/favicon.ico", "/enter", "/api/enter", "/admin"];
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

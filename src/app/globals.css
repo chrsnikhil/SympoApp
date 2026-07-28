@@ -1,48 +1,35 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════
-   SPIDER MULTIVERSE DESIGN SYSTEM
-
-   Contrast is measured, not eyeballed — the audience reads a projector from
-   across a room, not a monitor twelve inches away:
-     paper-white     17.25:1  safe for body text
-     glitch-cyan     12.87:1  safe for body text
-     spider-red       4.54:1  display only — clears AA by 0.04
-     web-blue-light    3.45:1  large/UI only
-     web-blue          2.29:1  FILL ONLY — never text
+   SPIDER-VERSE DESIGN SYSTEM
    ═══════════════════════════════════════════════════ */
 
 :root {
-  --spider-red: #e23636;
-  --spider-red-dark: #b82020;
-  --web-blue: #0d47a1;
-  --web-blue-light: #1565c0;
+  --spider-red: #E23636;
+  --spider-red-dark: #B82020;
+  --web-blue: #0D47A1;
+  --web-blue-light: #1565C0;
   --web-blue-dark: #062654;
-  --ink-black: #0a0a0a;
-  --paper-white: #f2efe9;
-  --glitch-cyan: #00e5ff;
-
-  /* Outside the brand palette on purpose. Red is Spider-Verse here, so it
-     cannot also mean "wrong" — a missed answer must never look like a design
-     flourish. */
-  --signal-wrong: #f87171;
-  --signal-good: #4ade80;
-  /* The only "you have a power" colour — reserved for the Comeback Meter. */
-  --gadget-pink: #ff6ec7;
+  --ink-black: #0A0A0A;
+  --paper-white: #F2EFE9;
+  --glitch-cyan: #00E5FF;
+  --signal-wrong: #F87171;
+  --gadget-pink: #FF6EC7;
+  --comic-yellow: #FFE500;
 }
 
 @theme inline {
-  --color-spider-red: #e23636;
-  --color-spider-red-dark: #b82020;
-  --color-web-blue: #0d47a1;
-  --color-web-blue-light: #1565c0;
+  --color-spider-red: #E23636;
+  --color-spider-red-dark: #B82020;
+  --color-web-blue: #0D47A1;
+  --color-web-blue-light: #1565C0;
   --color-web-blue-dark: #062654;
-  --color-ink-black: #0a0a0a;
-  --color-paper-white: #f2efe9;
-  --color-glitch-cyan: #00e5ff;
-  --color-signal-wrong: #f87171;
-  --color-signal-good: #4ade80;
-  --color-gadget-pink: #ff6ec7;
+  --color-ink-black: #0A0A0A;
+  --color-paper-white: #F2EFE9;
+  --color-glitch-cyan: #00E5FF;
+  --color-signal-wrong: #F87171;
+  --color-gadget-pink: #FF6EC7;
+  --color-comic-yellow: #FFE500;
 
   --font-display: var(--font-anton), sans-serif;
   --font-comic: var(--font-bangers), cursive;
@@ -52,11 +39,6 @@
 
 * {
   box-sizing: border-box;
-}
-
-html,
-body {
-  height: 100%;
 }
 
 body {
@@ -73,22 +55,43 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════
-   TEXTURE — generated, nothing downloaded. Zero bytes over the wire, no
-   licensing question, stays sharp at any display density.
+   SPIDER-VERSE COMIC BOOK BACKGROUND SYSTEM
    ═══════════════════════════════════════════════════ */
 
-.halftone {
+.spiderverse-bg {
+  background-color: #060709;
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(226, 54, 54, 0.28) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 100%, rgba(13, 71, 161, 0.35) 0%, transparent 65%),
+    radial-gradient(ellipse at 50% 50%, rgba(0, 229, 255, 0.12) 0%, transparent 70%);
   position: relative;
+  min-height: 100vh;
 }
 
+/* Marvel Comic Action Speed Lines */
+.comic-speed-lines {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-conic-gradient(
+    from 0deg at 50% 30%,
+    rgba(242, 239, 233, 0.02) 0deg 1.5deg,
+    transparent 1.5deg 8deg
+  );
+  opacity: 0.85;
+  z-index: 0;
+}
+
+/* Ben-Day dots comic texture */
 .halftone::before {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: radial-gradient(circle, var(--paper-white) 0.8px, transparent 0.8px);
-  background-size: 8px 8px;
-  opacity: 0.06;
+  background-image: radial-gradient(circle, var(--paper-white) 1px, transparent 1px);
+  background-size: 10px 10px;
+  opacity: 0.08;
+  z-index: 1;
 }
 
 .noise-overlay {
@@ -101,35 +104,28 @@ body {
   background-repeat: repeat;
 }
 
-/* ═══════════════════════════════════════════════════
-   COMIC PANEL — hard offset shadow, never blurred; square corners. Blur and
-   rounded corners are the two fastest ways to turn this back into generic
-   dark-mode SaaS.
-   ═══════════════════════════════════════════════════ */
-
+/* COMIC PANEL HARD SHADOW & INNER GLOW */
 .panel {
   position: relative;
-  background: rgba(10, 10, 10, 0.72);
+  background: rgba(12, 14, 18, 0.88);
   border: 3px solid var(--ink-black);
-  box-shadow: 6px 6px 0 var(--ink-black);
-  outline: 1px solid rgba(242, 239, 233, 0.12);
+  box-shadow: 7px 7px 0 var(--ink-black), inset 0 0 12px rgba(255, 255, 255, 0.03);
+  outline: 1px solid rgba(242, 239, 233, 0.15);
+  backdrop-filter: blur(12px);
 }
 
 .panel-accent {
   border-color: var(--spider-red);
-  box-shadow: 6px 6px 0 var(--spider-red-dark);
+  box-shadow: 7px 7px 0 var(--spider-red-dark);
 }
 
-/* ═══════════════════════════════════════════════════
-   COMIC BUTTON
-   ═══════════════════════════════════════════════════ */
-
+/* COMIC BUTTON */
 .comic-btn {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem 1.75rem;
+  padding: 0.75rem 1.5rem;
   font-family: var(--font-anton), sans-serif;
   font-size: 1rem;
   letter-spacing: 0.05em;
@@ -139,11 +135,7 @@ body {
   border: 3px solid var(--ink-black);
   box-shadow: 4px 4px 0 var(--ink-black);
   cursor: pointer;
-  transition:
-    transform 0.12s ease,
-    box-shadow 0.12s ease,
-    background 0.12s ease,
-    color 0.12s ease;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, color 0.12s ease;
 }
 
 .comic-btn:hover:not(:disabled) {
@@ -184,11 +176,15 @@ body {
   border-color: var(--gadget-pink);
 }
 
-/* ═══════════════════════════════════════════════════
-   DISPLAY TYPE — chromatic aberration is the "printed slightly out of
-   register" look. Display type ONLY — on question text it's a legibility
-   cost dressed up as a style.
-   ═══════════════════════════════════════════════════ */
+.comic-btn-yellow {
+  background: var(--comic-yellow);
+  color: var(--ink-black);
+}
+.comic-btn-yellow:hover:not(:disabled) {
+  background: var(--ink-black);
+  color: var(--comic-yellow);
+  border-color: var(--comic-yellow);
+}
 
 .display-title {
   font-family: var(--font-anton), sans-serif;
@@ -199,20 +195,74 @@ body {
 
 .chromatic {
   text-shadow:
-    -1.5px 0 0 rgba(226, 54, 54, 0.55),
-    1.5px 0 0 rgba(0, 229, 255, 0.55);
+    -2px 0 0 rgba(226, 54, 54, 0.85),
+    2px 0 0 rgba(0, 229, 255, 0.85);
 }
 
 .comic-shout {
   font-family: var(--font-bangers), cursive;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-/* ═══════════════════════════════════════════════════
-   MOTION — everything under 400ms. This is a game with a clock; animation
-   must never sit between a team and their next question.
-   ═══════════════════════════════════════════════════ */
+/* MARVEL COMIC SPEECH BUBBLE */
+.comic-speech-bubble {
+  position: relative;
+  background: #ffffff;
+  color: #0a0a0a;
+  border: 3px solid #0a0a0a;
+  box-shadow: 4px 4px 0 #0a0a0a;
+  padding: 0.75rem 1.25rem;
+  font-family: var(--font-bangers), cursive;
+  font-size: 1.1rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.comic-speech-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -14px;
+  left: 24px;
+  border-width: 14px 12px 0 0;
+  border-style: solid;
+  border-color: #ffffff transparent transparent transparent;
+  display: block;
+  width: 0;
+}
+
+/* MARVEL COMIC YELLOW CAPTION BOX */
+.comic-caption-yellow {
+  background: var(--comic-yellow);
+  color: #0a0a0a;
+  border: 3px solid #0a0a0a;
+  box-shadow: 5px 5px 0 #0a0a0a;
+  font-family: var(--font-anton), sans-serif;
+  text-transform: uppercase;
+  padding: 0.6rem 1rem;
+}
+
+/* COMIC TABLE STYLING */
+.admin-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.85rem;
+}
+.admin-table th {
+  background: #14171d;
+  color: var(--glitch-cyan);
+  font-family: var(--font-anton), sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 2px solid var(--ink-black);
+  text-align: left;
+}
+.admin-table td {
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid rgba(242, 239, 233, 0.08);
+  color: var(--paper-white);
+}
 
 @keyframes glitch-in {
   0% {
@@ -229,298 +279,6 @@ body {
   }
 }
 
-@keyframes power-surge {
-  0% {
-    text-shadow:
-      -3px 0 0 rgba(226, 54, 54, 0.8),
-      3px 0 0 rgba(0, 229, 255, 0.8);
-  }
-  25% {
-    text-shadow:
-      3px 0 0 rgba(226, 54, 54, 0.8),
-      -3px 0 0 rgba(0, 229, 255, 0.8);
-  }
-  50% {
-    text-shadow:
-      -1px 2px 0 rgba(226, 54, 54, 0.8),
-      1px -2px 0 rgba(0, 229, 255, 0.8);
-  }
-  100% {
-    text-shadow:
-      -1.5px 0 0 rgba(226, 54, 54, 0.55),
-      1.5px 0 0 rgba(0, 229, 255, 0.55);
-  }
-}
-
-@keyframes shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-5px);
-  }
-  75% {
-    transform: translateX(5px);
-  }
-}
-
-@keyframes pop-in {
-  0% {
-    opacity: 0;
-    transform: scale(1.08);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes flip-card {
-  0% {
-    transform: rotateY(0deg);
-  }
-  100% {
-    transform: rotateY(180deg);
-  }
-}
-
 .anim-glitch-in {
   animation: glitch-in 300ms ease-out;
-}
-.anim-surge {
-  animation: power-surge 400ms ease-out;
-}
-.anim-shake {
-  animation: shake 200ms ease-in-out;
-}
-.anim-pop {
-  animation: pop-in 220ms ease-out;
-}
-
-/* Glitch, flicker and scan-line effects are exactly the class of animation
-   that triggers migraine and vestibular symptoms. In a hall full of people,
-   somebody has that sensitivity. */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-  .chromatic {
-    text-shadow: none;
-  }
-}
-
-/* ═══════════════════════════════════════════════════
-   WEB-SHOOTER — see WebShooter.tsx. Scoped to the quiz surface so a hidden
-   cursor can never strand someone on a page with no reticle drawn.
-   ═══════════════════════════════════════════════════ */
-
-html.web-shooter-active,
-html.web-shooter-active body {
-  cursor: none;
-}
-
-html.web-shooter-active a,
-html.web-shooter-active input,
-html.web-shooter-active textarea,
-html.web-shooter-active button {
-  cursor: auto;
-}
-
-[data-web-target]:not(:disabled):hover {
-  transform: translateX(2px);
-}
-
-@keyframes web-land {
-  0% {
-    opacity: 0;
-    transform: scale(0.35);
-  }
-  55% {
-    opacity: 1;
-    transform: scale(1.06);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.web-land {
-  animation: web-land 260ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .web-land {
-    animation: none;
-  }
-}
-
-/* ═══════════════════════════════════════════════════
-   CELEBRATION — brand-palette confetti burst. See Celebration.tsx.
-   ═══════════════════════════════════════════════════ */
-
-@keyframes confetti-burst {
-  0% {
-    transform: translate(-50%, -50%) rotate(0deg) scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(calc(-50% + var(--confetti-dx)), calc(-50% + var(--confetti-dy))) rotate(var(--confetti-rot)) scale(0.35);
-    opacity: 0;
-  }
-}
-
-.confetti-piece {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 9px;
-  height: 9px;
-  animation: confetti-burst 1100ms cubic-bezier(0.15, 0.8, 0.25, 1) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .confetti-piece {
-    display: none;
-  }
-}
-
-/* ═══════════════════════════════════════════════════
-   ROUND TRANSITION — the web-sweep behind the "Round N Unlocked" screen.
-   ═══════════════════════════════════════════════════ */
-
-@keyframes web-sweep {
-  0% {
-    transform: scale(0.4) rotate(-8deg);
-    opacity: 0;
-  }
-  40% {
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(1.15) rotate(4deg);
-    opacity: 0.22;
-  }
-}
-
-.web-sweep {
-  animation: web-sweep 1400ms cubic-bezier(0.15, 0.8, 0.25, 1) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .web-sweep {
-    animation: none;
-    opacity: 0.18;
-  }
-}
-
-/* ═══════════════════════════════════════════════════
-   MEMORY GRID CARD — 3D flip, no external art needed.
-   ═══════════════════════════════════════════════════ */
-
-.card-flip-scene {
-  perspective: 800px;
-}
-
-.card-flip-inner {
-  position: relative;
-  transform-style: preserve-3d;
-  transition: transform 300ms cubic-bezier(0.2, 0.8, 0.3, 1);
-}
-
-.card-flip-inner.is-flipped {
-  transform: rotateY(180deg);
-}
-
-.card-face {
-  position: absolute;
-  inset: 0;
-  backface-visibility: hidden;
-}
-
-.card-face-back {
-  transform: rotateY(180deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .card-flip-inner {
-    transition: none;
-  }
-}
-
-/* ═══════════════════════════════════════════════════
-   ADMIN DASHBOARD — deliberately NOT the participant skin. Dense tables,
-   scanned repeatedly under stress, not read once from across a room. Same
-   tokens (fonts, base palette), no halftone motion, no web-shooter cursor.
-   ═══════════════════════════════════════════════════ */
-
-.admin-shell {
-  background: var(--ink-black);
-  color: var(--paper-white);
-  font-family: var(--font-inter), system-ui, sans-serif;
-  min-height: 100dvh;
-}
-
-.admin-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8rem;
-}
-
-.admin-table th {
-  text-align: left;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.65rem;
-  color: rgba(242, 239, 233, 0.5);
-  padding: 0.5rem 0.75rem;
-  border-bottom: 2px solid rgba(242, 239, 233, 0.15);
-  white-space: nowrap;
-}
-
-.admin-table td {
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid rgba(242, 239, 233, 0.08);
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  white-space: nowrap;
-}
-
-.admin-table tr:hover td {
-  background: rgba(242, 239, 233, 0.03);
-}
-
-.admin-card {
-  background: rgba(242, 239, 233, 0.03);
-  border: 1px solid rgba(242, 239, 233, 0.12);
-  border-radius: 4px;
-}
-
-.admin-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-}
-
-/* ═══════════════════════════════════════════════════
-   SCROLLBAR
-   ═══════════════════════════════════════════════════ */
-
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-track {
-  background: var(--ink-black);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--spider-red);
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--spider-red-dark);
 }

@@ -229,8 +229,19 @@ export default function Mcq2Phase({
               <p className="mx-auto mt-3 max-w-sm text-sm text-paper-white/60">
                 {round === 3
                   ? "That's every question across every universe. Final standings are live — thanks for playing."
-                  : "Every question answered. Standings are live — hold tight while the coordinator makes the cut."}
+                  : "Every question answered! Click below to proceed to the next round."}
               </p>
+              {round < 3 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href = `/quiz?round=${round + 1}`;
+                  }}
+                  className="comic-btn comic-btn-cyan mt-6 px-6 py-3 font-bold text-sm tracking-wider"
+                >
+                  Proceed to Round {round + 1} →
+                </button>
+              )}
             </div>
           </div>
           <Standings round={round} />
@@ -250,22 +261,47 @@ export default function Mcq2Phase({
 
             <h2 className="text-lg font-semibold leading-snug text-paper-white sm:text-xl">{question.title}</h2>
 
+            {/* CLEAN SPIDER-VERSE VISUAL TIMER DISPLAY */}
             {!verdict && (
-              <div className="mt-4">
-                {phase === "read" && (
-                  <p className="font-comic text-sm text-web-blue-light">
-                    READ — answering opens in <span className="tabular-nums">{readSecondsLeft}s</span>
-                  </p>
-                )}
-                {phase === "select" && (
-                  <div
-                    aria-live="off"
-                    className={`font-comic text-right text-xl ${urgent ? "text-spider-red" : "text-glitch-cyan"}`}
-                  >
-                    {selectSecondsLeft}s to answer
+              <div className="mt-5 mb-4 panel p-3 border-2 border-glitch-cyan halftone relative overflow-hidden flex items-center gap-4">
+                {/* BIG CHROMATIC COUNTDOWN NUMBER */}
+                <div
+                  className={`font-display text-3xl sm:text-4xl px-3 py-1 border-2 border-ink-black shadow-[3px_3px_0_#000] tabular-nums ${
+                    phase === "read"
+                      ? "bg-glitch-cyan text-ink-black"
+                      : urgent
+                        ? "bg-spider-red text-paper-white animate-pulse"
+                        : "bg-comic-yellow text-ink-black"
+                  }`}
+                >
+                  {phase === "read" ? `${readSecondsLeft}s` : `${selectSecondsLeft}s`}
+                </div>
+
+                {/* VISUAL ENERGY BAR TIMER (NO EXTRA TEXT) */}
+                <div className="flex-1">
+                  <div className="w-full bg-ink-black/90 border-2 border-paper-white/20 h-4 relative overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-200 ${
+                        phase === "read"
+                          ? "bg-glitch-cyan shadow-[0_0_12px_var(--glitch-cyan)]"
+                          : urgent
+                            ? "bg-spider-red shadow-[0_0_14px_var(--spider-red)]"
+                            : "bg-comic-yellow shadow-[0_0_12px_var(--comic-yellow)]"
+                      }`}
+                      style={{
+                        width: `${Math.max(
+                          0,
+                          Math.min(
+                            100,
+                            phase === "read"
+                              ? ((readUntilMs - now) / 6000) * 100
+                              : ((answerableUntilMs - now) / 10000) * 100
+                          )
+                        )}%`,
+                      }}
+                    />
                   </div>
-                )}
-                {phase === "closed" && <p className="font-comic text-sm text-signal-wrong">TIME&apos;S UP</p>}
+                </div>
               </div>
             )}
 
@@ -276,59 +312,69 @@ export default function Mcq2Phase({
               </p>
             )}
 
+            {/* OPTIONS LIST — ONLY SHOWN DURING PHASE 2 (SELECT PHASE) & CLOSED VERDICT */}
             {!verdict && (
               <div className="mt-6">
-                <ul className="grid gap-2">
-                  {question.options.map((opt, i) => {
-                    const struck = question.eliminated.includes(i);
-                    const picked = choice === i;
-                    const disabled = struck || phase !== "select";
-                    return (
-                      <li key={i}>
-                        <button
-                          type="button"
-                          data-web-target=""
-                          disabled={disabled}
-                          aria-pressed={picked}
-                          onClick={(e) => {
-                            const r = e.currentTarget.getBoundingClientRect();
-                            const hit =
-                              e.clientX === 0 && e.clientY === 0
-                                ? { x: 50, y: 50 }
-                                : { x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 };
-                            setWebHit(hit);
-                            setChoice(i);
-                          }}
-                          style={picked ? { borderColor: persona.colour } : undefined}
-                          className={`relative w-full overflow-hidden border-2 px-4 py-3 text-left text-sm transition-[transform,border-color,background-color] duration-100 ${
-                            struck
-                              ? "cursor-not-allowed border-paper-white/8 text-paper-white/25 line-through"
-                              : picked
-                                ? "bg-paper-white/[0.06] text-paper-white"
-                                : "border-paper-white/15 text-paper-white hover:border-paper-white/40 disabled:opacity-40"
-                          }`}
-                        >
-                          {picked && <WebNet colour={persona.webColour} originX={webHit.x} originY={webHit.y} />}
-                          <span className="relative flex items-start">
-                            <span className="mr-3 font-display" style={{ color: picked ? persona.colour : "rgba(242,239,233,0.4)" }}>
-                              {String.fromCharCode(65 + i)}
-                            </span>
-                            <span>{opt}</span>
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
+                {phase === "read" ? (
+                  <div className="panel p-6 text-center border-2 border-dashed border-paper-white/20 bg-ink-black/60">
+                    <div className="font-comic text-2xl text-paper-white/40 mb-1">🔒 OPTIONS LOCKED</div>
+                    <p className="text-xs text-paper-white/50">Options will automatically reveal when reading time completes in {readSecondsLeft}s.</p>
+                  </div>
+                ) : (
+                  <>
+                    <ul className="grid gap-2 anim-glitch-in">
+                      {question.options.map((opt, i) => {
+                        const struck = question.eliminated.includes(i);
+                        const picked = choice === i;
+                        const disabled = struck || phase !== "select";
+                        return (
+                          <li key={i}>
+                            <button
+                              type="button"
+                              data-web-target=""
+                              disabled={disabled}
+                              aria-pressed={picked}
+                              onClick={(e) => {
+                                const r = e.currentTarget.getBoundingClientRect();
+                                const hit =
+                                  e.clientX === 0 && e.clientY === 0
+                                    ? { x: 50, y: 50 }
+                                    : { x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 };
+                                setWebHit(hit);
+                                setChoice(i);
+                              }}
+                              style={picked ? { borderColor: persona.colour } : undefined}
+                              className={`relative w-full overflow-hidden border-2 px-4 py-3 text-left text-sm transition-[transform,border-color,background-color] duration-100 ${
+                                struck
+                                  ? "cursor-not-allowed border-paper-white/8 text-paper-white/25 line-through"
+                                  : picked
+                                    ? "bg-paper-white/[0.06] text-paper-white"
+                                    : "border-paper-white/15 text-paper-white hover:border-paper-white/40 disabled:opacity-40"
+                              }`}
+                            >
+                              {picked && <WebNet colour={persona.webColour} originX={webHit.x} originY={webHit.y} />}
+                              <span className="relative flex items-start">
+                                <span className="mr-3 font-display" style={{ color: picked ? persona.colour : "rgba(242,239,233,0.4)" }}>
+                                  {String.fromCharCode(65 + i)}
+                                </span>
+                                <span>{opt}</span>
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
 
-                <button
-                  type="button"
-                  onClick={submit}
-                  disabled={submitting || phase !== "select" || choice === null}
-                  className="comic-btn comic-btn-cyan mt-5"
-                >
-                  {submitting ? "Sending…" : "Lock it in"}
-                </button>
+                    <button
+                      type="button"
+                      onClick={submit}
+                      disabled={submitting || phase !== "select" || choice === null}
+                      className="comic-btn comic-btn-cyan mt-5"
+                    >
+                      {submitting ? "Sending…" : "Lock it in"}
+                    </button>
+                  </>
+                )}
               </div>
             )}
 
@@ -358,20 +404,49 @@ export default function Mcq2Phase({
         </div>
       )}
 
-      {round === 3 && comeback?.ability && !comeback.used && comeback.usableOnSlug === question?.slug && !verdict && (
-        <section className="halftone panel mt-6 p-5">
-          <div className="relative flex flex-wrap items-center justify-between gap-4">
-            <div className="anim-surge">
-              <div className="font-comic text-2xl text-gadget-pink">
-                <span className="mr-1.5">{comeback.info?.icon}</span>
-                {comeback.info?.label}
+      {round === 3 && (
+        <section className="halftone panel mt-6 p-4 border-2 border-gadget-pink/40">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="font-comic text-lg text-gadget-pink flex items-center gap-2">
+                <span>⚡ COMEBACK METER</span>
+                <span className="text-xs font-mono text-paper-white/60">({comeback?.bottomStreak ?? 0} / 3 NOTCHES)</span>
               </div>
-              <div className="mt-0.5 text-xs text-paper-white/60">{comeback.info?.description}</div>
+              <div className="text-xs text-paper-white/50 mt-0.5">
+                Fills when finishing in the bottom tier. Reaching 3 notches unlocks a Multiverse Comeback Ability.
+              </div>
             </div>
-            <button type="button" onClick={useAbility} disabled={phase !== "select"} className="comic-btn comic-btn-pink">
-              Use it
-            </button>
+            <div className="flex items-center gap-1.5">
+              {[1, 2, 3].map((notch) => {
+                const filled = (comeback?.bottomStreak ?? 0) >= notch;
+                return (
+                  <div
+                    key={notch}
+                    className={`h-4 w-8 border-2 transition-all duration-300 ${
+                      filled
+                        ? "border-gadget-pink bg-gadget-pink shadow-[0_0_10px_var(--gadget-pink)]"
+                        : "border-paper-white/20 bg-ink-black/60"
+                    }`}
+                  />
+                );
+              })}
+            </div>
           </div>
+
+          {comeback?.ability && !comeback.used && comeback.usableOnSlug === question?.slug && !verdict && (
+            <div className="mt-4 pt-3 border-t border-paper-white/15 flex flex-wrap items-center justify-between gap-4">
+              <div className="anim-surge">
+                <div className="font-comic text-xl text-gadget-pink flex items-center gap-2">
+                  <span>{comeback.info?.icon}</span>
+                  <span>UNLOCKED: {comeback.info?.label}</span>
+                </div>
+                <div className="mt-0.5 text-xs text-paper-white/70">{comeback.info?.description}</div>
+              </div>
+              <button type="button" onClick={useAbility} disabled={phase !== "select"} className="comic-btn comic-btn-pink text-xs">
+                Use Ability
+              </button>
+            </div>
+          )}
         </section>
       )}
     </div>
