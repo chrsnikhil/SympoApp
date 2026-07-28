@@ -1,24 +1,27 @@
 "use client";
 
-import { useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { RoundedBox, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import type { ReticleShape } from "@/lib/quiz/avatars";
 
 /**
- * The actual 3D gauntlet — real geometry (capsules, boxes, a sphere for the
- * core lens), a perspective camera, and real lighting, rendered on its own
- * transparent WebGL canvas pinned to the bottom-right corner. Built entirely
- * from primitive shapes assembled into an original mechanical hand; nothing
- * here is an imported mesh or a recreation of a licensed character's rig.
+ * The actual 3D gauntlet — real geometry, a perspective camera, and real
+ * lighting, rendered on its own transparent WebGL canvas pinned to the
+ * bottom-right corner. If an original (non-licensed) rigged model is ever
+ * dropped at `public/models/spider-hand.glb`, this loads and uses it;
+ * otherwise it builds a stylised low-poly hand procedurally from primitives
+ * (cylinders, a rounded box, a torus, emissive spheres) — original either
+ * way, never a recreation of a specific licensed character's design.
  *
  * `fireQueueRef` is how the 2D click handler in WebShooter.tsx talks to this
  * scene without needing its own render tree inside the Canvas: a click pushes
  * a target rect onto the queue, this component's per-frame loop drains it,
  * plays the recoil, and reports back the muzzle's actual PROJECTED screen
  * position (world position → camera projection → canvas pixel space) via
- * `onFire` — so the verlet web strand launches from where the hand really is
- * on screen at that instant, not a guessed fixed point.
+ * `onFire` — so the verlet web strand in WebShooter.tsx launches from where
+ * the hand really is on screen at that instant, not a guessed fixed point.
  */
 
 export interface TargetRect {
@@ -35,9 +38,9 @@ export interface NozzleReport {
   target: TargetRect;
 }
 
-const FINGER_ANGLES = [-30, -10, 10, 30];
-const RIG_WIDTH = 240;
-const RIG_HEIGHT = 260;
+const RIG_SIZE = 210;
+const MODEL_URL = "/models/spider-hand.glb";
+const FINGER_ANGLES = [-40, -20, 0, 20, 40];
 
 export default function WebShooterRig({
   gloveColour,
@@ -54,68 +57,72 @@ export default function WebShooterRig({
   onFire: (report: NozzleReport) => void;
   reducedMotion: boolean;
 }) {
+  // Only ever true if someone later drops an original rigged model at this
+  // path — nothing in this codebase fetches or generates one. HEAD-checked
+  // once so a missing file falls straight back to the procedural hand
+  // instead of Suspense hanging on a 404.
+  const [hasModel, setHasModel] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(MODEL_URL, { method: "HEAD" })
+      .then((res) => !cancelled && setHasModel(res.ok))
+      .catch(() => !cancelled && setHasModel(false));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (hasModel === null) return null;
+
   return (
-    <div
-      className="pointer-events-none fixed bottom-0 right-0 z-[9998]"
-      style={{ width: RIG_WIDTH, height: RIG_HEIGHT }}
-      aria-hidden="true"
-    >
-      <Canvas gl={{ alpha: true, antialias: true }} camera={{ position: [0, 0.1, 3.1], fov: 30 }} style={{ background: "transparent" }}>
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[2.2, 3, 3]} intensity={1.15} />
-        <pointLight position={[-1.4, 0.6, 1.6]} intensity={0.7} color={accentColour} />
-        <pointLight position={[0, -1, 1]} intensity={0.25} color="#ffffff" />
-        <Rig
-          gloveColour={gloveColour}
-          accentColour={accentColour}
-          shape={shape}
-          fireQueueRef={fireQueueRef}
-          onFire={onFire}
-          reducedMotion={reducedMotion}
-        />
+    <div className="pointer-events-none fixed bottom-0 right-0 z-[9998]" style={{ width: RIG_SIZE, height: RIG_SIZE }} aria-hidden="true">
+      <Canvas gl={{ alpha: true, antialias: true }} camera={{ position: [0, 0.15, 3.3], fov: 28 }} style={{ background: "transparent" }}>
+        <ambientLight intensity={0.55} />
+        <directionalLight position={[2.4, 3, 3]} intensity={1.3} />
+        <pointLight position={[-1.6, 0.4, 1.8]} intensity={0.8} color={accentColour} />
+        <pointLight position={[0, -1.2, 1]} intensity={0.2} color="#ffffff" />
+        <Suspense fallback={null}>
+          {hasModel ? (
+            <GltfHand url={MODEL_URL} fireQueueRef={fireQueueRef} onFire={onFire} reducedMotion={reducedMotion} />
+          ) : (
+            <ProceduralHand
+              gloveColour={gloveColour}
+              accentColour={accentColour}
+              shape={shape}
+              fireQueueRef={fireQueueRef}
+              onFire={onFire}
+              reducedMotion={reducedMotion}
+            />
+          )}
+        </Suspense>
       </Canvas>
     </div>
   );
 }
 
-function Rig({
-  gloveColour,
-  accentColour,
-  shape,
-  fireQueueRef,
-  onFire,
-  reducedMotion,
-}: {
-  gloveColour: string;
-  accentColour: string;
-  shape: ReticleShape;
-  fireQueueRef: React.RefObject<TargetRect[]>;
-  onFire: (report: NozzleReport) => void;
-  reducedMotion: boolean;
-}) {
-  const armGroup = useRef<THREE.Group>(null);
-  const muzzleRef = useRef<THREE.Object3D>(null);
-  const coreRef = useRef<THREE.Mesh>(null);
+/** Shared per-frame behaviour: idle Y auto-rotate, a recoil kick on fire,
+ *  and draining the fire queue into a projected muzzle report. Both the GLB
+ *  and procedural paths call this with their own group + muzzle refs. */
+function useRig(
+  groupRef: React.RefObject<THREE.Group | null>,
+  muzzleRef: React.RefObject<THREE.Object3D | null>,
+  fireQueueRef: React.RefObject<TargetRect[]>,
+  onFire: (report: NozzleReport) => void,
+  reducedMotion: boolean
+) {
   const recoil = useRef(0);
   const { camera, gl } = useThree();
 
-  const darkGlove = darken(gloveColour, 0.35);
+  useFrame((_state, delta) => {
+    const group = groupRef.current;
+    if (!group) return;
 
-  useFrame((state) => {
-    const arm = armGroup.current;
-    if (!arm) return;
-
-    const t = state.clock.elapsedTime;
-    const sway = reducedMotion ? 0 : Math.sin(t * 1.05) * 0.028;
-    arm.position.y = -0.92 + sway;
-    arm.rotation.z = sway * 0.6 - recoil.current * 0.55;
-    arm.position.x = 0.34 - recoil.current * 0.05;
-    recoil.current *= 0.86;
-
-    if (coreRef.current) {
-      const mat = coreRef.current.material as THREE.MeshStandardMaterial;
-      mat.emissiveIntensity = reducedMotion ? 1.1 : 1 + Math.sin(t * 2.2) * 0.45;
-    }
+    // Slow idle turntable — ~0.2 rad/sec — plus a quick forward-dip recoil
+    // that decays back to rest every frame.
+    if (!reducedMotion) group.rotation.y += delta * 0.2;
+    recoil.current *= 0.85;
+    group.position.z = recoil.current * 0.15;
+    group.rotation.x = -recoil.current * 0.25;
 
     const queue = fireQueueRef.current;
     if (queue && queue.length > 0) {
@@ -132,68 +139,113 @@ function Rig({
       }
     }
   });
+}
+
+function GltfHand({
+  url,
+  fireQueueRef,
+  onFire,
+  reducedMotion,
+}: {
+  url: string;
+  fireQueueRef: React.RefObject<TargetRect[]>;
+  onFire: (report: NozzleReport) => void;
+  reducedMotion: boolean;
+}) {
+  const { scene } = useGLTF(url);
+  const groupRef = useRef<THREE.Group>(null);
+  const muzzleRef = useRef<THREE.Object3D>(null);
+  useRig(groupRef, muzzleRef, fireQueueRef, onFire, reducedMotion);
 
   return (
-    <group ref={armGroup} rotation={[0.12, -0.4, 0]}>
+    <group ref={groupRef}>
+      <primitive object={scene} scale={1} />
+      <object3D ref={muzzleRef} position={[0, 0.7, 0.15]} />
+    </group>
+  );
+}
+
+/**
+ * Original low-poly gauntlet: five cylinder fingers fanned from a rounded
+ * palm, a torus wrist band, and small emissive spheres standing in for LEDs.
+ * Deliberately geometric rather than an attempt at photoreal anatomy — reads
+ * clearly as a stylised hand without leaning on any licensed character's
+ * silhouette or suit pattern.
+ */
+function ProceduralHand({
+  gloveColour,
+  accentColour,
+  shape,
+  fireQueueRef,
+  onFire,
+  reducedMotion,
+}: {
+  gloveColour: string;
+  accentColour: string;
+  shape: ReticleShape;
+  fireQueueRef: React.RefObject<TargetRect[]>;
+  onFire: (report: NozzleReport) => void;
+  reducedMotion: boolean;
+}) {
+  const groupRef = useRef<THREE.Group>(null);
+  const muzzleRef = useRef<THREE.Object3D>(null);
+  const coreRef = useRef<THREE.Mesh>(null);
+  useRig(groupRef, muzzleRef, fireQueueRef, onFire, reducedMotion);
+
+  useFrame((state) => {
+    if (coreRef.current) {
+      const mat = coreRef.current.material as THREE.MeshStandardMaterial;
+      mat.emissiveIntensity = reducedMotion ? 1.1 : 1 + Math.sin(state.clock.elapsedTime * 2.2) * 0.5;
+    }
+  });
+
+  const darkGlove = darken(gloveColour, 0.4);
+
+  return (
+    <group ref={groupRef} rotation={[0.15, -0.5, 0]} position={[0, -0.55, 0]}>
       {/* Forearm sleeve */}
-      <mesh position={[0, -0.78, 0]}>
-        <cylinderGeometry args={[0.32, 0.38, 1.3, 14]} />
+      <mesh position={[0, -0.95, 0]}>
+        <cylinderGeometry args={[0.3, 0.36, 1.1, 16]} />
         <meshStandardMaterial color="#16181d" roughness={0.65} metalness={0.25} />
       </mesh>
 
-      {/* Wrist gauntlet unit */}
-      <mesh position={[0, -0.06, 0]}>
-        <boxGeometry args={[0.8, 0.3, 0.5]} />
-        <meshStandardMaterial color="#1c1f24" roughness={0.3} metalness={0.75} />
+      {/* Wrist gauntlet — a torus band around the sleeve/palm join */}
+      <mesh position={[0, -0.34, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.32, 0.09, 14, 28]} />
+        <meshStandardMaterial color="#1c1f24" roughness={0.3} metalness={0.8} />
       </mesh>
-      <mesh ref={coreRef} position={[0, -0.06, 0.27]}>
-        <sphereGeometry args={[0.09, 20, 20]} />
+      <mesh ref={coreRef} position={[0, -0.34, 0.34]}>
+        <sphereGeometry args={[0.075, 20, 20]} />
         <meshStandardMaterial color={accentColour} emissive={accentColour} emissiveIntensity={1.2} toneMapped={false} />
       </mesh>
-      {[-0.32, 0.32].map((x) =>
-        [0.05, -0.16].map((y, j) => (
-          <mesh key={`${x}-${j}`} position={[x, y, 0.24]}>
-            <boxGeometry args={[0.05, 0.09, 0.03]} />
-            <meshStandardMaterial color={accentColour} emissive={accentColour} emissiveIntensity={0.9} toneMapped={false} />
-          </mesh>
-        ))
-      )}
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * 0.3, -0.34, 0.1]}>
+          <sphereGeometry args={[0.04, 12, 12]} />
+          <meshStandardMaterial color={accentColour} emissive={accentColour} emissiveIntensity={0.9} toneMapped={false} />
+        </mesh>
+      ))}
 
       {/* Palm */}
-      <mesh position={[0, 0.3, 0]}>
-        <boxGeometry args={[0.58, 0.56, 0.38]} />
+      <RoundedBox args={[0.62, 0.5, 0.32]} radius={0.14} smoothness={4} position={[0, 0.06, 0]}>
         <meshStandardMaterial color={gloveColour} roughness={0.7} metalness={0.05} />
-      </mesh>
+      </RoundedBox>
 
-      {/* Fingers — two-segment chains fanned from the palm top */}
+      {/* Fingers — five cylinders fanned from the palm top */}
       {FINGER_ANGLES.map((angle, i) => (
-        <group key={i} position={[0, 0.56, 0]} rotation={[0, 0, THREE.MathUtils.degToRad(angle)]}>
-          <mesh position={[0, 0.16, 0]}>
-            <capsuleGeometry args={[0.085, 0.22, 4, 8]} />
-            <meshStandardMaterial color={i % 2 === 0 ? gloveColour : darkGlove} roughness={0.7} />
+        <group key={i} position={[0, 0.3, 0]} rotation={[0, 0, THREE.MathUtils.degToRad(angle)]}>
+          <mesh position={[0, 0.24, 0]}>
+            <cylinderGeometry args={[0.065, 0.075, 0.48, 10]} />
+            <meshStandardMaterial color={i % 2 === 0 ? gloveColour : darkGlove} roughness={0.65} />
           </mesh>
-          <group position={[0, 0.3, 0]} rotation={[0.3, 0, 0]}>
-            <mesh position={[0, 0.1, 0]}>
-              <capsuleGeometry args={[0.07, 0.16, 4, 8]} />
-              <meshStandardMaterial color={i % 2 === 0 ? gloveColour : darkGlove} roughness={0.7} />
-            </mesh>
-          </group>
+          <mesh position={[0, 0.49, 0]}>
+            <sphereGeometry args={[0.065, 10, 10]} />
+            <meshStandardMaterial color={i % 2 === 0 ? gloveColour : darkGlove} roughness={0.65} />
+          </mesh>
         </group>
       ))}
 
-      {/* Thumb — shorter, single segment, angled out to the side */}
-      <group position={[-0.3, 0.16, 0.08]} rotation={[0, 0, THREE.MathUtils.degToRad(58)]}>
-        <mesh position={[0, 0.14, 0]}>
-          <capsuleGeometry args={[0.085, 0.18, 4, 8]} />
-          <meshStandardMaterial color={darkGlove} roughness={0.7} />
-        </mesh>
-      </group>
-
-      {/* Lens accessory on the wrist core, per persona reticle shape */}
       <LensMark shape={shape} />
-
-      {/* Muzzle — the actual web-exit point, tracked via getWorldPosition each fire */}
-      <object3D ref={muzzleRef} position={[0, 0.72, 0.1]} />
+      <object3D ref={muzzleRef} position={[0, 0.62, 0.12]} />
     </group>
   );
 }
@@ -202,8 +254,8 @@ function LensMark({ shape }: { shape: ReticleShape }) {
   const rotation = shape === "hex" ? Math.PI / 6 : 0;
   const segments = shape === "hex" ? 6 : shape === "spray" ? 8 : shape === "ribbon" ? 3 : 4;
   return (
-    <mesh position={[0, -0.06, 0.33]} rotation={[0, 0, rotation]}>
-      <ringGeometry args={[0.1, 0.115, segments]} />
+    <mesh position={[0, -0.34, 0.4]} rotation={[0, 0, rotation]}>
+      <ringGeometry args={[0.09, 0.105, segments]} />
       <meshBasicMaterial color="#0a0a0a" transparent opacity={0.55} side={THREE.DoubleSide} />
     </mesh>
   );
