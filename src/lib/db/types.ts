@@ -100,6 +100,10 @@ export interface Challenge {
     memoryPairs?: number;
     /** quiz memory: max flips before the grid locks. */
     memoryFlipCap?: number;
+    /** quiz connections: tile image paths, revealed one at a time from index 0. */
+    connectionsImages?: string[];
+    /** quiz connections: seconds between each successive image reveal, timed from `opensAt`. */
+    connectionsRevealSeconds?: number;
     /** ctf: extra points for the first team to solve. */
     firstBloodBonus?: number;
     /** code: reference to the hidden test bundle in blob storage. */
@@ -186,7 +190,7 @@ export type QuizRound = 1 | 2 | 3;
  * — the quiz grader dispatches on this, which is how three unrelated Round 1
  * mini-games and a two-phase-timed MCQ format all live inside one event.
  */
-export type QuizFormat = "mcq" | "estimate" | "prompt-image" | "memory";
+export type QuizFormat = "mcq" | "estimate" | "prompt-image" | "memory" | "connections";
 
 /**
  * A physical 3D-printed coin, one document per disc, `_id` being the number
@@ -323,4 +327,26 @@ export interface ComebackState {
   usableOnSlug: string | null;
   usedAt: Date | null;
   usedOnSlug: string | null;
+}
+
+/**
+ * Rounds 2 & 3 run full-screen with the tab treated as the only legitimate
+ * surface. This is an append-only log of moments a client reported leaving
+ * that surface — tab switch, window blur, or dropping out of fullscreen.
+ *
+ * DELIBERATELY NOT AN ANTI-CHEAT ENFORCEMENT MECHANISM. A browser cannot be
+ * trusted to police itself — anything client-reported can be suppressed by a
+ * sufficiently determined team, and this doesn't pretend otherwise. What it
+ * gives the coordinator is a timestamped signal to review, same spirit as the
+ * append-only score ledger: never silently correct anything, just record what
+ * was observed and let a human decide what it means.
+ */
+export type ProctorFlagKind = "tab-switch" | "window-blur" | "fullscreen-exit";
+
+export interface ProctorFlag {
+  _id?: ObjectId;
+  teamId: ObjectId;
+  round: QuizRound;
+  kind: ProctorFlagKind;
+  at: Date;
 }

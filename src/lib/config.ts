@@ -52,6 +52,26 @@ export function eventFromHost(host: string | null | undefined): EventKey | null 
   return (EVENTS as readonly string[]).includes(sub) ? (sub as EventKey) : null;
 }
 
+/**
+ * Swap the leading label of a host for an event's, so `/enter` can send a
+ * freshly-logged-in participant to the right subdomain even when they
+ * reached the entry form directly (no `?rt=` from a proxy bounce).
+ *
+ *   eventHostFor("localhost:3000", "quiz")      -> "quiz.localhost:3000"
+ *   eventHostFor("app.localhost:3000", "quiz")  -> "quiz.localhost:3000"
+ *   eventHostFor("www.example.com", "quiz")     -> "quiz.example.com"
+ *
+ * Only rewrites when the leading label is a known app host — a host that's
+ * already an event subdomain (or anything unrecognised) is left alone rather
+ * than guessed at.
+ */
+export function eventHostFor(host: string, event: EventKey): string {
+  const [first, ...rest] = host.split(".");
+  const label = first.split(":")[0].toLowerCase();
+  if (!(APP_HOSTS as readonly string[]).includes(label)) return host;
+  return rest.length > 0 ? `${event}.${rest.join(".")}` : `${event}.${host}`;
+}
+
 /** Env var that must exist before the app can do anything meaningful. */
 export function requireEnv(name: string): string {
   const v = process.env[name];

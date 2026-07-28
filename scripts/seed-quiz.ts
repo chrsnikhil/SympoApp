@@ -16,7 +16,7 @@ import { ObjectId } from "mongodb";
 import { randomBytes } from "node:crypto";
 import { collections, ensureIndexes } from "../src/lib/db/client";
 import { withThrottleRetry } from "../src/lib/db/retry";
-import { hashCode, normaliseCode } from "../src/lib/auth/session";
+import { hashAnswer, hashCode, normaliseCode } from "../src/lib/auth/session";
 import { AVATARS, MAX_COIN, formatCoin } from "../src/lib/quiz/avatars";
 import type { Challenge } from "../src/lib/db/types";
 
@@ -26,9 +26,21 @@ function makeCode(): string {
   return `X26-${chunk(5)}-${chunk(5)}`;
 }
 
-// ── Round 1, Game 3 — Guess the Number ───────────────────────────────────────
-const GUESS_TITLE = "A canon event touches every universe once. Roughly how many Spider-People has the Multiverse recorded, according to the Spider-Society's registry?";
-const GUESS_TRUE_VALUE = 300;
+// ── Round 1, Game 2 — Connections ────────────────────────────────────────────
+// Four tiles that share one hidden technical term, revealed one at a time.
+// The art here is still the assets repo's anonymised PLACEHOLDER frames — per
+// its own README, which puzzle number means which subject is the
+// coordinator's call, never committed or filename-encoded (a labelled
+// filename would just hand the answer to anyone reading the network tab).
+// CONNECTIONS_ANSWER below is a placeholder for local testing only — swap it
+// (and the artwork) for the real assignment before the event.
+const CONNECTIONS_TITLE = "Four pictures. One shared technical term.";
+// NOTE: this file runs main() unconditionally at import time (see the bottom
+// of the file), so it must never be `import`-ed by another script — that
+// would re-run the seed as a side effect. scripts/verify-quiz.ts duplicates
+// this literal for that reason; keep the two in sync by hand.
+const CONNECTIONS_ANSWER = "recursion";
+const CONNECTIONS_IMAGES = ["/quiz/connect-1-a.svg", "/quiz/connect-1-b.svg", "/quiz/connect-1-c.svg", "/quiz/connect-1-d.svg"];
 
 // ── Round 2 — Warm-up MCQs (8 questions, flat scoring, no reveal) ───────────
 type Mcq = { q: string; options: string[]; correct: number; hint?: string };
@@ -119,7 +131,26 @@ async function main() {
     config: { round: 1, format: "prompt-image", order: 1, referenceImage: "/quiz/reference-1.svg" },
   });
 
-  // Round 1, Game 2 — Memory Game.
+  // Round 1, Game 2 — Connections. Played after Image Replication, before the
+  // Memory Game — see `lib/quiz/round1.ts` for the sequencing.
+  docs.push({
+    type: "quiz",
+    slug: "connections-1",
+    title: CONNECTIONS_TITLE,
+    points: 8,
+    opensAt: null,
+    closesAt: null,
+    config: {
+      round: 1,
+      format: "connections",
+      order: 2,
+      connectionsImages: CONNECTIONS_IMAGES,
+      connectionsRevealSeconds: 15,
+      answerHash: hashAnswer(CONNECTIONS_ANSWER),
+    },
+  });
+
+  // Round 1, Game 3 — Memory Game.
   docs.push({
     type: "quiz",
     slug: "memory-1",
@@ -127,18 +158,7 @@ async function main() {
     points: 16,
     opensAt: null,
     closesAt: null,
-    config: { round: 1, format: "memory", order: 2, memoryPairs: 8 },
-  });
-
-  // Round 1, Game 3 — Guess the Number.
-  docs.push({
-    type: "quiz",
-    slug: "guess-1",
-    title: GUESS_TITLE,
-    points: 5,
-    opensAt: null,
-    closesAt: null,
-    config: { round: 1, format: "estimate", order: 3, answerValue: GUESS_TRUE_VALUE },
+    config: { round: 1, format: "memory", order: 3, memoryPairs: 8 },
   });
 
   ROUND_2.forEach((m, i) => {
@@ -179,10 +199,11 @@ async function main() {
   console.log("  Hand a team any coin; its number decides their character.");
   console.log("────────────────────────────────────────────────────────────────");
 
-  console.log(`\nSeeded 3 round-1 games, ${ROUND_2.length} round-2 and ${ROUND_3.length} round-3 questions.`);
+  console.log(`\nSeeded 3 round-1 games (sequential: image -> connections -> memory), ${ROUND_2.length} round-2 and ${ROUND_3.length} round-3 questions.`);
   console.log("Before Round 1 runs: npx tsx scripts/set-reference.ts image-1 ./reference.jpg");
-  console.log('Then on the day: npx tsx scripts/quiz-admin.ts open image-1 5   (and "open guess-1 3")');
-  console.log(`Verify GUESS_TRUE_VALUE (${GUESS_TRUE_VALUE}) before the event — closest-wins scoring is only as fair as the truth value.`);
+  console.log('Then on the day: npx tsx scripts/quiz-admin.ts open image-1 5   (and "open connections-1 5")');
+  console.log("Connections art is still the assets repo's PLACEHOLDER frames, and CONNECTIONS_ANSWER is a dev-only stand-in --");
+  console.log("replace both the four tiles and the answer with the coordinator's real assignment before the event.");
 
   process.exit(0);
 }

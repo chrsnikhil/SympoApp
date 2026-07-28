@@ -14,8 +14,11 @@ import type { QuizRound } from "@/lib/db/types";
  *
  *   POST { action: "advance", round: 1, count?: 8 }
  *     Cut to the next round. Writes the qualification set.
- *   POST { action: "resolve-estimate", slug: "guess-1" }
- *     Settle Guess the Number once every team has answered.
+ *   POST { action: "resolve-estimate", slug: "<estimate-format-slug>" }
+ *     Settle a shared-window "closest guess wins" game once every team has
+ *     answered. Not used by the current Round 1 lineup (Connections replaced
+ *     the earlier Guess the Number slot) — kept as general-purpose infra for
+ *     an `estimate`-format challenge if one gets added again.
  *   POST { action: "judge-image", slug: "image-1" }
  *     Vision-judge Image Replication. Failed submissions are released to retry.
  *   POST { action: "resolve-image", slug: "image-1", scores: { "<teamId>": 0.82 } }
@@ -121,10 +124,11 @@ export async function POST(request: Request) {
       }
 
       case "open": {
-        // Opens a shared-window Round 1 game (Image Replication's 5-minute
-        // limit, Guess the Number's answer window) for `minutes` starting now
-        // — sets the SAME opensAt/closesAt the submission pipeline already
-        // enforces, so this needs no new gate.
+        // Opens a shared-window Round 1 game (Image Replication's upload
+        // window, Connections' reveal-and-guess window) for `minutes` starting
+        // now — sets the SAME opensAt/closesAt the submission pipeline already
+        // enforces, so this needs no new gate. Connections' reveal schedule is
+        // timed from this same opensAt (see `lib/quiz/connections.ts`).
         if (!body.slug) return NextResponse.json({ error: "Missing slug" }, { status: 400 });
         const minutes = body.minutes ?? 5;
         const challenges = await collections.challenges();

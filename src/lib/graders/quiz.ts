@@ -1,5 +1,6 @@
 import { collections } from "@/lib/db/client";
 import { closeQuestionForComeback } from "@/lib/quiz/comeback";
+import { scoreConnections } from "@/lib/quiz/connections";
 import { isQualified } from "@/lib/quiz/rounds";
 import { markAnswered, serveFor } from "@/lib/quiz/serve";
 import { acceptEstimate, acceptPromptImage, scoreMcq } from "@/lib/quiz/scoring";
@@ -55,6 +56,15 @@ export async function gradeQuiz(input: GradeInput): Promise<GradeResult> {
     return acceptPromptImage(payload, teamId, challenge.slug);
   }
 
+  // Connections allows retries — a wrong guess shouldn't cost a team the rest
+  // of the puzzle — but stops taking them once it's been solved once.
+  if (format === "connections") {
+    const subs = await collections.submissions();
+    const solved = await subs.findOne({ challengeId: challenge._id, teamId, status: "done", "verdict.correct": true });
+    if (solved) return { correct: false, points: 0, meta: { reason: "already-solved" } };
+    return scoreConnections(challenge, payload);
+  }
+
   if (format === "memory") {
     // Never reached in practice (the client never submits this format here),
     // but fail closed rather than silently mis-scoring if it ever is.
@@ -72,12 +82,20 @@ export async function gradeQuiz(input: GradeInput): Promise<GradeResult> {
 
   const result = scoreMcq(challenge, payload, serve, receivedAt);
 
-  // Close the serve either way — a wrong or late answer still ends the
-  // question, and leaving it open would let a team keep guessing.
-  await markAnswered(teamId, challenge.slug, receivedAt);
-
-  if (round === 3) {
-    await closeQuestionForComeback(teamId, round, challenge.slug);
+  // Close the serve for a real attempt — wrong, right, eliminated-option or
+  // too-late — since leaving it open would let a team keep guessing. A
+  // too-early attempt is different: the real UI never produces one (options
+  // are disabled until the select phase), so the only way to see one is a
+  // request built by hand, well before the question could legitimately be
+  // answered. Closing the serve on THAT would burn a team's actual shot at
+  // the question over a probe that scored nothing anyway — a network race or
+  // a client bug firing a fraction early shouldn't cost a question a team
+  // still has their full window to answer for real.
+  if (result.meta?.reason !== "too-early") {
+    await markAnswered(teamId, challenge.slug, receivedAt);
+    if (round === 3) {
+      await closeQuestionForComeback(teamId, round, challenge.slug);
+    }
   }
 
   return result;

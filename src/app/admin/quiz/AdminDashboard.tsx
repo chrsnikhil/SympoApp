@@ -25,12 +25,13 @@ interface Overview {
       teamId: string;
       teamName: string;
       image: { status: string; points: number | null } | null;
+      connections: { attempts: number; solved: boolean } | null;
       memory: { flipsUsed: number; flipCap: number; matchedPairs: number; totalPairs: number; completed: boolean; points: number | null } | null;
-      guess: { status: string; points: number | null } | null;
     }>;
   };
   judgeQueue?: Array<{ teamId: string; teamName: string; submittedAt: string; imageId: string | null }>;
   comeback?: Array<{ teamId: string; teamName: string; bottomStreak: number; ability: string | null; usableOnSlug: string | null; used: boolean }>;
+  flags?: Array<{ teamId: string; teamName: string; tabSwitch: number; windowBlur: number; fullscreenExit: number; lastAt: string }>;
   coins: { claimed: number; total: number; rows: Array<{ coin: string; character: string; team: string }> };
 }
 
@@ -172,8 +173,8 @@ export default function AdminDashboard() {
                     <tr>
                       <th>Team</th>
                       <th>Image Replication</th>
+                      <th>Connections</th>
                       <th>Memory</th>
-                      <th>Guess the Number</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -182,13 +183,21 @@ export default function AdminDashboard() {
                         <td>{t.teamName}</td>
                         <td>{t.image ? `${t.image.status}${t.image.points !== null ? ` · ${t.image.points}pt` : ""}` : "—"}</td>
                         <td>
+                          {t.connections
+                            ? t.connections.solved
+                              ? `solved · ${t.connections.attempts} attempt${t.connections.attempts === 1 ? "" : "s"}`
+                              : t.connections.attempts > 0
+                                ? `${t.connections.attempts} attempt${t.connections.attempts === 1 ? "" : "s"}`
+                                : "not started"
+                            : "—"}
+                        </td>
+                        <td>
                           {t.memory
                             ? `${t.memory.matchedPairs}/${t.memory.totalPairs} pairs · ${t.memory.flipsUsed}/${t.memory.flipCap} flips${
                                 t.memory.completed ? ` · ${t.memory.points}pt` : ""
                               }`
                             : "not started"}
                         </td>
-                        <td>{t.guess ? `${t.guess.status}${t.guess.points !== null ? ` · ${t.guess.points}pt` : ""}` : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -239,19 +248,50 @@ export default function AdminDashboard() {
                 </button>
                 <button
                   disabled={busy}
-                  onClick={() => callAdvance({ action: "open", slug: "guess-1", minutes: 3 })}
+                  onClick={() => callAdvance({ action: "open", slug: "connections-1", minutes: 6 })}
                   className="border border-paper-white/20 px-4 py-2 text-xs text-paper-white/70 hover:border-paper-white/50"
                 >
-                  Open Guess the Number (3 min)
-                </button>
-                <button
-                  disabled={busy}
-                  onClick={() => callAdvance({ action: "resolve-estimate", slug: "guess-1" })}
-                  className="comic-btn px-4 py-2 text-xs"
-                >
-                  Settle Guess the Number
+                  Open Connections (6 min)
                 </button>
               </div>
+            </section>
+          )}
+
+          {(round === 2 || round === 3) && data.flags && (
+            <section className="admin-card p-4">
+              <h2 className="mb-1 font-display text-sm uppercase tracking-wide text-paper-white/70">Proctor flags</h2>
+              <p className="mb-3 text-xs text-paper-white/45">
+                Client-reported tab switches, window blurs and fullscreen exits during this round. A signal to review,
+                not an automatic disqualification — a browser can&apos;t police itself.
+              </p>
+              {data.flags.length === 0 ? (
+                <p className="text-xs text-paper-white/40">Nothing flagged.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Team</th>
+                        <th>Tab switches</th>
+                        <th>Window blur</th>
+                        <th>Left fullscreen</th>
+                        <th>Last flag</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.flags.map((f) => (
+                        <tr key={f.teamId}>
+                          <td>{f.teamName}</td>
+                          <td>{f.tabSwitch}</td>
+                          <td>{f.windowBlur}</td>
+                          <td>{f.fullscreenExit}</td>
+                          <td>{new Date(f.lastAt).toLocaleTimeString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
           )}
 

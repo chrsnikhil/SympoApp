@@ -59,8 +59,8 @@ export async function GET(request: Request) {
       games.sort((a, b) => (a.config.order ?? 0) - (b.config.order ?? 0));
 
       const imageGame = games.find((g) => g.config.format === "prompt-image");
+      const connectionsGame = games.find((g) => g.config.format === "connections");
       const memoryGame = games.find((g) => g.config.format === "memory");
-      const guessGame = games.find((g) => g.config.format === "estimate");
 
       const allSubs = await subs.find({ type: "quiz", challengeId: { $in: games.map((g) => g._id!) } }).toArray();
       const subByTeamChallenge = new Map(allSubs.map((s) => [`${s.teamId}:${s.challengeId}`, s]));
@@ -80,18 +80,33 @@ export async function GET(request: Request) {
         }
       }
 
+      const connectionsSubs = connectionsGame
+        ? allSubs.filter((s) => String(s.challengeId) === String(connectionsGame._id))
+        : [];
+      const connectionsByTeam = new Map<string, { attempts: number; solved: boolean }>();
+      for (const s of connectionsSubs) {
+        const key = String(s.teamId);
+        const entry = connectionsByTeam.get(key) ?? { attempts: 0, solved: false };
+        entry.attempts += 1;
+        if (s.verdict?.correct) entry.solved = true;
+        connectionsByTeam.set(key, entry);
+      }
+
       const perTeam = teamDocs
         .filter((t) => t.name !== "Quiz Control")
         .map((t) => {
           const key = String(t._id);
           const imageSub = imageGame ? subByTeamChallenge.get(`${key}:${imageGame._id}`) : undefined;
-          const guessSub = guessGame ? subByTeamChallenge.get(`${key}:${guessGame._id}`) : undefined;
           const memory = memoryByTeam.get(key);
+          const connections = connectionsByTeam.get(key);
           return {
             teamId: key,
             teamName: t.name,
             image: imageGame
               ? { status: imageSub?.status ?? "not-started", points: imageSub?.verdict?.points ?? null }
+              : null,
+            connections: connectionsGame
+              ? { attempts: connections?.attempts ?? 0, solved: connections?.solved ?? false }
               : null,
             memory: memory
               ? {
@@ -103,14 +118,29 @@ export async function GET(request: Request) {
                   points: memory.scoredPoints,
                 }
               : null,
-            guess: guessGame
-              ? { status: guessSub?.status ?? "not-started", points: guessSub?.verdict?.points ?? null }
-              : null,
           };
         });
 
       payload.round1 = { games: games.map((g) => ({ slug: g.slug, title: g.title, format: g.config.format, points: g.points })), perTeam };
       payload.judgeQueue = judgeQueue;
+    }
+
+    if (round === 2 || round === 3) {
+      const flags = await collections.proctorFlags();
+      const rows = await flags.find({ round }).toArray();
+      const byTeam = new Map<string, { tabSwitch: number; windowBlur: number; fullscreenExit: number; lastAt: string }>();
+      for (const f of rows) {
+        const key = String(f.teamId);
+        const entry = byTeam.get(key) ?? { tabSwitch: 0, windowBlur: 0, fullscreenExit: 0, lastAt: f.at.toISOString() };
+        if (f.kind === "tab-switch") entry.tabSwitch += 1;
+        if (f.kind === "window-blur") entry.windowBlur += 1;
+        if (f.kind === "fullscreen-exit") entry.fullscreenExit += 1;
+        if (f.at.toISOString() > entry.lastAt) entry.lastAt = f.at.toISOString();
+        byTeam.set(key, entry);
+      }
+      payload.flags = [...byTeam.entries()]
+        .map(([teamId, counts]) => ({ teamId, teamName: teamById.get(teamId)?.name ?? "Unknown", ...counts }))
+        .sort((a, b) => b.tabSwitch + b.windowBlur + b.fullscreenExit - (a.tabSwitch + a.windowBlur + a.fullscreenExit));
     }
 
     if (round === 3) {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { avatarForCoin, parseCoin } from "@/lib/quiz/avatars";
+import { eventHostFor } from "@/lib/config";
 import WebShooter, { WebNet } from "@/app/quiz/WebShooter";
 
 /**
@@ -47,7 +48,22 @@ export default function EnterPage() {
       }
 
       const rt = new URLSearchParams(window.location.search).get("rt");
-      window.location.href = rt ?? "/";
+      if (rt) {
+        window.location.href = rt;
+        return;
+      }
+
+      // No rt means this wasn't a proxy bounce off an event subdomain — most
+      // often someone landed straight on the plain host and logged in from
+      // there. Send participants on to the quiz subdomain explicitly instead
+      // of leaving them stranded on the landing page; the admin dashboard
+      // already lives on this host, so admins just go there.
+      if (data.role === "admin") {
+        window.location.href = "/admin/quiz";
+      } else {
+        const quizHost = eventHostFor(window.location.host, "quiz");
+        window.location.href = `${window.location.protocol}//${quizHost}/`;
+      }
     } catch {
       setError("Network error — try again");
     } finally {

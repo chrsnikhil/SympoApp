@@ -8,7 +8,7 @@
  *   npx tsx scripts/quiz-admin.ts open image-1 5          # open a 5-minute window
  *   npx tsx scripts/quiz-admin.ts coins
  *   npx tsx scripts/quiz-admin.ts reset "Team Name"
- *   npx tsx scripts/quiz-admin.ts resolve-estimate guess-1
+ *   npx tsx scripts/quiz-admin.ts resolve-estimate <slug>   # only if an "estimate"-format game exists
  *   npx tsx scripts/quiz-admin.ts judge image-1
  *   npx tsx scripts/quiz-admin.ts resolve-image image-1 <teamId>=0.8 <teamId>=0.5
  *
@@ -245,7 +245,7 @@ async function main() {
     open <slug> [minutes]             open a shared-window Round 1 game (default 5)
     coins                             which discs are out, and with whom
     reset <team|all>                  clear stats and release the coin
-    resolve-estimate <slug>           settle Guess the Number
+    resolve-estimate <slug>           settle a shared-window "closest guess" game (not used by the current lineup)
     judge [slug]                      vision-judge Image Replication (default image-1)
     resolve-image <slug> <teamId>=<0..1> …   score it by hand instead
       `);

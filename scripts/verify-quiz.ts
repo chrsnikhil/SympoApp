@@ -11,6 +11,10 @@
  * reveals a memory grid or an MCQ's correct index). Asserts the things that
  * fail silently:
  *
+ *   · Round 1's three games unlock strictly in order (image -> connections ->
+ *     memory) and never earlier, per team
+ *   · Connections reveals tiles on the coordinator's schedule, not a client
+ *     clock, and a wrong guess doesn't block a retry
  *   · a reload must not restart a question's two-phase clock
  *   · an answer before the read phase ends, or after the select phase ends,
  *     must score zero
@@ -18,6 +22,7 @@
  *   · the memory grid must never leak its arrangement to the client
  *   · a comeback ability must not fire twice, and must apply the effect it
  *     claims to (extra-time actually extends the deadline, etc.)
+ *   · a proctor flag is timestamped server-side and rejected outside rounds 2/3
  *   · the admin endpoints reject non-admins
  *
  * The script is NOT idempotent — it claims coins, completes games and
@@ -127,20 +132,58 @@ async function main() {
   check("a coin outside 01-60 is refused", outOfRange.status === 400, outOfRange.status);
 
   // ── Round 1 ──────────────────────────────────────────────────────────────
+  // Sequential per team: Image Replication -> Connections -> Memory Game. See
+  // lib/quiz/round1.ts — the phase is derived, not stored, so this also
+  // exercises that derivation at each step rather than trusting it once.
   console.log("\n── Round 1: Final Universe ─────────────────────────────────");
   const first = clients[0].client;
+  // Must match seed-quiz.ts's CONNECTIONS_ANSWER — see the note there on why
+  // this isn't imported instead.
+  const CONNECTIONS_ANSWER = "recursion";
 
-  const r1 = await first.get("/api/quiz/round1");
-  check("round1 status lists all three games", Array.isArray(r1.body?.games) && r1.body.games.length === 3, r1.body);
+  const r1Start = await first.get("/api/quiz/round1");
+  check("round1 starts on the image phase", r1Start.body?.phase === "image", r1Start.body);
+  check("image phase carries the reference image", typeof r1Start.body?.game?.referenceImage === "string", r1Start.body?.game);
 
-  // Guess the Number — validate-as-number, deferred scoring.
-  const guessBad = await first.post("/api/submit", { event: "quiz", challengeSlug: "guess-1", payload: "about a lot" });
-  check("a non-numeric guess is rejected", guessBad.body?.meta?.reason === "not-a-number", guessBad.body);
+  // Image Replication — format checks without spending a Groq call.
+  const svgUpload = await first.post("/api/quiz/image", { challengeSlug: "image-1", dataUrl: "data:image/svg+xml;base64,PHN2Zy8+" });
+  check("an SVG upload is refused", svgUpload.status === 400, svgUpload.status);
 
-  for (const [i, c] of clients.entries()) {
-    const r = await c.client.post("/api/submit", { event: "quiz", challengeSlug: "guess-1", payload: String(250 + i * 10) });
-    if (i === 0) check("a valid guess is accepted as pending (202)", r.status === 202 && r.body?.pending === true, r.body);
-  }
+  const TINY_JPEG =
+    "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
+
+  const upload = await first.post("/api/quiz/image", { challengeSlug: "image-1", dataUrl: TINY_JPEG });
+  check("uploading a JPEG returns an image id", upload.status === 200 && !!upload.body?.imageId, upload.body);
+
+  const stolen = await clients[2].client.post("/api/submit", { event: "quiz", challengeSlug: "image-1", payload: upload.body?.imageId });
+  check("one team cannot submit another team's image", stolen.body?.meta?.reason === "no-image", stolen.body);
+
+  const prompt = await first.post("/api/submit", { event: "quiz", challengeSlug: "image-1", payload: upload.body?.imageId });
+  check("submitting an owned image id is accepted as pending", prompt.status === 202 && prompt.body?.pending === true, prompt.body);
+
+  const r1AfterImage = await first.get("/api/quiz/round1");
+  check("submitting the image unlocks the connections phase", r1AfterImage.body?.phase === "connections", r1AfterImage.body);
+  check("connections starts closed until the coordinator opens it", Array.isArray(r1AfterImage.body?.game?.images) && r1AfterImage.body.game.images.length === 0, r1AfterImage.body?.game);
+
+  // Connections — retries allowed on a wrong guess; server-timed staggered
+  // reveal, never a client-side clock.
+  const openConnections = await admin.post("/api/quiz/advance", { action: "open", slug: "connections-1", minutes: 5 });
+  check("coordinator can open the connections window", openConnections.body?.ok === true, openConnections.body);
+
+  const r1Opened = await first.get("/api/quiz/round1");
+  check("opening the window reveals exactly the first tile", r1Opened.body?.game?.images?.length === 1, r1Opened.body?.game);
+
+  const wrongGuess = await first.post("/api/submit", { event: "quiz", challengeSlug: "connections-1", payload: "not-it" });
+  check("a wrong guess scores zero but doesn't block a retry", wrongGuess.body?.correct === false, wrongGuess.body);
+
+  const r1AfterWrong = await first.get("/api/quiz/round1");
+  check("a wrong guess stays on the connections phase", r1AfterWrong.body?.phase === "connections", r1AfterWrong.body);
+
+  const rightGuess = await first.post("/api/submit", { event: "quiz", challengeSlug: "connections-1", payload: CONNECTIONS_ANSWER });
+  check("the correct term scores the flat points", rightGuess.body?.correct === true && rightGuess.body?.points > 0, rightGuess.body);
+
+  const r1AfterConnections = await first.get("/api/quiz/round1");
+  check("solving connections unlocks the memory phase", r1AfterConnections.body?.phase === "memory", r1AfterConnections.body);
 
   // Memory Game — the API must never leak the grid; we read it from Mongo to
   // drive a real completion deterministically.
@@ -153,21 +196,23 @@ async function main() {
   check("a memory state was created server-side", !!memState, memState);
 
   if (memState) {
+    // Flip each pair back-to-back (index A, then its actual partner index B)
+    // rather than scanning left-to-right — the game is turn-based (see
+    // lib/quiz/memory.ts: a match only resolves if the SECOND flip of a turn
+    // is the pair of the first), so a naive sequential scan almost never
+    // lands two flips of the same turn on the same token.
     const grid = memState.grid;
-    const seen = new Map<string, number>();
-    let flips = 0;
-    for (let i = 0; i < grid.length && flips < grid.length; i++) {
-      const token = grid[i];
-      const partner = seen.get(token);
-      if (partner === undefined) {
-        seen.set(token, i);
-        const r = await first.post("/api/quiz/memory/flip", { slug: "memory-1", cellIndex: i });
-        flips++;
-        if (flips === 1) check("flipping a cell succeeds and returns no un-flipped tokens", r.status === 200, r.body);
-      } else {
-        await first.post("/api/quiz/memory/flip", { slug: "memory-1", cellIndex: i });
-        flips++;
+    const pairIndexes = new Map<string, number[]>();
+    grid.forEach((token, i) => pairIndexes.set(token, [...(pairIndexes.get(token) ?? []), i]));
+
+    let checkedFirstFlip = false;
+    for (const [a, b] of pairIndexes.values()) {
+      const r = await first.post("/api/quiz/memory/flip", { slug: "memory-1", cellIndex: a });
+      if (!checkedFirstFlip) {
+        check("flipping a cell succeeds and returns no un-flipped tokens", r.status === 200, r.body);
+        checkedFirstFlip = true;
       }
+      await first.post("/api/quiz/memory/flip", { slug: "memory-1", cellIndex: b });
     }
     const finalState = await memoryStates.findOne({ teamId: teamObjId, challengeSlug: "memory-1" });
     check("perfect play completes the memory game", finalState?.completedAt !== null, finalState);
@@ -177,21 +222,8 @@ async function main() {
     check("flipping a completed grid is rejected", overFlip.status === 409, overFlip.status);
   }
 
-  // Image Replication — format checks without spending a Groq call.
-  const svgUpload = await clients[1].client.post("/api/quiz/image", { challengeSlug: "image-1", dataUrl: "data:image/svg+xml;base64,PHN2Zy8+" });
-  check("an SVG upload is refused", svgUpload.status === 400, svgUpload.status);
-
-  const TINY_JPEG =
-    "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
-
-  const upload = await clients[1].client.post("/api/quiz/image", { challengeSlug: "image-1", dataUrl: TINY_JPEG });
-  check("uploading a JPEG returns an image id", upload.status === 200 && !!upload.body?.imageId, upload.body);
-
-  const stolen = await clients[2].client.post("/api/submit", { event: "quiz", challengeSlug: "image-1", payload: upload.body?.imageId });
-  check("one team cannot submit another team's image", stolen.body?.meta?.reason === "no-image", stolen.body);
-
-  const prompt = await clients[1].client.post("/api/submit", { event: "quiz", challengeSlug: "image-1", payload: upload.body?.imageId });
-  check("submitting an owned image id is accepted as pending", prompt.status === 202 && prompt.body?.pending === true, prompt.body);
+  const r1Done = await first.get("/api/quiz/round1");
+  check("finishing all three games reaches the done phase", r1Done.body?.phase === "done" && r1Done.body?.game === null, r1Done.body);
 
   // ── The cut: round 1 → round 2 ──────────────────────────────────────────
   console.log("\n── The cut ──────────────────────────────────────────────────");
@@ -310,6 +342,21 @@ async function main() {
   } else {
     check("a finalist existed to test round 3 with", false);
   }
+
+  // ── Proctor flags (rounds 2/3 fullscreen + tab-switch reporting) ───────────
+  console.log("\n── Proctor flags ─────────────────────────────────────────────");
+  const flagRound1 = await winner.client.post("/api/quiz/flag", { round: 1, kind: "tab-switch" });
+  check("flag endpoint refuses round 1 (only rounds 2/3 run full-screen)", flagRound1.status === 400, flagRound1.status);
+
+  const flagBadKind = await winner.client.post("/api/quiz/flag", { round: 2, kind: "nonsense" });
+  check("flag endpoint refuses an unknown kind", flagBadKind.status === 400, flagBadKind.status);
+
+  const flagOk = await winner.client.post("/api/quiz/flag", { round: 2, kind: "tab-switch" });
+  check("a valid tab-switch flag is recorded", flagOk.status === 200 && flagOk.body?.ok === true, flagOk.body);
+
+  const proctorFlags = await collections.proctorFlags();
+  const storedFlag = await proctorFlags.findOne({ teamId: new ObjectId(winner.teamId), round: 2, kind: "tab-switch" });
+  check("the flag is stamped server-side, not client-timed", !!storedFlag?.at, storedFlag);
 
   // ── Admin surface ────────────────────────────────────────────────────────
   console.log("\n── Admin dashboard API ──────────────────────────────────────");

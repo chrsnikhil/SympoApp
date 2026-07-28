@@ -1,32 +1,75 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import MemoryGrid from "./MemoryGrid";
+
+type Phase = "image" | "connections" | "memory" | "done";
 
 interface Round1Game {
   slug: string;
   title: string;
-  format: "prompt-image" | "memory" | "estimate";
+  format: string;
   points: number;
   opensAt: string | null;
   closesAt: string | null;
-  referenceImage: string | null;
-  status: "not-started" | "queued" | "running" | "done" | "error";
-  verdict: { correct: boolean; points: number } | null;
+  // image
+  referenceImage?: string | null;
+  status?: "not-started" | "queued" | "running" | "done" | "error";
+  verdict?: { correct: boolean; points: number } | null;
+  // connections
+  images?: string[];
+  totalImages?: number;
+  secondsToNextReveal?: number | null;
+  solved?: boolean;
+  attempts?: number;
 }
 
+interface Round1Response {
+  phase: Phase;
+  completedPhases: string[];
+  game: Round1Game | null;
+}
+
+const PHASE_LABEL: Record<Phase, string> = {
+  image: "Image Replication",
+  connections: "Connections",
+  memory: "Memory Game",
+  done: "Complete",
+};
+
+const PHASE_STEP: Record<Phase, number> = { image: 1, connections: 2, memory: 3, done: 3 };
+const STEPS: Array<Exclude<Phase, "done">> = ["image", "connections", "memory"];
+
 /**
- * Round 1 "Final Universe" — all three mini-games on one screen, since a
- * team's shortlist score is their COMBINED total across all three, not a
- * serve queue of many questions.
+ * Round 1 "Final Universe" — one phase on screen at a time, in a fixed
+ * sequence: Image Replication unlocks Connections unlocks the Memory Game.
+ * The server (see `lib/quiz/round1.ts`) is what actually decides which phase
+ * a team is on; this just renders whatever it says and notices out loud when
+ * that changes.
  */
 export default function Round1Games() {
-  const [games, setGames] = useState<Round1Game[] | null>(null);
+  const [data, setData] = useState<Round1Response | null>(null);
   const [nowMs, setNowMs] = useState(0);
+  const [transition, setTransition] = useState<string | null>(null);
+  const prevPhase = useRef<Phase | null>(null);
+  const transitionTimer = useRef<number | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/quiz/round1", { cache: "no-store" });
-    if (res.ok) setGames((await res.json()).games);
+    if (!res.ok) return;
+    const json: Round1Response = await res.json();
+
+    if (prevPhase.current && prevPhase.current !== json.phase) {
+      setTransition(
+        json.phase === "done"
+          ? `${PHASE_LABEL[prevPhase.current]} locked in — Round 1 complete!`
+          : `${PHASE_LABEL[prevPhase.current]} locked in — ${PHASE_LABEL[json.phase]} unlocked`
+      );
+      if (transitionTimer.current) window.clearTimeout(transitionTimer.current);
+      transitionTimer.current = window.setTimeout(() => setTransition(null), 4200);
+    }
+    prevPhase.current = json.phase;
+    setData(json);
   }, []);
 
   useEffect(() => {
@@ -35,43 +78,80 @@ export default function Round1Games() {
       if (!cancelled) await load();
     }
     void run();
-    const id = setInterval(load, 5000);
+    const id = setInterval(load, 4000);
     return () => {
       cancelled = true;
       clearInterval(id);
+      if (transitionTimer.current) window.clearTimeout(transitionTimer.current);
     };
   }, [load]);
 
-  // Drives the open/close gate on each game card — a ticking effect, never a
-  // Date.now() read during render.
+  // Drives open/close gates and the reveal countdown — a ticking effect,
+  // never a Date.now() read during render.
   useEffect(() => {
     const id = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
 
-  if (!games) return <p className="font-comic text-2xl text-paper-white/40">Loading…</p>;
-
-  const totalPoints = games.reduce((sum, g) => sum + (g.verdict?.points ?? 0), 0);
+  if (!data) return <p className="font-comic text-2xl text-paper-white/40">Loading…</p>;
 
   return (
     <div className="space-y-6">
-      <div className="halftone panel p-4">
-        <div className="relative flex items-center justify-between">
-          <span className="text-xs uppercase tracking-[0.2em] text-paper-white/50">Combined score, this round</span>
-          <span className="font-display text-2xl text-glitch-cyan">{totalPoints} pts</span>
+      {transition && (
+        <div className="halftone panel panel-accent anim-glitch-in p-4 text-center">
+          <p className="comic-shout text-xl text-glitch-cyan">{transition}</p>
         </div>
-      </div>
+      )}
 
-      {games.map((g) => (
-        <GameCard key={g.slug} game={g} now={nowMs} onChanged={load} />
-      ))}
+      <PhaseTracker phase={data.phase} />
+
+      {data.phase === "done" ? (
+        <div className="halftone panel p-8 text-center">
+          <p className="display-title chromatic text-3xl text-paper-white sm:text-4xl">Round 1 Complete</p>
+          <p className="mt-3 text-sm text-paper-white/60">Waiting for the coordinator to start Round 2…</p>
+        </div>
+      ) : (
+        <PhaseCard data={data} now={nowMs} onChanged={load} />
+      )}
     </div>
   );
 }
 
-function GameCard({ game, now, onChanged }: { game: Round1Game; now: number; onChanged: () => void }) {
+function PhaseTracker({ phase }: { phase: Phase }) {
+  const currentStep = PHASE_STEP[phase];
+  return (
+    <div className="flex items-center gap-2" aria-label="Round 1 progress">
+      {STEPS.map((s, i) => {
+        const step = i + 1;
+        const state = phase === "done" || currentStep > step ? "done" : currentStep === step ? "active" : "upcoming";
+        return (
+          <div key={s} className="flex flex-1 items-center gap-2">
+            <div
+              className={`flex h-9 flex-1 items-center justify-center border-2 px-1 text-center font-comic text-xs uppercase tracking-wide sm:text-sm ${
+                state === "done"
+                  ? "border-signal-good bg-signal-good/15 text-signal-good"
+                  : state === "active"
+                    ? "border-glitch-cyan bg-glitch-cyan/15 text-glitch-cyan"
+                    : "border-paper-white/15 text-paper-white/30"
+              }`}
+            >
+              {state === "done" ? "✓ " : ""}
+              {PHASE_LABEL[s]}
+            </div>
+            {i < STEPS.length - 1 && <span className="text-paper-white/20">→</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number; onChanged: () => void }) {
+  const { game, phase } = data;
+  if (!game) return null;
+
   const notOpenYet = game.opensAt && now > 0 && now < new Date(game.opensAt).getTime();
-  const closed = game.closesAt && now > new Date(game.closesAt).getTime();
+  const closed = !!(game.closesAt && now > new Date(game.closesAt).getTime());
 
   return (
     <article className="halftone panel anim-glitch-in p-6">
@@ -81,23 +161,25 @@ function GameCard({ game, now, onChanged }: { game: Round1Game; now: number; onC
           <span className="text-glitch-cyan text-sm">{game.points} pts</span>
         </div>
 
-        {notOpenYet && <p className="text-sm text-paper-white/50">Waiting for the coordinator to open this game…</p>}
-
-        {!notOpenYet && game.status !== "not-started" && game.status !== "running" ? (
-          <VerdictBanner game={game} closed={!!closed} />
-        ) : !notOpenYet ? (
-          <GameBody game={game} closed={!!closed} onSubmitted={onChanged} />
-        ) : null}
+        {notOpenYet ? (
+          <p className="text-sm text-paper-white/50">Waiting for the coordinator to open this game…</p>
+        ) : phase === "image" ? (
+          game.status !== "not-started" && game.status !== "running" ? (
+            <VerdictBanner game={game} />
+          ) : (
+            <ImageReplication slug={game.slug} referenceImage={game.referenceImage ?? null} disabled={closed} onSubmitted={onChanged} />
+          )
+        ) : phase === "connections" ? (
+          <ConnectionsGame game={game} disabled={closed} onSolved={onChanged} />
+        ) : (
+          <MemoryGrid slug={game.slug} onDone={onChanged} />
+        )}
       </div>
     </article>
   );
 }
 
-function VerdictBanner({ game, closed }: { game: Round1Game; closed: boolean }) {
-  if (game.format === "memory") {
-    // Memory renders its own completion banner inline in the grid; nothing extra here.
-    return <GameBody game={game} closed={closed} onSubmitted={() => {}} />;
-  }
+function VerdictBanner({ game }: { game: Round1Game }) {
   if (game.status === "queued") {
     return (
       <div className="border-2 border-web-blue-light bg-web-blue-dark/50 px-4 py-3">
@@ -112,61 +194,6 @@ function VerdictBanner({ game, closed }: { game: Round1Game; closed: boolean }) 
       <p className={`font-comic text-xl ${points > 0 ? "text-glitch-cyan" : "text-signal-wrong"}`}>
         {points > 0 ? `+${points} pts` : "No points this time."}
       </p>
-    </div>
-  );
-}
-
-function GameBody({ game, closed, onSubmitted }: { game: Round1Game; closed: boolean; onSubmitted: () => void }) {
-  if (game.format === "memory") {
-    return <MemoryGrid slug={game.slug} onDone={onSubmitted} />;
-  }
-  if (game.format === "estimate") {
-    return <GuessNumber slug={game.slug} disabled={closed} onSubmitted={onSubmitted} />;
-  }
-  return <ImageReplication slug={game.slug} referenceImage={game.referenceImage} disabled={closed} onSubmitted={onSubmitted} />;
-}
-
-function GuessNumber({ slug, disabled, onSubmitted }: { slug: string; disabled: boolean; onSubmitted: () => void }) {
-  const [value, setValue] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit() {
-    if (!value.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/submit", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ event: "quiz", challengeSlug: slug, payload: value }),
-      });
-      const body = await res.json();
-      if (!res.ok) {
-        setError(body.error ?? "Submission failed");
-        return;
-      }
-      onSubmitted();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div>
-      <input
-        type="text"
-        inputMode="numeric"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="Your best guess — a number"
-        disabled={disabled}
-        className="w-full border-2 border-paper-white/20 bg-ink-black/60 px-4 py-3 font-mono text-base tabular-nums text-paper-white outline-none placeholder:font-body placeholder:text-paper-white/30 focus:border-glitch-cyan disabled:opacity-40"
-      />
-      {error && <p className="anim-shake mt-2 text-xs text-signal-wrong">{error}</p>}
-      <button type="button" onClick={submit} disabled={busy || disabled || !value.trim()} className="comic-btn comic-btn-cyan mt-4">
-        {busy ? "Sending…" : "Lock it in"}
-      </button>
     </div>
   );
 }
@@ -277,7 +304,123 @@ function ImageReplication({
         )}
       </label>
       {error && <p className="mt-2 text-xs text-signal-wrong">{error}</p>}
-      {status === "done" && <p className="mt-3 font-comic text-lg text-glitch-cyan">Locked in — scored once the coordinator judges it.</p>}
+      {status === "done" && <p className="mt-3 font-comic text-lg text-glitch-cyan">Locked in — this unlocks Connections. Scored once the coordinator judges it.</p>}
+    </div>
+  );
+}
+
+/**
+ * Four tiles, revealed one at a time on the coordinator's schedule. A team
+ * can guess as often as they like — a wrong guess costs nothing but the
+ * attempt, since the puzzle itself is the difficulty, not a one-shot penalty.
+ */
+function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disabled: boolean; onSolved: () => void }) {
+  const [value, setValue] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pop, setPop] = useState(false);
+  const prevCount = useRef(game.images?.length ?? 0);
+
+  useEffect(() => {
+    const count = game.images?.length ?? 0;
+    if (count > prevCount.current) {
+      setPop(true);
+      const t = window.setTimeout(() => setPop(false), 650);
+      prevCount.current = count;
+      return () => window.clearTimeout(t);
+    }
+    prevCount.current = count;
+  }, [game.images?.length]);
+
+  async function submit() {
+    if (!value.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ event: "quiz", challengeSlug: game.slug, payload: value }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setError(body.error ?? "Submission failed");
+        return;
+      }
+      if (body.correct) {
+        onSolved();
+      } else {
+        setError("Not it — the next tile is still coming, if you need it.");
+        setValue("");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const images = game.images ?? [];
+  const total = game.totalImages ?? 4;
+
+  return (
+    <div>
+      <p className="mb-3 text-xs text-paper-white/50">
+        Four pictures, one shared technical term. A new tile unlocks every few seconds — type it the moment you&apos;re sure.
+      </p>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {Array.from({ length: total }).map((_, i) => {
+          const revealed = i < images.length;
+          return (
+            <div
+              key={i}
+              className={`aspect-video overflow-hidden border-2 ${
+                revealed ? "border-glitch-cyan/50" : "border-dashed border-paper-white/15"
+              } ${revealed && i === images.length - 1 && pop ? "anim-pop" : ""}`}
+            >
+              {revealed ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={images[i]} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="grid h-full place-items-center bg-ink-black/40 text-[0.65rem] uppercase tracking-widest text-paper-white/25">
+                  Locked
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="mt-2 text-[0.7rem] text-paper-white/40">
+        {game.secondsToNextReveal !== null && game.secondsToNextReveal !== undefined
+          ? `Next tile in ${game.secondsToNextReveal}s…`
+          : images.length >= total
+            ? "All tiles are up."
+            : null}
+      </p>
+
+      <div className="mt-4 flex gap-2">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="The shared technical term"
+          disabled={disabled || game.solved}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          data-web-target=""
+          className="w-full border-2 border-paper-white/20 bg-ink-black/60 px-4 py-3 text-base text-paper-white outline-none placeholder:text-paper-white/30 focus:border-glitch-cyan disabled:opacity-40"
+        />
+        <button
+          type="button"
+          data-web-target=""
+          onClick={submit}
+          disabled={busy || disabled || !value.trim() || game.solved}
+          className="comic-btn comic-btn-cyan shrink-0"
+        >
+          {busy ? "…" : "Lock it in"}
+        </button>
+      </div>
+      {error && <p className="anim-shake mt-2 text-xs text-signal-wrong">{error}</p>}
+      {game.solved && <p className="mt-3 font-comic text-lg text-glitch-cyan">Solved! Unlocking the Memory Game…</p>}
     </div>
   );
 }

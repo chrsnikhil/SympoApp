@@ -9,6 +9,7 @@ import type {
   LeaderboardSnapshot,
   MemoryGameState,
   Participant,
+  ProctorFlag,
   PromptImage,
   QuizServe,
   RoundQualification,
@@ -90,6 +91,8 @@ export const collections = {
     (await getDb()).collection<RoundQualification>("round_qualifications"),
   comebackStates: async (): Promise<Collection<ComebackState>> =>
     (await getDb()).collection<ComebackState>("comeback_states"),
+  proctorFlags: async (): Promise<Collection<ProctorFlag>> =>
+    (await getDb()).collection<ProctorFlag>("proctor_flags"),
 };
 
 /**
@@ -105,7 +108,7 @@ export const collections = {
  * not fatal.
  */
 export async function ensureIndexes(): Promise<void> {
-  const [codes, challenges, subs, scores, hunt, boards, images, memory, serves, quals, comebacks] =
+  const [codes, challenges, subs, scores, hunt, boards, images, memory, serves, quals, comebacks, flags] =
     await Promise.all([
       collections.accessCodes(),
       collections.challenges(),
@@ -119,6 +122,7 @@ export async function ensureIndexes(): Promise<void> {
       collections.quizServes(),
       collections.roundQualifications(),
       collections.comebackStates(),
+      collections.proctorFlags(),
     ]);
 
   const wanted: Array<[string, Promise<unknown>]> = [
@@ -138,6 +142,7 @@ export async function ensureIndexes(): Promise<void> {
     ["quiz_serves.team_round", serves.createIndex({ teamId: 1, round: 1 })],
     ["round_qualifications.round_team", quals.createIndex({ round: 1, teamId: 1 }, { unique: true })],
     ["comeback_states.team_round", comebacks.createIndex({ teamId: 1, round: 1 }, { unique: true })],
+    ["proctor_flags.team_round", flags.createIndex({ teamId: 1, round: 1, at: -1 })],
   ];
 
   const results = await Promise.allSettled(wanted.map(([, p]) => p));
