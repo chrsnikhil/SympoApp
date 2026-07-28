@@ -12,13 +12,21 @@ import type { ReticleShape } from "@/lib/quiz/avatars";
  * impact. `WebNet` (exported below) is the web itself, which sticks to the
  * option you hit and stays there while it's your answer.
  *
- * Drawn entirely in SVG — no external image. That's what makes it recolour
- * per character for free, stay sharp at any density, and have a real
- * transparent background instead of a raster photo that needs masking
- * tricks to not look like a floating rectangle. It's also what keeps this
- * original: shapes and colours, not a licensed character's likeness — the
- * assets repo this event draws from is explicit that the theme is carried
- * by the interface, not by borrowed frames.
+ * The strand is a real verlet-integrated rope simulation (gravity +
+ * iterative distance constraints across ~14 points), not a straight line —
+ * a single opaque line at any width reads as a laser, not webbing. The rope
+ * gives it natural sag in flight, three layered strokes (soft glow / body /
+ * specular highlight) make it read as sticky rather than flat, and on
+ * impact it sprays 6-10 short strands at irregular angles from the landing
+ * point instead of just stopping. Runs on its own canvas, separate from the
+ * SVG arm, driven by one shared requestAnimationFrame loop that starts on
+ * the first shot and stops itself once nothing is left animating.
+ *
+ * Drawn entirely in SVG/canvas — no external image, and nothing traced from
+ * or resembling a licensed character's design. That's what lets it recolour
+ * per character for free, stay sharp at any density, and hold the assets
+ * repo's own rule that the theme is carried by the interface, not by
+ * borrowed frames.
  *
  * THE IMPORTANT PART IS WHAT THIS DOESN'T DO. Aiming adds no step to
  * answering — a click is still a click. The options underneath stay
@@ -29,17 +37,222 @@ import type { ReticleShape } from "@/lib/quiz/avatars";
  * the arm still aims but nothing animates.
  */
 
-interface Strand {
-  id: number;
-  x: number;
-  y: number;
-  fromX: number;
-  fromY: number;
-}
-
 const RETICLE_SIZE = 34;
 /** Distance from the wrist anchor to the nozzle, in px. */
 const ARM_LENGTH = 96;
+
+const ROPE_POINTS = 14;
+const FLIGHT_MS = 190;
+const IMPACT_SETTLE_MS = 120;
+const IMPACT_HOLD_MS = 650;
+const IMPACT_FADE_MS = 380;
+const STRAND_COUNT_MIN = 6;
+const STRAND_COUNT_MAX = 10;
+
+interface RopePoint {
+  x: number;
+  y: number;
+  px: number;
+  py: number;
+  pinned: boolean;
+}
+
+interface Rope {
+  points: RopePoint[];
+  segLen: number;
+  /** Timestamp to hard-lock the last point once its overshoot settles, or null once locked/never overshot. */
+  lockAt: number | null;
+  lockX: number;
+  lockY: number;
+}
+
+interface Shot {
+  phase: "flight" | "impact" | "done";
+  startedAt: number;
+  impactStartedAt: number;
+  nozzle: { x: number; y: number };
+  target: { x: number; y: number; w: number; h: number; el: HTMLElement };
+  main: Rope;
+  strands: Rope[];
+  released: number;
+  dir: { x: number; y: number };
+}
+
+function makeRope(x: number, y: number, count: number, segLen: number): Rope {
+  return {
+    points: Array.from({ length: count }, () => ({ x, y, px: x, py: y, pinned: false })),
+    segLen,
+    lockAt: null,
+    lockX: 0,
+    lockY: 0,
+  };
+}
+
+function verletStep(points: RopePoint[], gravity: number, damping: number) {
+  for (const p of points) {
+    if (p.pinned) {
+      p.px = p.x;
+      p.py = p.y;
+      continue;
+    }
+    const vx = (p.x - p.px) * damping;
+    const vy = (p.y - p.py) * damping + gravity;
+    const nx = p.x + vx;
+    const ny = p.y + vy;
+    p.px = p.x;
+    p.py = p.y;
+    p.x = nx;
+    p.y = ny;
+  }
+}
+
+function solveConstraints(points: RopePoint[], segLen: number, iterations: number) {
+  for (let iter = 0; iter < iterations; iter++) {
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i];
+      const b = points[i + 1];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const dist = Math.hypot(dx, dy) || 0.0001;
+      const diff = (dist - segLen) / dist;
+      const offX = dx * 0.5 * diff;
+      const offY = dy * 0.5 * diff;
+      if (!a.pinned) {
+        a.x += offX;
+        a.y += offY;
+      }
+      if (!b.pinned) {
+        b.x -= offX;
+        b.y -= offY;
+      }
+    }
+  }
+}
+
+/** Frees the end point with a small burst of outward "velocity" (via its
+ *  previous-position offset) so it overshoots the landing spot and springs
+ *  back under its own constraint tension, then hard-locks after `lockAt`. */
+function primeOvershoot(rope: Rope, targetX: number, targetY: number, dirX: number, dirY: number, now: number) {
+  const end = rope.points[rope.points.length - 1];
+  end.pinned = false;
+  end.x = targetX;
+  end.y = targetY;
+  end.px = targetX - dirX * 9;
+  end.py = targetY - dirY * 9;
+  rope.lockAt = now + IMPACT_SETTLE_MS;
+  rope.lockX = targetX;
+  rope.lockY = targetY;
+}
+
+function stepRope(rope: Rope, gravity: number, damping: number, now: number) {
+  verletStep(rope.points, gravity, damping);
+  solveConstraints(rope.points, rope.segLen, 3);
+  if (rope.lockAt !== null && now >= rope.lockAt) {
+    const end = rope.points[rope.points.length - 1];
+    end.x = rope.lockX;
+    end.y = rope.lockY;
+    end.pinned = true;
+    rope.lockAt = null;
+  }
+}
+
+function buildImpactStrands(target: Shot["target"], now: number): Rope[] {
+  const n = STRAND_COUNT_MIN + Math.floor(Math.random() * (STRAND_COUNT_MAX - STRAND_COUNT_MIN + 1));
+  const strands: Rope[] = [];
+  for (let i = 0; i < n; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const reach = 0.45 + Math.random() * 0.6;
+    const ex = target.x + Math.cos(angle) * (target.w / 2) * reach;
+    const ey = target.y + Math.sin(angle) * (target.h / 2) * reach;
+    const count = 6;
+    const segLen = Math.hypot(ex - target.x, ey - target.y) / (count - 1) || 1;
+    const rope = makeRope(target.x, target.y, count, segLen);
+    for (let j = 1; j < count; j++) {
+      const t = j / (count - 1);
+      rope.points[j].x = target.x + (ex - target.x) * t;
+      rope.points[j].y = target.y + (ey - target.y) * t;
+      rope.points[j].px = rope.points[j].x;
+      rope.points[j].py = rope.points[j].y;
+    }
+    rope.points[0].pinned = true;
+    const dirX = (ex - target.x) / (segLen * (count - 1) || 1);
+    const dirY = (ey - target.y) / (segLen * (count - 1) || 1);
+    primeOvershoot(rope, ex, ey, dirX, dirY, now);
+    strands.push(rope);
+  }
+  return strands;
+}
+
+function ropePath(ctx: CanvasRenderingContext2D, points: RopePoint[]) {
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    const midX = (points[i - 1].x + points[i].x) / 2;
+    const midY = (points[i - 1].y + points[i].y) / 2;
+    ctx.quadraticCurveTo(points[i - 1].x, points[i - 1].y, midX, midY);
+  }
+  const last = points[points.length - 1];
+  ctx.lineTo(last.x, last.y);
+}
+
+/** Three layered strokes — soft outer glow, mid-body, thin specular
+ *  highlight — is what reads as sticky/wet rather than a flat laser line. */
+function strokeWeb(ctx: CanvasRenderingContext2D, points: RopePoint[], colour: string, alphaMul: number) {
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  ropePath(ctx, points);
+  ctx.strokeStyle = colour;
+  ctx.globalAlpha = 0.22 * alphaMul;
+  ctx.lineWidth = 7;
+  ctx.shadowColor = colour;
+  ctx.shadowBlur = 9;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  ropePath(ctx, points);
+  ctx.globalAlpha = 0.65 * alphaMul;
+  ctx.lineWidth = 2.4;
+  ctx.stroke();
+
+  ropePath(ctx, points);
+  ctx.strokeStyle = "#ffffff";
+  ctx.globalAlpha = 0.8 * alphaMul;
+  ctx.lineWidth = 0.9;
+  ctx.stroke();
+
+  ctx.globalAlpha = 1;
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const n = hex.replace("#", "");
+  const full = n.length === 3 ? n.split("").map((c) => c + c).join("") : n;
+  const r = parseInt(full.slice(0, 2), 16) || 0;
+  const g = parseInt(full.slice(2, 4), 16) || 0;
+  const b = parseInt(full.slice(4, 6), 16) || 0;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function drawFilm(ctx: CanvasRenderingContext2D, target: Shot["target"], alpha: number, colour: string) {
+  if (alpha <= 0) return;
+  const left = target.x - target.w / 2 - 6;
+  const top = target.y - target.h / 2 - 6;
+  const w = target.w + 12;
+  const h = target.h + 12;
+  const grad = ctx.createRadialGradient(target.x, target.y, 0, target.x, target.y, Math.max(w, h) * 0.7);
+  grad.addColorStop(0, hexToRgba(colour, alpha));
+  grad.addColorStop(1, hexToRgba(colour, 0));
+  ctx.fillStyle = grad;
+  const r = 10;
+  ctx.beginPath();
+  ctx.moveTo(left + r, top);
+  ctx.arcTo(left + w, top, left + w, top + h, r);
+  ctx.arcTo(left + w, top + h, left, top + h, r);
+  ctx.arcTo(left, top + h, left, top, r);
+  ctx.arcTo(left, top, left + w, top, r);
+  ctx.closePath();
+  ctx.fill();
+}
 
 export default function WebShooter({
   colour,
@@ -54,11 +267,18 @@ export default function WebShooter({
 }) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const [locked, setLocked] = useState(false);
-  const [strands, setStrands] = useState<Strand[]>([]);
   const [enabled, setEnabled] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [recoil, setRecoil] = useState(false);
-  const nextId = useRef(0);
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const shotsRef = useRef<Shot[]>([]);
+  const rafRef = useRef<number | null>(null);
+  const webColourRef = useRef(webColour);
+
+  useEffect(() => {
+    webColourRef.current = webColour;
+  }, [webColour]);
 
   useEffect(() => {
     // Coarse pointers (touch) have no cursor to replace, and hover-locking is
@@ -86,8 +306,102 @@ export default function WebShooter({
     return !!target && !target.hasAttribute("disabled");
   }, []);
 
+  const startLoop = useCallback(() => {
+    if (rafRef.current !== null) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+
+    const draw = (now: number) => {
+      const shots = shotsRef.current;
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+      for (const shot of shots) {
+        const gravity = shot.phase === "flight" ? 0.35 : 0.55;
+        const damping = shot.phase === "flight" ? 0.985 : 0.9;
+
+        if (shot.phase === "flight") {
+          const t = Math.min(1, (now - shot.startedAt) / FLIGHT_MS);
+          const leadIdx = Math.max(1, Math.round(t * (ROPE_POINTS - 1)));
+          const tipX = shot.nozzle.x + (shot.target.x - shot.nozzle.x) * t;
+          const tipY = shot.nozzle.y + (shot.target.y - shot.nozzle.y) * t;
+          for (let i = shot.released; i <= leadIdx; i++) {
+            shot.main.points[i].x = tipX;
+            shot.main.points[i].y = tipY;
+            shot.main.points[i].px = tipX;
+            shot.main.points[i].py = tipY;
+          }
+          shot.released = Math.max(shot.released, leadIdx + 1);
+
+          stepRope(shot.main, gravity, damping, now);
+
+          if (t >= 1) {
+            shot.phase = "impact";
+            shot.impactStartedAt = now;
+            primeOvershoot(shot.main, shot.target.x, shot.target.y, shot.dir.x, shot.dir.y, now);
+            shot.strands = buildImpactStrands(shot.target, now);
+            shot.target.el.classList.add("web-caught");
+          }
+
+          // Motion blur: the same rope shape, nudged back along the flight
+          // direction and drawn faint underneath — cheaper and cleaner than
+          // keeping a real position history, and reads the same at 190ms.
+          const trailOffset = 14 * (1 - t);
+          if (trailOffset > 0.5) {
+            const trailPts: RopePoint[] = shot.main.points.map((p) => ({
+              x: p.x - shot.dir.x * trailOffset,
+              y: p.y - shot.dir.y * trailOffset,
+              px: p.x - shot.dir.x * trailOffset,
+              py: p.y - shot.dir.y * trailOffset,
+              pinned: p.pinned,
+            }));
+            strokeWeb(ctx, trailPts, webColourRef.current, 0.3);
+          }
+          strokeWeb(ctx, shot.main.points, webColourRef.current, 1);
+        } else if (shot.phase === "impact") {
+          stepRope(shot.main, gravity, damping, now);
+          for (const s of shot.strands) stepRope(s, gravity, 0.88, now);
+
+          const impactElapsed = now - shot.impactStartedAt;
+          let filmAlpha = Math.min(0.5, (impactElapsed / 150) * 0.5);
+          if (impactElapsed > IMPACT_HOLD_MS) {
+            const fadeT = Math.min(1, (impactElapsed - IMPACT_HOLD_MS) / IMPACT_FADE_MS);
+            filmAlpha = 0.5 * (1 - fadeT);
+            if (fadeT >= 1) {
+              shot.phase = "done";
+              shot.target.el.classList.remove("web-caught");
+            }
+          }
+
+          drawFilm(ctx, shot.target, filmAlpha, webColourRef.current);
+          const strandAlpha = impactElapsed > IMPACT_HOLD_MS ? Math.max(0, 1 - (impactElapsed - IMPACT_HOLD_MS) / IMPACT_FADE_MS) : 1;
+          strokeWeb(ctx, shot.main.points, webColourRef.current, strandAlpha);
+          for (const s of shot.strands) strokeWeb(ctx, s.points, webColourRef.current, strandAlpha * 0.85);
+        }
+      }
+
+      shotsRef.current = shots.filter((s) => s.phase !== "done");
+      rafRef.current = shotsRef.current.length > 0 ? requestAnimationFrame(draw) : null;
+    };
+
+    rafRef.current = requestAnimationFrame(draw);
+  }, []);
+
   useEffect(() => {
     if (!enabled) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = `${window.innerWidth}px`;
+      canvas.style.height = `${window.innerHeight}px`;
+      canvas.getContext("2d")?.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    window.addEventListener("resize", resize);
 
     const onMove = (e: PointerEvent) => {
       setPos({ x: e.clientX, y: e.clientY });
@@ -95,7 +409,9 @@ export default function WebShooter({
     };
 
     const onDown = (e: PointerEvent) => {
-      if (!isTarget(e.clientX, e.clientY)) return;
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const btn = el?.closest<HTMLElement>("[data-web-target]");
+      if (!btn || btn.hasAttribute("disabled")) return;
 
       // Fire from the nozzle, which is ARM_LENGTH along the aim vector from
       // the wrist anchor — otherwise the strand visibly leaves from the elbow.
@@ -104,23 +420,31 @@ export default function WebShooter({
       const dx = e.clientX - anchorX;
       const dy = e.clientY - anchorY;
       const len = Math.hypot(dx, dy) || 1;
+      const nozzle = { x: anchorX + (dx / len) * ARM_LENGTH, y: anchorY + (dy / len) * ARM_LENGTH };
 
-      const id = nextId.current++;
-      setStrands((s) => [
-        ...s,
-        {
-          id,
-          x: e.clientX,
-          y: e.clientY,
-          fromX: anchorX + (dx / len) * ARM_LENGTH,
-          fromY: anchorY + (dy / len) * ARM_LENGTH,
-        },
-      ]);
+      const rect = btn.getBoundingClientRect();
+      const tx = rect.left + rect.width / 2;
+      const ty = rect.top + rect.height / 2;
+      const dist = Math.hypot(tx - nozzle.x, ty - nozzle.y) || 1;
+      const segLen = dist / (ROPE_POINTS - 1) || 1;
+
+      const shot: Shot = {
+        phase: "flight",
+        startedAt: performance.now(),
+        impactStartedAt: 0,
+        nozzle,
+        target: { x: tx, y: ty, w: rect.width, h: rect.height, el: btn },
+        main: makeRope(nozzle.x, nozzle.y, ROPE_POINTS, segLen),
+        strands: [],
+        released: 1,
+        dir: { x: (tx - nozzle.x) / dist, y: (ty - nozzle.y) / dist },
+      };
+      shot.main.points[0].pinned = true;
+      shotsRef.current.push(shot);
+      startLoop();
+
       setRecoil(true);
       window.setTimeout(() => setRecoil(false), 140);
-      window.setTimeout(() => {
-        setStrands((s) => s.filter((strand) => strand.id !== id));
-      }, 420);
       playThwip();
     };
 
@@ -133,8 +457,11 @@ export default function WebShooter({
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerdown", onDown);
       document.removeEventListener("pointerleave", onLeave);
+      window.removeEventListener("resize", resize);
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
     };
-  }, [enabled, isTarget]);
+  }, [enabled, isTarget, startLoop]);
 
   // Hide the native cursor only while this is mounted and active, and always
   // put it back on unmount — a page with no cursor and no reticle is unusable.
@@ -156,17 +483,8 @@ export default function WebShooter({
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[9998]" aria-hidden="true">
-      {/* Fired strands: nozzle → point of impact. */}
-      <svg className="absolute inset-0 h-full w-full overflow-visible">
-        {strands.map((s) => (
-          <g key={s.id} className={reducedMotion ? "" : "strand"}>
-            <line x1={s.fromX} y1={s.fromY} x2={s.x} y2={s.y} stroke={webColour} strokeWidth={3} strokeLinecap="round" opacity={0.85} />
-            {/* A couple of stray filaments so it reads as webbing, not a laser. */}
-            <line x1={s.fromX} y1={s.fromY} x2={s.x + 6} y2={s.y + 4} stroke={webColour} strokeWidth={1} opacity={0.4} />
-            <line x1={s.fromX} y1={s.fromY} x2={s.x - 5} y2={s.y + 5} stroke={webColour} strokeWidth={1} opacity={0.4} />
-          </g>
-        ))}
-      </svg>
+      {/* Fired strands: nozzle → point of impact, verlet-simulated. */}
+      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 
       {/* The shooter itself — a gloved forearm that pivots at the wrist. */}
       <div
@@ -198,26 +516,6 @@ export default function WebShooter({
           <Reticle shape={shape} colour={locked ? webColour : colour} locked={locked} />
         </div>
       )}
-
-      <style jsx>{`
-        .strand {
-          animation: strand-fire 420ms ease-out forwards;
-        }
-        @keyframes strand-fire {
-          0% {
-            opacity: 0;
-          }
-          12% {
-            opacity: 1;
-          }
-          65% {
-            opacity: 1;
-          }
-          100% {
-            opacity: 0;
-          }
-        }
-      `}</style>
     </div>
   );
 }

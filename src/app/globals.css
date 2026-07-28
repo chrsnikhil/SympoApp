@@ -413,6 +413,22 @@ html.web-shooter-active textarea {
   .web-land { animation: none; }
 }
 
+/* The option a verlet strand just landed on — a quick shake plus a slight
+   desaturate, so it reads as physically caught rather than just decorated. */
+.web-caught {
+  animation: web-caught-shake 90ms ease-in-out 2;
+  filter: saturate(0.75);
+}
+
+@keyframes web-caught-shake {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .web-caught { animation: none; }
+}
+
 /* ═══════════════════════════════════════════════════
    SCROLLBAR
    ═══════════════════════════════════════════════════ */
