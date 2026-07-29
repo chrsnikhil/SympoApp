@@ -506,7 +506,7 @@ export default function AdminDashboard() {
               />
             </div>
             <button
-              disabled={busy || !assignCoin.trim() || !assignTeamName.trim()}
+              disabled={busy || !assignCoin.trim()}
               onClick={async () => {
                 await callAdvance({ action: "assign-coin", coin: assignCoin.trim(), teamName: assignTeamName.trim() });
                 setAssignCoin("");

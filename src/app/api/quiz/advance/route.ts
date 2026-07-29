@@ -257,17 +257,16 @@ export async function POST(request: Request) {
         // participant get created) and a team that pre-registered online
         // (matched by name, given its coin). Same claim mechanics `/api/enter`
         // uses for self-service, just triggered by the coordinator instead.
-        const teamName = typeof body.teamName === "string" ? body.teamName.trim() : "";
-        if (body.coin === undefined || body.coin === null || body.coin === "") {
-          return NextResponse.json({ error: "Missing coin" }, { status: 400 });
-        }
-        if (!teamName) return NextResponse.json({ error: "Missing team name" }, { status: 400 });
-        if (teamName.length > 40) return NextResponse.json({ error: "Team names cap at 40 characters" }, { status: 400 });
-
         const parsed = parseCoin(String(body.coin));
         if (parsed === null) return NextResponse.json({ error: "Coins are numbered 01 to 60" }, { status: 400 });
         const forCoin = avatarForCoin(parsed);
         if (!forCoin) return NextResponse.json({ error: "That isn't a valid coin" }, { status: 400 });
+
+        let teamName = typeof body.teamName === "string" ? body.teamName.trim() : "";
+        if (!teamName) {
+          teamName = `${forCoin.name} #${formatCoin(parsed)}`;
+        }
+        if (teamName.length > 40) return NextResponse.json({ error: "Team names cap at 40 characters" }, { status: 400 });
 
         const coins = await collections.coins();
         const teams = await collections.teams();
