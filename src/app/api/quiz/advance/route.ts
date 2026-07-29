@@ -5,6 +5,7 @@ import { collections } from "@/lib/db/client";
 import { judgeAll, judgeAvailable } from "@/lib/quiz/judge";
 import { ROUNDS, advanceFrom } from "@/lib/quiz/rounds";
 import { resolveEstimate, resolvePromptImage } from "@/lib/quiz/scoring";
+import { avatarForCoin, formatCoin, parseCoin } from "@/lib/quiz/avatars";
 import type { QuizRound } from "@/lib/db/types";
 
 /**
@@ -31,7 +32,16 @@ export async function POST(request: Request) {
   try {
     await requireAdmin();
 
-    let body: { action?: string; round?: number; count?: number; slug?: string; scores?: Record<string, number>; minutes?: number };
+    let body: {
+      action?: string;
+      round?: number;
+      count?: number;
+      slug?: string;
+      scores?: Record<string, number>;
+      minutes?: number;
+      coin?: string | number;
+      teamName?: string;
+    };
     try {
       body = await request.json();
     } catch {
@@ -91,7 +101,8 @@ export async function POST(request: Request) {
           );
         }
 
-        const pending = await subs.find({ challengeId: challenge._id, status: "queued" }).toArray();
+        // "running", not "queued" — see the note in lib/quiz/judge.ts.
+        const pending = await subs.find({ challengeId: challenge._id, status: "running" }).toArray();
         if (pending.length === 0) {
           return NextResponse.json({ ok: true, slug: body.slug, judged: [], failed: [], note: "Nothing outstanding." });
         }
@@ -186,9 +197,140 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: true, teams: targets.map((t) => t.name), cleared: result });
       }
 
+      case "reveal-next-image": {
+        // Connections is coordinator-paced, not timed: this is the click that
+        // lands the next tile live for every team watching at once.
+        if (!body.slug) return NextResponse.json({ error: "Missing slug" }, { status: 400 });
+        const challenges = await collections.challenges();
+        const challenge = await challenges.findOne({ type: "quiz", slug: body.slug });
+        if (!challenge || challenge.config.format !== "connections") {
+          return NextResponse.json({ error: "No such connections puzzle" }, { status: 404 });
+        }
+        const total = (challenge.config.connectionsImages ?? []).length;
+        // Atomic increment guarded by an $expr comparison against the total —
+        // a plain read-then-write here would lose increments if two reveal
+        // clicks ever landed close enough together to race (a double-click,
+        // or two coordinators at once). $inc is applied server-side by
+        // Mongo, which serializes concurrent writes to the same document, so
+        // this can't overshoot or drop a click no matter how they overlap.
+        const updated = await challenges.findOneAndUpdate(
+          { _id: challenge._id, $expr: { $lt: [{ $ifNull: ["$config.connectionsRevealedCount", 0] }, total] } },
+          { $inc: { "config.connectionsRevealedCount": 1 } },
+          { returnDocument: "after" }
+        );
+        if (!updated) {
+          const current = challenge.config.connectionsRevealedCount ?? 0;
+          return NextResponse.json({ ok: true, slug: body.slug, revealedCount: Math.min(current, total), totalImages: total, note: "All tiles are already up." });
+        }
+        return NextResponse.json({ ok: true, slug: body.slug, revealedCount: updated.config.connectionsRevealedCount, totalImages: total });
+      }
+
+      case "close-puzzle": {
+        // Moves every team off this connections puzzle regardless of whether
+        // they solved it — the coordinator's "we're moving on" click, same
+        // idea as letting Guess-the-Number's shared window run out.
+        if (!body.slug) return NextResponse.json({ error: "Missing slug" }, { status: 400 });
+        const challenges = await collections.challenges();
+        const result = await challenges.updateOne({ type: "quiz", slug: body.slug, "config.format": "connections" }, { $set: { closesAt: new Date() } });
+        if (result.matchedCount === 0) return NextResponse.json({ error: "No such connections puzzle" }, { status: 404 });
+        return NextResponse.json({ ok: true, slug: body.slug });
+      }
+
+      case "assign-coin": {
+        // Coordinator-side coin assignment for the event floor — covers both
+        // a walk-in team that's never touched the app (a fresh team+
+        // participant get created) and a team that pre-registered online
+        // (matched by name, given its coin). Same claim mechanics `/api/enter`
+        // uses for self-service, just triggered by the coordinator instead.
+        const teamName = typeof body.teamName === "string" ? body.teamName.trim() : "";
+        if (body.coin === undefined || body.coin === null || body.coin === "") {
+          return NextResponse.json({ error: "Missing coin" }, { status: 400 });
+        }
+        if (!teamName) return NextResponse.json({ error: "Missing team name" }, { status: 400 });
+        if (teamName.length > 40) return NextResponse.json({ error: "Team names cap at 40 characters" }, { status: 400 });
+
+        const parsed = parseCoin(String(body.coin));
+        if (parsed === null) return NextResponse.json({ error: "Coins are numbered 01 to 60" }, { status: 400 });
+        const forCoin = avatarForCoin(parsed);
+        if (!forCoin) return NextResponse.json({ error: "That isn't a valid coin" }, { status: 400 });
+
+        const coins = await collections.coins();
+        const teams = await collections.teams();
+        const participants = await collections.participants();
+
+        const disc = await coins.findOne({ _id: parsed });
+        if (!disc) return NextResponse.json({ error: "That isn't a valid coin" }, { status: 404 });
+        if (disc.teamId) {
+          const lockedTeam = await teams.findOne({ _id: disc.teamId });
+          return NextResponse.json(
+            { error: `Coin ${formatCoin(parsed)} is already locked to "${lockedTeam?.name ?? "a team"}" — revoke it first` },
+            { status: 409 }
+          );
+        }
+
+        const existingTeam = await teams.findOne({ name: new RegExp(`^${teamName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") });
+        if (existingTeam?.coin !== undefined) {
+          return NextResponse.json({ error: `"${existingTeam!.name}" already holds coin ${formatCoin(existingTeam!.coin!)}` }, { status: 409 });
+        }
+
+        const teamId = existingTeam?._id ?? new ObjectId();
+        const claimed = await coins.findOneAndUpdate(
+          { _id: parsed, teamId: null },
+          { $set: { teamId, claimedAt: new Date() } },
+          { returnDocument: "after" }
+        );
+        if (!claimed) return NextResponse.json({ error: `Coin ${formatCoin(parsed)} was just taken` }, { status: 409 });
+
+        if (existingTeam) {
+          await teams.updateOne({ _id: teamId }, { $set: { avatar: forCoin.id, coin: parsed } });
+        } else {
+          await teams.insertOne({ _id: teamId, name: teamName, avatar: forCoin.id, coin: parsed, createdAt: new Date() });
+        }
+        const hasParticipant = await participants.findOne({ teamId });
+        if (!hasParticipant) {
+          await participants.insertOne({ _id: new ObjectId(), teamId, name: `${teamName} captain`, role: "participant", createdAt: new Date() });
+        }
+
+        return NextResponse.json({ ok: true, coin: formatCoin(parsed), teamId: teamId.toString(), teamName, avatar: forCoin.name });
+      }
+
+      case "revoke-coin": {
+        if (body.coin === undefined || body.coin === null || body.coin === "") {
+          return NextResponse.json({ error: "Missing coin" }, { status: 400 });
+        }
+        const parsed = parseCoin(String(body.coin));
+        if (parsed === null) return NextResponse.json({ error: "Coins are numbered 01 to 60" }, { status: 400 });
+
+        const coins = await collections.coins();
+        const teams = await collections.teams();
+        const disc = await coins.findOne({ _id: parsed });
+        if (!disc?.teamId) return NextResponse.json({ ok: true, coin: formatCoin(parsed), note: "That coin wasn't assigned to anyone" });
+
+        await coins.updateOne({ _id: parsed }, { $set: { teamId: null, claimedAt: null } });
+        await teams.updateOne({ _id: disc.teamId }, { $unset: { avatar: "", coin: "" } });
+        return NextResponse.json({ ok: true, coin: formatCoin(parsed) });
+      }
+
+      case "end-quiz": {
+        const state = await collections.quizState();
+        await state.updateOne({ _id: "quiz" }, { $set: { ended: true, endedAt: new Date() } }, { upsert: true });
+        return NextResponse.json({ ok: true, ended: true });
+      }
+
+      case "resume-quiz": {
+        // Undo for a mis-click — End Quiz should be a real switch, not a
+        // one-way door with no recovery.
+        const state = await collections.quizState();
+        await state.updateOne({ _id: "quiz" }, { $set: { ended: false, endedAt: null } }, { upsert: true });
+        return NextResponse.json({ ok: true, ended: false });
+      }
+
       default:
         return NextResponse.json(
-          { error: "action must be advance, resolve-estimate, resolve-image, judge-image, open or reset" },
+          {
+            error:
+              "action must be advance, resolve-estimate, resolve-image, judge-image, open, reset, reveal-next-image, close-puzzle, assign-coin, revoke-coin, end-quiz or resume-quiz",
+          },
           { status: 400 }
         );
     }

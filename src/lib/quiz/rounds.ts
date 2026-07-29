@@ -140,16 +140,32 @@ export async function standings(round: QuizRound): Promise<Standing[]> {
     }
   }
 
-  return [...involved]
-    .map((teamId) => ({
-      teamId,
-      teamName: teamById.get(teamId)?.name ?? "Unknown",
-      avatar: teamById.get(teamId)?.avatar ?? null,
-      points: points.get(teamId) ?? 0,
-      tiebreakSeconds: Math.round((tiebreak.get(teamId) ?? 0) * 10) / 10,
-      answered: answered.get(teamId) ?? 0,
-    }))
-    .sort((a, b) => b.points - a.points || a.tiebreakSeconds - b.tiebreakSeconds);
+  // Sorted on team IDs first, not the mapped rows — a team with NO tiebreak
+  // entry (never submitted anything this round) must rank BELOW every team
+  // that actually played, even at an equal 0 points. Defaulting its
+  // tiebreakSeconds to 0 for *display* is fine (reads as "—" worth of
+  // activity), but using that same 0 as the ascending sort key would rank a
+  // team that did nothing ahead of one that genuinely finished at second 0 —
+  // worse, ahead of everyone, since real timestamps are always > 0. This is
+  // what let two stale, never-played teams outrank real competitors for a
+  // cut slot.
+  const ranked = [...involved].sort((a, b) => {
+    const pointsDiff = (points.get(b) ?? 0) - (points.get(a) ?? 0);
+    if (pointsDiff !== 0) return pointsDiff;
+    const aPlayed = tiebreak.has(a);
+    const bPlayed = tiebreak.has(b);
+    if (aPlayed !== bPlayed) return aPlayed ? -1 : 1;
+    return (tiebreak.get(a) ?? 0) - (tiebreak.get(b) ?? 0);
+  });
+
+  return ranked.map((teamId) => ({
+    teamId,
+    teamName: teamById.get(teamId)?.name ?? "Unknown",
+    avatar: teamById.get(teamId)?.avatar ?? null,
+    points: points.get(teamId) ?? 0,
+    tiebreakSeconds: Math.round((tiebreak.get(teamId) ?? 0) * 10) / 10,
+    answered: answered.get(teamId) ?? 0,
+  }));
 }
 
 /**

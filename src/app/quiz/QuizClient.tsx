@@ -8,6 +8,7 @@ import Celebration from "./Celebration";
 import Mcq2Phase from "./Mcq2Phase";
 import ProctorGate from "./ProctorGate";
 import Round1Games from "./Round1Games";
+import Standings from "./Standings";
 import WebShooter, { WebNet } from "./WebShooter";
 
 const DEFAULT_PERSONA = {
@@ -124,24 +125,28 @@ export default function QuizClient({
           </div>
         </header>
 
-        <section className="mx-auto max-w-2xl">
-          {round === 1 ? (
-            <Round1Games />
-          ) : (
-            <ProctorGate round={round}>
-              <Mcq2Phase round={round} persona={persona} />
-            </ProctorGate>
-          )}
+        <div className="grid gap-8 md:grid-cols-[18rem_1fr]">
+          <Standings round={round} />
 
-          {isAdmin && (
-            <p className="mt-6 border-l-2 border-paper-white/15 pl-3 text-xs text-paper-white/45">
-              Signed in as coordinator. The dashboard lives on the app host, not this event
-              subdomain — <code className="font-mono text-paper-white/70">/admin/quiz</code> on
-              app.&lt;domain&gt; (or plain localhost in dev), since <code className="font-mono text-paper-white/70">proxy.ts</code>{" "}
-              rewrites every other host into its event&apos;s route group.
-            </p>
-          )}
-        </section>
+          <section className="min-w-0">
+            {round === 1 ? (
+              <Round1Games />
+            ) : (
+              <ProctorGate round={round}>
+                <Mcq2Phase round={round} persona={persona} />
+              </ProctorGate>
+            )}
+
+            {isAdmin && (
+              <p className="mt-6 border-l-2 border-paper-white/15 pl-3 text-xs text-paper-white/45">
+                Signed in as coordinator. The dashboard lives on the app host, not this event
+                subdomain — <code className="font-mono text-paper-white/70">/admin/quiz</code> on
+                app.&lt;domain&gt; (or plain localhost in dev), since <code className="font-mono text-paper-white/70">proxy.ts</code>{" "}
+                rewrites every other host into its event&apos;s route group.
+              </p>
+            )}
+          </section>
+        </div>
       </div>
     </main>
   );

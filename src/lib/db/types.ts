@@ -100,10 +100,19 @@ export interface Challenge {
     memoryPairs?: number;
     /** quiz memory: max flips before the grid locks. */
     memoryFlipCap?: number;
-    /** quiz connections: tile image paths, revealed one at a time from index 0. */
+    /** quiz connections: tile image paths for this puzzle, 3-5 of them. */
     connectionsImages?: string[];
-    /** quiz connections: seconds between each successive image reveal, timed from `opensAt`. */
-    connectionsRevealSeconds?: number;
+    /** quiz connections: which puzzle this is in the 5-puzzle sequence (1-5). */
+    connectionsPuzzleIndex?: number;
+    /** quiz connections: one-line clue shown alongside the tiles. */
+    connectionsClue?: string;
+    /**
+     * quiz connections: how many tiles are currently revealed to every team —
+     * admin-paced (coordinator clicks "reveal next image" live on stage),
+     * not timed. Mutated by the `reveal-next-image` admin action, capped at
+     * `connectionsImages.length`.
+     */
+    connectionsRevealedCount?: number;
     /** ctf: extra points for the first team to solve. */
     firstBloodBonus?: number;
     /** code: reference to the hidden test bundle in blob storage. */
@@ -349,4 +358,16 @@ export interface ProctorFlag {
   round: QuizRound;
   kind: ProctorFlagKind;
   at: Date;
+}
+
+/**
+ * One well-known document (`_id: "quiz"`), not a per-round record — the
+ * coordinator's single "the event is over" switch. Checked by `gradeQuiz`
+ * so nothing scores after the coordinator hits End Quiz, regardless of which
+ * round or format the submission is for.
+ */
+export interface QuizState {
+  _id: "quiz";
+  ended: boolean;
+  endedAt: Date | null;
 }

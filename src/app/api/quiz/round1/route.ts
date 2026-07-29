@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
 import { collections } from "@/lib/db/client";
-import { revealedImages, secondsToNextReveal } from "@/lib/quiz/connections";
-import { gameForPhase, round1Phase } from "@/lib/quiz/round1";
+import { revealedImages } from "@/lib/quiz/connections";
+import { connectionsPuzzles, currentConnectionsPuzzle, gameForPhase, round1Phase } from "@/lib/quiz/round1";
 
 /**
  * Round 1 status — ONE phase at a time. "Final Universe" is Image
@@ -27,6 +27,46 @@ export async function GET() {
     if (phase !== "image") completedPhases.push("image");
     if (phase === "memory" || phase === "done") completedPhases.push("connections");
     if (phase === "done") completedPhases.push("memory");
+
+    if (phase === "connections") {
+      const puzzles = connectionsPuzzles(games);
+      const challenge = await currentConnectionsPuzzle(teamId, games, now);
+      if (!challenge) {
+        // Cleared between the phase check and here (a concurrent guess) — the
+        // next poll will pick up "memory". Nothing to render this instant.
+        return NextResponse.json({ phase, completedPhases, game: null }, { headers: { "Cache-Control": "no-store" } });
+      }
+
+      const subs = await collections.submissions();
+      const solved = await subs.findOne({ challengeId: challenge._id, teamId, status: "done", "verdict.correct": true });
+      const attempts = await subs.countDocuments({ challengeId: challenge._id, teamId });
+      return NextResponse.json(
+        {
+          phase,
+          completedPhases,
+          game: {
+            slug: challenge.slug,
+            title: challenge.title,
+            format: challenge.config.format,
+            points: challenge.points,
+            opensAt: challenge.opensAt ? challenge.opensAt.toISOString() : null,
+            closesAt: challenge.closesAt ? challenge.closesAt.toISOString() : null,
+            clue: challenge.config.connectionsClue ?? null,
+            puzzleIndex: challenge.config.connectionsPuzzleIndex ?? 1,
+            totalPuzzles: puzzles.length,
+            images: revealedImages(challenge),
+            totalImages: (challenge.config.connectionsImages ?? []).length,
+            solved: !!solved,
+            attempts,
+          },
+        },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    if (phase === "done") {
+      return NextResponse.json({ phase, completedPhases, game: null }, { headers: { "Cache-Control": "no-store" } });
+    }
 
     const challenge = gameForPhase(games, phase);
     if (!challenge) {
@@ -54,27 +94,6 @@ export async function GET() {
             referenceImage: challenge.config.referenceImage ?? null,
             status: sub?.status ?? "not-started",
             verdict: sub?.verdict ? { correct: sub.verdict.correct, points: sub.verdict.points } : null,
-          },
-        },
-        { headers: { "Cache-Control": "no-store" } }
-      );
-    }
-
-    if (phase === "connections") {
-      const subs = await collections.submissions();
-      const solved = await subs.findOne({ challengeId: challenge._id, teamId, status: "done", "verdict.correct": true });
-      const attempts = await subs.countDocuments({ challengeId: challenge._id, teamId });
-      return NextResponse.json(
-        {
-          phase,
-          completedPhases,
-          game: {
-            ...base,
-            images: revealedImages(challenge, now),
-            totalImages: (challenge.config.connectionsImages ?? []).length,
-            secondsToNextReveal: secondsToNextReveal(challenge, now),
-            solved: !!solved,
-            attempts,
           },
         },
         { headers: { "Cache-Control": "no-store" } }

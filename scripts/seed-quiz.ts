@@ -26,21 +26,28 @@ function makeCode(): string {
   return `X26-${chunk(5)}-${chunk(5)}`;
 }
 
-// ── Round 1, Game 2 — Connections ────────────────────────────────────────────
-// Four tiles that share one hidden technical term, revealed one at a time.
-// The art here is still the assets repo's anonymised PLACEHOLDER frames — per
-// its own README, which puzzle number means which subject is the
-// coordinator's call, never committed or filename-encoded (a labelled
-// filename would just hand the answer to anyone reading the network tab).
-// CONNECTIONS_ANSWER below is a placeholder for local testing only — swap it
-// (and the artwork) for the real assignment before the event.
-const CONNECTIONS_TITLE = "Four pictures. One shared technical term.";
+// ── Round 1, Game 2 — Connections: 5 puzzles played in sequence ─────────────
+// Each puzzle is a handful of tiles sharing one hidden technical term plus a
+// one-line clue; the coordinator reveals tiles live (see AdminDashboard's
+// "Connections — reveal control"), not on a timer. The art here is still the
+// assets repo's anonymised PLACEHOLDER frames, reused across all 5 puzzles
+// for local testing only — per the repo's own README, which puzzle number
+// means which subject is the coordinator's call, never committed or
+// filename-encoded (a labelled filename would just hand the answer to
+// anyone reading the network tab). Swap the artwork and answers for the real
+// assignment before the event.
 // NOTE: this file runs main() unconditionally at import time (see the bottom
 // of the file), so it must never be `import`-ed by another script — that
 // would re-run the seed as a side effect. scripts/verify-quiz.ts duplicates
-// this literal for that reason; keep the two in sync by hand.
-const CONNECTIONS_ANSWER = "recursion";
+// these literals for that reason; keep them in sync by hand.
 const CONNECTIONS_IMAGES = ["/quiz/connect-1-a.svg", "/quiz/connect-1-b.svg", "/quiz/connect-1-c.svg", "/quiz/connect-1-d.svg"];
+const CONNECTIONS_PUZZLES = [
+  { title: "Puzzle 1: Four pictures. One shared technical term.", clue: "It's what a function does to itself.", answer: "recursion" },
+  { title: "Puzzle 2: Four pictures. One shared technical term.", clue: "The 'S' in SOLID.", answer: "single responsibility" },
+  { title: "Puzzle 3: Four pictures. One shared technical term.", clue: "What a cache miss forces you to do.", answer: "fetch" },
+  { title: "Puzzle 4: Four pictures. One shared technical term.", clue: "Two threads, one variable, no lock.", answer: "race condition" },
+  { title: "Puzzle 5: Four pictures. One shared technical term.", clue: "The tree structure behind every directory.", answer: "hierarchy" },
+];
 
 // ── Round 2 — Warm-up MCQs (8 questions, flat scoring, no reveal) ───────────
 type Mcq = { q: string; options: string[]; correct: number; hint?: string };
@@ -133,25 +140,28 @@ async function main() {
     config: { round: 1, format: "prompt-image", order: 1, referenceImage: "/quiz/reference-1.svg" },
   });
 
-  // Round 1, Game 2 — Connections. Played after Image Replication, before the
-  // Memory Game — see `lib/quiz/round1.ts` for the sequencing.
-  docs.push({
-    type: "quiz",
-    slug: "connections-1",
-    title: CONNECTIONS_TITLE,
-    points: 8,
-    opensAt: null,
-    closesAt: null,
-    config: {
-      round: 1,
-      format: "connections",
-      order: 2,
-      connectionsImages: CONNECTIONS_IMAGES,
-      // No connectionsRevealSeconds override — DEFAULT_REVEAL_SECONDS in
-      // lib/quiz/connections.ts is the single source of truth so the server
-      // and every test script that reads the schedule can't drift apart.
-      answerHash: hashAnswer(CONNECTIONS_ANSWER),
-    },
+  // Round 1, Game 2 — Connections: 5 puzzles in sequence, played after Image
+  // Replication and before the Memory Game — see `lib/quiz/round1.ts` for
+  // the sequencing, both across games and within this one across puzzles.
+  CONNECTIONS_PUZZLES.forEach((p, i) => {
+    docs.push({
+      type: "quiz",
+      slug: `connections-${i + 1}`,
+      title: p.title,
+      points: 8,
+      opensAt: null,
+      closesAt: null,
+      config: {
+        round: 1,
+        format: "connections",
+        order: 2,
+        connectionsImages: CONNECTIONS_IMAGES,
+        connectionsPuzzleIndex: i + 1,
+        connectionsClue: p.clue,
+        connectionsRevealedCount: 0,
+        answerHash: hashAnswer(p.answer),
+      },
+    });
   });
 
   // Round 1, Game 3 — Memory Game.
@@ -162,7 +172,11 @@ async function main() {
     points: 16,
     opensAt: null,
     closesAt: null,
-    config: { round: 1, format: "memory", order: 3, memoryPairs: 8 },
+    // memoryFlipCap: 16 is the true minimum to clear 8 pairs (2 flips each) —
+    // no falloff room at all, so this is binary: finish in exactly 16 for
+    // full points, or the grid locks at 0. Confirmed with the coordinator as
+    // intentional, not the earlier par/cap-with-partial-credit default.
+    config: { round: 1, format: "memory", order: 3, memoryPairs: 8, memoryFlipCap: 16 },
   });
 
   ROUND_2.forEach((m, i) => {
@@ -203,11 +217,13 @@ async function main() {
   console.log("  Hand a team any coin; its number decides their character.");
   console.log("────────────────────────────────────────────────────────────────");
 
-  console.log(`\nSeeded 3 round-1 games (sequential: image -> connections -> memory), ${ROUND_2.length} round-2 and ${ROUND_3.length} round-3 questions.`);
+  console.log(
+    `\nSeeded 3 round-1 games (sequential: image -> connections [${CONNECTIONS_PUZZLES.length} puzzles] -> memory), ${ROUND_2.length} round-2 and ${ROUND_3.length} round-3 questions.`
+  );
   console.log("Before Round 1 runs: npx tsx scripts/set-reference.ts image-1 ./reference.jpg");
-  console.log('Then on the day: npx tsx scripts/quiz-admin.ts open image-1 5   (and "open connections-1 5")');
-  console.log("Connections art is still the assets repo's PLACEHOLDER frames, and CONNECTIONS_ANSWER is a dev-only stand-in --");
-  console.log("replace both the four tiles and the answer with the coordinator's real assignment before the event.");
+  console.log("Then on the day: open image-1 from the dashboard, and open/reveal each connections-N puzzle live from its reveal panel.");
+  console.log("Connections art is still the assets repo's PLACEHOLDER frames, and every puzzle answer is a dev-only stand-in --");
+  console.log("replace the tiles, clues and answers with the coordinator's real assignment before the event.");
 
   process.exit(0);
 }

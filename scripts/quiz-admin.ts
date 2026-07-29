@@ -168,7 +168,10 @@ async function main() {
       const reference = challenge.config.referenceDataUrl;
       if (!reference) throw new Error(`${slug} has no referenceDataUrl — npx tsx scripts/set-reference.ts ${slug} ./reference.jpg`);
 
-      const pending = await subs.find({ challengeId: challenge._id, status: "queued" }).toArray();
+      // "running", not "queued" — the shared submission pipeline only writes
+      // "queued" for `code` events; a pending quiz submission sits at
+      // "running" until something resolves it.
+      const pending = await subs.find({ challengeId: challenge._id, status: "running" }).toArray();
       if (pending.length === 0) {
         console.log(`\n  Nothing outstanding for ${slug}.`);
         break;

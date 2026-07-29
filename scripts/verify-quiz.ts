@@ -78,6 +78,9 @@ class Client {
   post(path: string, body?: unknown) {
     return this.send("POST", path, body);
   }
+  delete(path: string) {
+    return this.send("DELETE", path);
+  }
 }
 
 function sleep(ms: number) {
@@ -132,14 +135,15 @@ async function main() {
   check("a coin outside 01-60 is refused", outOfRange.status === 400, outOfRange.status);
 
   // ── Round 1 ──────────────────────────────────────────────────────────────
-  // Sequential per team: Image Replication -> Connections -> Memory Game. See
-  // lib/quiz/round1.ts — the phase is derived, not stored, so this also
-  // exercises that derivation at each step rather than trusting it once.
+  // Sequential per team: Image Replication -> Connections (5 puzzles) ->
+  // Memory Game. See lib/quiz/round1.ts — the phase is derived, not stored,
+  // so this also exercises that derivation at each step rather than trusting
+  // it once.
   console.log("\n── Round 1: Final Universe ─────────────────────────────────");
   const first = clients[0].client;
-  // Must match seed-quiz.ts's CONNECTIONS_ANSWER — see the note there on why
-  // this isn't imported instead.
-  const CONNECTIONS_ANSWER = "recursion";
+  // Must match seed-quiz.ts's CONNECTIONS_PUZZLES answers — see the note
+  // there on why this isn't imported instead.
+  const CONNECTIONS_ANSWERS = ["recursion", "single responsibility", "fetch", "race condition", "hierarchy"];
 
   const r1Start = await first.get("/api/quiz/round1");
   check("round1 starts on the image phase", r1Start.body?.phase === "image", r1Start.body);
@@ -152,6 +156,11 @@ async function main() {
   const TINY_JPEG =
     "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
 
+  // Opening the image window is what makes it a real "window" a team can be
+  // asked to wait out — without an opensAt/closesAt, round1Phase would treat
+  // it as never-closing and a team could never leave the phase at all.
+  await admin.post("/api/quiz/advance", { action: "open", slug: "image-1", minutes: 5 });
+
   const upload = await first.post("/api/quiz/image", { challengeSlug: "image-1", dataUrl: TINY_JPEG });
   check("uploading a JPEG returns an image id", upload.status === 200 && !!upload.body?.imageId, upload.body);
 
@@ -161,17 +170,50 @@ async function main() {
   const prompt = await first.post("/api/submit", { event: "quiz", challengeSlug: "image-1", payload: upload.body?.imageId });
   check("submitting an owned image id is accepted as pending", prompt.status === 202 && prompt.body?.pending === true, prompt.body);
 
-  const r1AfterImage = await first.get("/api/quiz/round1");
-  check("submitting the image unlocks the connections phase", r1AfterImage.body?.phase === "connections", r1AfterImage.body);
-  check("connections starts closed until the coordinator opens it", Array.isArray(r1AfterImage.body?.game?.images) && r1AfterImage.body.game.images.length === 0, r1AfterImage.body?.game);
+  const r1AfterSubmit = await first.get("/api/quiz/round1");
+  check("submitting alone does NOT advance the phase — the window stays open for retries", r1AfterSubmit.body?.phase === "image", r1AfterSubmit.body);
+  // "running", not "queued" — the shared pipeline only writes "queued" for
+  // `code` events; a pending quiz submission sits at "running" until judged.
+  check("the submitted state is visible so the UI can offer delete + retry", r1AfterSubmit.body?.game?.status === "running", r1AfterSubmit.body?.game);
 
-  // Connections — retries allowed on a wrong guess; server-timed staggered
-  // reveal, never a client-side clock.
-  const openConnections = await admin.post("/api/quiz/advance", { action: "open", slug: "connections-1", minutes: 5 });
-  check("coordinator can open the connections window", openConnections.body?.ok === true, openConnections.body);
+  const deleted = await first.delete(`/api/quiz/image?challengeSlug=image-1`);
+  check("a team can withdraw its submission while the window is open", deleted.status === 200 && deleted.body?.hadSubmission === true, deleted.body);
+
+  const r1AfterDelete = await first.get("/api/quiz/round1");
+  check("after deleting, the team is back to not-started and can re-upload", r1AfterDelete.body?.game?.status === "not-started", r1AfterDelete.body?.game);
+
+  const reupload = await first.post("/api/quiz/image", { challengeSlug: "image-1", dataUrl: TINY_JPEG });
+  const resubmit = await first.post("/api/submit", { event: "quiz", challengeSlug: "image-1", payload: reupload.body?.imageId });
+  check("re-uploading and resubmitting after a delete works", resubmit.status === 202 && resubmit.body?.pending === true, resubmit.body);
+
+  // Force the window closed (DB-direct, like the rest of this script reads
+  // ground truth the API deliberately never exposes) instead of waiting out
+  // 5 real minutes — the actual "wait for the real clock" case is
+  // live-check.ts's job.
+  const imageChallenges = await collections.challenges();
+  await imageChallenges.updateOne({ type: "quiz", slug: "image-1" }, { $set: { closesAt: new Date(Date.now() - 1000) } });
+
+  const r1AfterImage = await first.get("/api/quiz/round1");
+  check("once the window actually closes, the team moves on to connections", r1AfterImage.body?.phase === "connections", r1AfterImage.body);
+  check("connections starts closed until the coordinator opens it", Array.isArray(r1AfterImage.body?.game?.images) && r1AfterImage.body.game.images.length === 0, r1AfterImage.body?.game);
+  check("the first connections puzzle carries its clue", typeof r1AfterImage.body?.game?.clue === "string", r1AfterImage.body?.game);
+  check("puzzle 1 of 5 is reported", r1AfterImage.body?.game?.puzzleIndex === 1 && r1AfterImage.body?.game?.totalPuzzles === 5, r1AfterImage.body?.game);
+
+  // Connections — coordinator-paced reveal (a click, not a clock), retries
+  // allowed on a wrong guess, 5 puzzles played in sequence.
+  const connectionsChallenges = await collections.challenges();
+
+  const openP1 = await admin.post("/api/quiz/advance", { action: "open", slug: "connections-1", minutes: 30 });
+  check("coordinator can open a connections puzzle", openP1.body?.ok === true, openP1.body);
+
+  const r1BeforeReveal = await first.get("/api/quiz/round1");
+  check("opening the puzzle alone reveals nothing yet — that's a separate click", (r1BeforeReveal.body?.game?.images?.length ?? -1) === 0, r1BeforeReveal.body?.game);
+
+  const reveal1 = await admin.post("/api/quiz/advance", { action: "reveal-next-image", slug: "connections-1" });
+  check("the coordinator's reveal click lands exactly one tile, for everyone at once", reveal1.body?.revealedCount === 1, reveal1.body);
 
   const r1Opened = await first.get("/api/quiz/round1");
-  check("opening the window reveals exactly the first tile", r1Opened.body?.game?.images?.length === 1, r1Opened.body?.game);
+  check("the team sees the tile the coordinator revealed", r1Opened.body?.game?.images?.length === 1, r1Opened.body?.game);
 
   const wrongGuess = await first.post("/api/submit", { event: "quiz", challengeSlug: "connections-1", payload: "not-it" });
   check("a wrong guess scores zero but doesn't block a retry", wrongGuess.body?.correct === false, wrongGuess.body);
@@ -179,18 +221,33 @@ async function main() {
   const r1AfterWrong = await first.get("/api/quiz/round1");
   check("a wrong guess stays on the connections phase", r1AfterWrong.body?.phase === "connections", r1AfterWrong.body);
 
-  const connectionsChallenges = await collections.challenges();
-  const connCh = await connectionsChallenges.findOne({ type: "quiz", slug: "connections-1" });
-
-  const rightGuess = await first.post("/api/submit", { event: "quiz", challengeSlug: "connections-1", payload: CONNECTIONS_ANSWER });
+  const connCh1 = await connectionsChallenges.findOne({ type: "quiz", slug: "connections-1" });
+  const rightGuess = await first.post("/api/submit", { event: "quiz", challengeSlug: "connections-1", payload: CONNECTIONS_ANSWERS[0] });
   check(
     "the correct term scores full points (solved on the very first revealed tile)",
-    rightGuess.body?.correct === true && rightGuess.body?.points === connCh?.points,
+    rightGuess.body?.correct === true && rightGuess.body?.points === connCh1?.points,
     rightGuess.body
   );
 
+  const r1AfterP1 = await first.get("/api/quiz/round1");
+  check("solving puzzle 1 moves the team to puzzle 2", r1AfterP1.body?.game?.puzzleIndex === 2, r1AfterP1.body?.game);
+
+  // Race through puzzles 2-5: open, reveal every tile, solve. This is what
+  // proves the WHOLE sequence chains correctly, not just the first hop.
+  for (let i = 2; i <= 5; i++) {
+    const slug = `connections-${i}`;
+    await admin.post("/api/quiz/advance", { action: "open", slug, minutes: 30 });
+    const ch = await connectionsChallenges.findOne({ type: "quiz", slug });
+    const totalImages = ch?.config.connectionsImages?.length ?? 4;
+    for (let r = 0; r < totalImages; r++) {
+      await admin.post("/api/quiz/advance", { action: "reveal-next-image", slug });
+    }
+    const guess = await first.post("/api/submit", { event: "quiz", challengeSlug: slug, payload: CONNECTIONS_ANSWERS[i - 1] });
+    check(`puzzle ${i} solves correctly after all tiles are revealed`, guess.body?.correct === true, guess.body);
+  }
+
   const r1AfterConnections = await first.get("/api/quiz/round1");
-  check("solving connections unlocks the memory phase", r1AfterConnections.body?.phase === "memory", r1AfterConnections.body);
+  check("clearing all 5 connections puzzles unlocks the memory phase", r1AfterConnections.body?.phase === "memory", r1AfterConnections.body);
 
   // Memory Game — the API must never leak the grid; we read it from Mongo to
   // drive a real completion deterministically.
@@ -201,6 +258,7 @@ async function main() {
   const teamObjId = new ObjectId(clients[0].teamId);
   const memState = await memoryStates.findOne({ teamId: teamObjId, challengeSlug: "memory-1" });
   check("a memory state was created server-side", !!memState, memState);
+  check("the flip cap is the true 16-flip minimum for 8 pairs, no falloff room", memState?.flipCap === 16, memState?.flipCap);
 
   if (memState) {
     // Flip each pair back-to-back (index A, then its actual partner index B)

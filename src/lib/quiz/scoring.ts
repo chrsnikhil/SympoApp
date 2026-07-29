@@ -92,7 +92,10 @@ export async function resolveEstimate(slug: string): Promise<ResolvedAward[]> {
   const truth = challenge.config.answerValue;
   if (truth === undefined) throw new Error(`${slug} has no answerValue to resolve against`);
 
-  const attempts = await subs.find({ challengeId: challenge._id, status: "queued" }).toArray();
+  // "running", not "queued" — see the note in lib/quiz/judge.ts: the shared
+  // pipeline only writes "queued" for `code` events. A pending quiz
+  // submission sits at "running" until something resolves it.
+  const attempts = await subs.find({ challengeId: challenge._id, status: "running" }).toArray();
   if (attempts.length === 0) return [];
 
   // One guess per team — the earliest, so a team can't fish with several.
@@ -172,7 +175,8 @@ export async function resolvePromptImage(slug: string, similarityByTeam: Record<
   const challenge = await challenges.findOne({ type: "quiz", slug });
   if (!challenge?._id) throw new Error(`No such quiz challenge: ${slug}`);
 
-  const attempts = await subs.find({ challengeId: challenge._id, status: "queued" }).toArray();
+  // "running", not "queued" — see the note in lib/quiz/judge.ts.
+  const attempts = await subs.find({ challengeId: challenge._id, status: "running" }).toArray();
   const awards: ResolvedAward[] = [];
 
   for (const sub of attempts) {

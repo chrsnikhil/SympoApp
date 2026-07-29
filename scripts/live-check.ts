@@ -11,7 +11,6 @@
  * Not idempotent — reseed before every run.
  */
 import { collections } from "../src/lib/db/client";
-import { DEFAULT_REVEAL_SECONDS } from "../src/lib/quiz/connections";
 
 const BASE = process.env.QUIZ_BASE ?? "http://localhost:3000";
 
@@ -62,6 +61,9 @@ class Client {
   post(path: string, body?: unknown) {
     return this.send("POST", path, body);
   }
+  delete(path: string) {
+    return this.send("DELETE", path);
+  }
 }
 
 function sleep(ms: number) {
@@ -75,7 +77,8 @@ function elapsed() {
 
 const TINY_JPEG =
   "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
-const CONNECTIONS_ANSWER = "recursion"; // must match seed-quiz.ts
+// Must match seed-quiz.ts's CONNECTIONS_PUZZLES answers.
+const CONNECTIONS_ANSWERS = ["recursion", "single responsibility", "fetch", "race condition", "hierarchy"];
 
 async function playMcqRound(client: Client, round: 2 | 3, adminCode: string) {
   const admin = new Client("admin-mcq");
@@ -176,10 +179,17 @@ async function main() {
   const status0 = await hero.get("/api/quiz/status");
   check("status starts at round 1", status0.body?.round === 1, status0.body);
 
-  // ── Round 1: Image ───────────────────────────────────────────────────────
-  console.log("\n── Round 1, phase 1: Image Replication ─────────────────────");
+  // ── Round 1: Image — real window, real close ─────────────────────────────
+  console.log("\n── Round 1, phase 1: Image Replication (real window timing) ─");
   const r1a = await hero.get("/api/quiz/round1");
   check("round1 starts on the image phase", r1a.body?.phase === "image", r1a.body);
+
+  // A short but real window (6s), waited out for real — this is what proves
+  // "the phase doesn't advance until the window actually closes" rather than
+  // just trusting the DB-hacked version verify-quiz.ts uses for speed.
+  const imgOpened = await admin.post("/api/quiz/advance", { action: "open", slug: "image-1", minutes: 0.1 });
+  check("coordinator opens a real (short) image window", imgOpened.body?.ok === true, imgOpened.body);
+  const imgClosesAt = new Date(imgOpened.body.closesAt).getTime();
 
   const upload = await hero.post("/api/quiz/image", { challengeSlug: "image-1", dataUrl: TINY_JPEG });
   check("image upload succeeds", upload.status === 200 && !!upload.body?.imageId, upload.body);
@@ -187,49 +197,75 @@ async function main() {
   check("image submission is accepted pending", imgSubmit.status === 202, imgSubmit.body);
   note(`image submitted at ${elapsed()}`);
 
+  const r1AfterSubmit = await hero.get("/api/quiz/round1");
+  check("submitting alone does not advance the phase — window's still open", r1AfterSubmit.body?.phase === "image", r1AfterSubmit.body);
+
+  const deleted = await hero.delete("/api/quiz/image?challengeSlug=image-1");
+  check("the team can delete its submission while the window is open", deleted.body?.ok === true && deleted.body?.hadSubmission === true, deleted.body);
+  const reupload = await hero.post("/api/quiz/image", { challengeSlug: "image-1", dataUrl: TINY_JPEG });
+  const resubmit = await hero.post("/api/submit", { event: "quiz", challengeSlug: "image-1", payload: reupload.body?.imageId });
+  check("re-uploading and resubmitting works before the window closes", resubmit.status === 202, resubmit.body);
+  note(`deleted and re-submitted at ${elapsed()}`);
+
+  const imgWaitMs = Math.max(0, imgClosesAt - Date.now()) + 400;
+  await sleep(imgWaitMs);
   const r1b = await hero.get("/api/quiz/round1");
-  check("phase advances to connections immediately on submit", r1b.body?.phase === "connections", r1b.body);
+  check("phase advances to connections only once the real window has closed", r1b.body?.phase === "connections", { wallTime: elapsed(), body: r1b.body });
+  note(`image window closed for real, advanced to connections at ${elapsed()}`);
 
-  // ── Round 1: Connections — wait out the REAL reveal schedule ────────────
-  console.log("\n── Round 1, phase 2: Connections (real reveal timing) ──────");
-  const opened = await admin.post("/api/quiz/advance", { action: "open", slug: "connections-1", minutes: 5 });
-  check("coordinator opens the connections window", opened.body?.ok === true, opened.body);
-  const opensAt = new Date(opened.body.opensAt).getTime();
-
+  // ── Round 1: Connections — coordinator-paced reveal, real HTTP round-trips ─
+  console.log("\n── Round 1, phase 2: Connections (5 puzzles, live-paced) ───");
   const challenges = await collections.challenges();
-  const connCh = await challenges.findOne({ type: "quiz", slug: "connections-1" });
-  const revealSeconds = connCh?.config.connectionsRevealSeconds ?? DEFAULT_REVEAL_SECONDS;
-  const totalTiles = connCh?.config.connectionsImages?.length ?? 4;
-  note(`reveal interval is ${revealSeconds}s per tile, ${totalTiles} tiles total`);
 
-  for (let tile = 1; tile <= totalTiles; tile++) {
-    const targetAt = opensAt + (tile - 1) * revealSeconds * 1000;
-    const waitMs = Math.max(0, targetAt - Date.now()) + 400;
-    if (waitMs > 0) await sleep(waitMs);
-    const r = await hero.get("/api/quiz/round1");
-    check(`tile ${tile} is revealed at its scheduled time (not early, not late)`, (r.body?.game?.images?.length ?? 0) >= tile, {
-      wallTime: elapsed(),
-      revealedCount: r.body?.game?.images?.length,
-    });
+  async function solvePuzzle(index: number, revealAll: boolean) {
+    const slug = `connections-${index}`;
+    const opened = await admin.post("/api/quiz/advance", { action: "open", slug, minutes: 30 });
+    check(`puzzle ${index}: coordinator opens it`, opened.body?.ok === true, opened.body);
+
+    const ch = await challenges.findOne({ type: "quiz", slug });
+    const totalTiles = ch?.config.connectionsImages?.length ?? 4;
+
+    const revealCount = revealAll ? totalTiles : 1;
+    for (let i = 0; i < revealCount; i++) {
+      const revealAt = Date.now();
+      const reveal = await admin.post("/api/quiz/advance", { action: "reveal-next-image", slug });
+      check(`puzzle ${index}: reveal ${i + 1} lands the right count`, reveal.body?.revealedCount === i + 1, reveal.body);
+
+      // Real timing check: the participant's very next poll — no artificial
+      // wait — already reflects the reveal. This is the actual claim being
+      // tested here: coordinator-paced means "as fast as an HTTP round-trip
+      // allows," not "after some fixed delay."
+      const seen = await hero.get("/api/quiz/round1");
+      const latencyMs = Date.now() - revealAt;
+      check(
+        `puzzle ${index}: tile ${i + 1} is visible on the very next poll (${latencyMs}ms after the coordinator's click)`,
+        (seen.body?.game?.images?.length ?? 0) >= i + 1,
+        seen.body?.game
+      );
+    }
+
+    const guess = await hero.post("/api/submit", { event: "quiz", challengeSlug: slug, payload: CONNECTIONS_ANSWERS[index - 1] });
+    check(`puzzle ${index}: the real answer is accepted`, guess.body?.correct === true, guess.body);
+    note(`puzzle ${index} solved at ${elapsed()} for ${guess.body?.points} points (revealed ${revealCount}/${totalTiles})`);
+    return { points: guess.body?.points as number | undefined, fullPoints: ch?.points, totalTiles };
   }
 
-  const wrongGuess = await hero.post("/api/submit", { event: "quiz", challengeSlug: "connections-1", payload: "definitely-wrong" });
-  check("a wrong guess after all tiles are up still scores zero, allows retry", wrongGuess.body?.correct === false, wrongGuess.body);
+  await solvePuzzle(1, false); // solved on tile 1 — should score full points
+  const p1Check = await hero.get("/api/quiz/round1");
+  check("solving puzzle 1 moves to puzzle 2", p1Check.body?.game?.puzzleIndex === 2, p1Check.body?.game);
 
-  const rightGuess = await hero.post("/api/submit", { event: "quiz", challengeSlug: "connections-1", payload: CONNECTIONS_ANSWER });
-  check("the real answer is accepted", rightGuess.body?.correct === true, rightGuess.body);
-  // Solved after every tile is up — this is the worst timing a correct guess
-  // can have, so it should score the 30% floor, not the full 8 points.
-  const expectedFloor = Math.round((connCh?.points ?? 0) * 0.3);
-  check(
-    `solving after the last tile scores the reveal-falloff floor (~${expectedFloor}pts), not flat full marks`,
-    rightGuess.body?.points === expectedFloor,
-    rightGuess.body
-  );
-  note(`connections solved at ${elapsed()} for ${rightGuess.body?.points} points (full value: ${connCh?.points})`);
+  await solvePuzzle(2, false);
+  await solvePuzzle(3, false);
+  await solvePuzzle(4, false);
+
+  // Puzzle 5, revealed all the way — the worst timing a correct guess can
+  // have, so it should score the reveal-falloff floor, not full marks.
+  const last = await solvePuzzle(5, true);
+  const expectedFloor = Math.round((last.fullPoints ?? 0) * 0.3);
+  check(`puzzle 5 solved after every tile is up scores the ~30% floor (${expectedFloor}pts), not flat full marks`, last.points === expectedFloor, last);
 
   const r1c = await hero.get("/api/quiz/round1");
-  check("phase advances to memory", r1c.body?.phase === "memory", r1c.body);
+  check("clearing all 5 puzzles advances to memory", r1c.body?.phase === "memory", r1c.body);
 
   // ── Round 1: Memory ──────────────────────────────────────────────────────
   console.log("\n── Round 1, phase 3: Memory Game ────────────────────────────");
@@ -248,7 +284,8 @@ async function main() {
       await hero.post("/api/quiz/memory/flip", { slug: "memory-1", cellIndex: b });
     }
     const finalMem = await memoryStates.findOne({ _id: memState._id });
-    check("perfect play completes memory at full points", finalMem?.completedAt !== null && finalMem?.scoredPoints === connCh?.points ? true : finalMem?.scoredPoints === 16, finalMem);
+    check("the flip cap is the true 16-flip minimum for 8 pairs", finalMem?.flipCap === 16, finalMem?.flipCap);
+    check("perfect play (16 flips) completes memory at full points", finalMem?.completedAt !== null && finalMem?.scoredPoints === 16, finalMem);
     note(`memory completed at ${elapsed()}, scored ${finalMem?.scoredPoints}pts`);
   }
 

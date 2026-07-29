@@ -3,6 +3,7 @@ import { ForbiddenError, requireAdmin, UnauthorizedError } from "@/lib/auth/guar
 import { collections } from "@/lib/db/client";
 import { avatarById, avatarForCoin, formatCoin } from "@/lib/quiz/avatars";
 import { judgeAvailable } from "@/lib/quiz/judge";
+import { connectionsPuzzles, currentConnectionsPuzzle } from "@/lib/quiz/round1";
 import { ROUNDS, standings } from "@/lib/quiz/rounds";
 import type { AvatarId, QuizRound } from "@/lib/db/types";
 
@@ -59,7 +60,7 @@ export async function GET(request: Request) {
       games.sort((a, b) => (a.config.order ?? 0) - (b.config.order ?? 0));
 
       const imageGame = games.find((g) => g.config.format === "prompt-image");
-      const connectionsGame = games.find((g) => g.config.format === "connections");
+      const puzzles = connectionsPuzzles(games);
       const memoryGame = games.find((g) => g.config.format === "memory");
 
       const allSubs = await subs.find({ type: "quiz", challengeId: { $in: games.map((g) => g._id!) } }).toArray();
@@ -70,7 +71,8 @@ export async function GET(request: Request) {
       const judgeQueue: Array<{ teamId: string; teamName: string; submittedAt: string; imageId: string | null }> = [];
       if (imageGame) {
         for (const s of allSubs) {
-          if (String(s.challengeId) !== String(imageGame._id) || s.status !== "queued") continue;
+          // "running", not "queued" — see the note in lib/quiz/judge.ts.
+          if (String(s.challengeId) !== String(imageGame._id) || s.status !== "running") continue;
           judgeQueue.push({
             teamId: String(s.teamId),
             teamName: teamById.get(String(s.teamId))?.name ?? "Unknown",
@@ -80,34 +82,42 @@ export async function GET(request: Request) {
         }
       }
 
-      const connectionsSubs = connectionsGame
-        ? allSubs.filter((s) => String(s.challengeId) === String(connectionsGame._id))
-        : [];
-      const connectionsByTeam = new Map<string, { attempts: number; solved: boolean }>();
-      for (const s of connectionsSubs) {
-        const key = String(s.teamId);
-        const entry = connectionsByTeam.get(key) ?? { attempts: 0, solved: false };
-        entry.attempts += 1;
-        if (s.verdict?.correct) entry.solved = true;
-        connectionsByTeam.set(key, entry);
+      // Solved-count per puzzle, for the coordinator's reveal panel — how many
+      // teams have already cleared the puzzle currently being paced.
+      const solvedByPuzzle = new Map<string, number>();
+      for (const puzzle of puzzles) {
+        const solvedCount = allSubs.filter(
+          (s) => String(s.challengeId) === String(puzzle._id) && s.status === "done" && s.verdict?.correct
+        ).length;
+        solvedByPuzzle.set(puzzle.slug, solvedCount);
       }
 
-      const perTeam = teamDocs
-        .filter((t) => t.name !== "Quiz Control")
-        .map((t) => {
+      const now = new Date();
+      const nonControlTeams = teamDocs.filter((t) => t.name !== "Quiz Control");
+      const perTeam = await Promise.all(
+        nonControlTeams.map(async (t) => {
           const key = String(t._id);
           const imageSub = imageGame ? subByTeamChallenge.get(`${key}:${imageGame._id}`) : undefined;
           const memory = memoryByTeam.get(key);
-          const connections = connectionsByTeam.get(key);
+          const currentPuzzle = puzzles.length > 0 ? await currentConnectionsPuzzle(t._id!, games, now) : null;
+          const solvedPuzzles = puzzles.filter((p) =>
+            allSubs.some((s) => String(s.challengeId) === String(p._id) && String(s.teamId) === key && s.status === "done" && s.verdict?.correct)
+          ).length;
           return {
             teamId: key,
             teamName: t.name,
             image: imageGame
               ? { status: imageSub?.status ?? "not-started", points: imageSub?.verdict?.points ?? null }
               : null,
-            connections: connectionsGame
-              ? { attempts: connections?.attempts ?? 0, solved: connections?.solved ?? false }
-              : null,
+            connections:
+              puzzles.length > 0
+                ? {
+                    puzzleIndex: currentPuzzle?.config.connectionsPuzzleIndex ?? puzzles.length,
+                    totalPuzzles: puzzles.length,
+                    solvedPuzzles,
+                    doneWithAll: currentPuzzle === null,
+                  }
+                : null,
             memory: memory
               ? {
                   flipsUsed: memory.flipsUsed,
@@ -119,10 +129,22 @@ export async function GET(request: Request) {
                 }
               : null,
           };
-        });
+        })
+      );
 
       payload.round1 = { games: games.map((g) => ({ slug: g.slug, title: g.title, format: g.config.format, points: g.points })), perTeam };
       payload.judgeQueue = judgeQueue;
+      payload.connectionsPuzzles = puzzles.map((p) => ({
+        slug: p.slug,
+        title: p.title,
+        clue: p.config.connectionsClue ?? null,
+        revealedCount: p.config.connectionsRevealedCount ?? 0,
+        totalImages: (p.config.connectionsImages ?? []).length,
+        puzzleIndex: p.config.connectionsPuzzleIndex ?? 0,
+        opensAt: p.opensAt ? p.opensAt.toISOString() : null,
+        closesAt: p.closesAt ? p.closesAt.toISOString() : null,
+        solvedCount: solvedByPuzzle.get(p.slug) ?? 0,
+      }));
     }
 
     if (round === 2 || round === 3) {
@@ -155,6 +177,9 @@ export async function GET(request: Request) {
         used: c.usedAt !== null,
       }));
     }
+
+    const quizState = await (await collections.quizState()).findOne({ _id: "quiz" });
+    payload.ended = quizState?.ended ?? false;
 
     // Coin claim state — small enough to always include; the coordinator's
     // desk view of "which discs are out and with whom."

@@ -33,6 +33,14 @@ export async function gradeQuiz(input: GradeInput): Promise<GradeResult> {
   const format = challenge.config.format ?? "mcq";
   const round = (challenge.config.round ?? 2) as QuizRound;
 
+  // The coordinator's single "the event is over" switch — checked ahead of
+  // everything else so nothing scores after End Quiz, regardless of round
+  // or format. This is the one funnel every quiz submission passes through.
+  const state = await (await collections.quizState()).findOne({ _id: "quiz" });
+  if (state?.ended) {
+    return { correct: false, points: 0, meta: { reason: "quiz-ended" } };
+  }
+
   // Every round past the first is a closed field. Without this, a knocked-out
   // team could keep POSTing at later rounds' questions and appear in their
   // standings — the UI won't show them the page, but the UI isn't a security
@@ -66,7 +74,7 @@ export async function gradeQuiz(input: GradeInput): Promise<GradeResult> {
     const subs = await collections.submissions();
     const solved = await subs.findOne({ challengeId: challenge._id, teamId, status: "done", "verdict.correct": true });
     if (solved) return { correct: false, points: 0, meta: { reason: "already-solved" } };
-    return scoreConnections(challenge, payload, receivedAt);
+    return scoreConnections(challenge, payload);
   }
 
   if (format === "memory") {

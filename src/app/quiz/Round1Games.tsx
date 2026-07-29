@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Celebration from "./Celebration";
 import MemoryGrid from "./MemoryGrid";
-import Standings from "./Standings";
 
 type Phase = "image" | "connections" | "memory" | "done";
 
@@ -19,9 +18,11 @@ interface Round1Game {
   status?: "not-started" | "queued" | "running" | "done" | "error";
   verdict?: { correct: boolean; points: number } | null;
   // connections
+  clue?: string | null;
+  puzzleIndex?: number;
+  totalPuzzles?: number;
   images?: string[];
   totalImages?: number;
-  secondsToNextReveal?: number | null;
   solved?: boolean;
   attempts?: number;
 }
@@ -100,24 +101,18 @@ export default function Round1Games() {
   return (
     <div className="space-y-6">
       {transition && (
-        <div className="space-y-4">
-          <div className="halftone panel panel-accent anim-glitch-in p-4 text-center">
-            <p className="comic-shout text-xl text-glitch-cyan">{transition}</p>
-          </div>
-          <Standings round={1} />
+        <div className="halftone panel panel-accent anim-glitch-in p-4 text-center">
+          <p className="comic-shout text-xl text-glitch-cyan">{transition}</p>
         </div>
       )}
 
       <PhaseTracker phase={data.phase} />
 
       {data.phase === "done" ? (
-        <div className="space-y-6">
-          <div className="halftone panel anim-pop relative overflow-hidden p-8 text-center">
-            <Celebration />
-            <p className="display-title chromatic text-3xl text-paper-white sm:text-4xl">Round 1 Complete</p>
-            <p className="mt-3 text-sm text-paper-white/60">Waiting for the coordinator to start Round 2…</p>
-          </div>
-          <Standings round={1} />
+        <div className="halftone panel anim-pop relative overflow-hidden p-8 text-center">
+          <Celebration />
+          <p className="display-title chromatic text-3xl text-paper-white sm:text-4xl">Round 1 Complete</p>
+          <p className="mt-3 text-sm text-paper-white/60">Waiting for the coordinator to start Round 2…</p>
         </div>
       ) : (
         <PhaseCard data={data} now={nowMs} onChanged={load} />
@@ -178,11 +173,7 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
         {notOpenYet ? (
           <p className="text-sm text-paper-white/50">Waiting for the coordinator to open this game…</p>
         ) : phase === "image" ? (
-          game.status !== "not-started" && game.status !== "running" ? (
-            <VerdictBanner game={game} />
-          ) : (
-            <ImageReplication slug={game.slug} referenceImage={game.referenceImage ?? null} disabled={closed} onSubmitted={onChanged} />
-          )
+          <ImageReplication game={game} disabled={closed} onChanged={onChanged} />
         ) : phase === "connections" ? (
           <ConnectionsGame game={game} disabled={closed} onSolved={onChanged} />
         ) : (
@@ -190,25 +181,6 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
         )}
       </div>
     </article>
-  );
-}
-
-function VerdictBanner({ game }: { game: Round1Game }) {
-  if (game.status === "queued") {
-    return (
-      <div className="border-2 border-web-blue-light bg-web-blue-dark/50 px-4 py-3">
-        <p className="font-comic text-xl text-paper-white">Locked in</p>
-        <p className="mt-1 text-sm text-paper-white/80">Scored once the coordinator closes this game.</p>
-      </div>
-    );
-  }
-  const points = game.verdict?.points ?? 0;
-  return (
-    <div className={`border-2 border-l-8 px-4 py-3 ${points > 0 ? "border-glitch-cyan bg-glitch-cyan/10" : "border-signal-wrong bg-signal-wrong/10"}`}>
-      <p className={`font-comic text-xl ${points > 0 ? "text-glitch-cyan" : "text-signal-wrong"}`}>
-        {points > 0 ? `+${points} pts` : "No points this time."}
-      </p>
-    </div>
   );
 }
 
@@ -226,20 +198,21 @@ async function shrinkImage(file: File): Promise<string> {
   return canvas.toDataURL("image/jpeg", 0.85);
 }
 
-function ImageReplication({
-  slug,
-  referenceImage,
-  disabled,
-  onSubmitted,
-}: {
-  slug: string;
-  referenceImage: string | null;
-  disabled: boolean;
-  onSubmitted: () => void;
-}) {
+/**
+ * The window stays open for the coordinator's full allotted time — a
+ * submission doesn't move a team on early (see `round1Phase`), so this has
+ * two modes depending on whether one exists yet: the upload dropzone, or a
+ * status summary with a "Delete & try again" button. Deleting withdraws the
+ * current attempt (and reverses its score if it had already been judged —
+ * see the image route's DELETE handler) and drops back to the dropzone.
+ */
+function ImageReplication({ game, disabled, onChanged }: { game: Round1Game; disabled: boolean; onChanged: () => void }) {
   const [preview, setPreview] = useState<string | null>(null);
-  const [status, setStatus] = useState<"idle" | "uploading" | "done">("idle");
+  const [status, setStatus] = useState<"idle" | "uploading">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const hasSubmission = game.status !== undefined && game.status !== "not-started";
 
   async function handleFile(file: File) {
     setStatus("uploading");
@@ -251,7 +224,7 @@ function ImageReplication({
       const uploadRes = await fetch("/api/quiz/image", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ challengeSlug: slug, dataUrl }),
+        body: JSON.stringify({ challengeSlug: game.slug, dataUrl }),
       });
       const uploadBody = await uploadRes.json();
       if (!uploadRes.ok) {
@@ -263,7 +236,7 @@ function ImageReplication({
       const submitRes = await fetch("/api/submit", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ event: "quiz", challengeSlug: slug, payload: uploadBody.imageId }),
+        body: JSON.stringify({ event: "quiz", challengeSlug: game.slug, payload: uploadBody.imageId }),
       });
       if (!submitRes.ok) {
         const b = await submitRes.json();
@@ -272,22 +245,79 @@ function ImageReplication({
         return;
       }
 
-      setStatus("done");
-      onSubmitted();
+      setStatus("idle");
+      setPreview(null);
+      onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not read that file");
       setStatus("idle");
     }
   }
 
+  async function handleDelete() {
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/quiz/image?challengeSlug=${encodeURIComponent(game.slug)}`, { method: "DELETE" });
+      const body = await res.json();
+      if (!res.ok) {
+        setError(body.error ?? "Could not withdraw that submission");
+        return;
+      }
+      onChanged();
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  if (hasSubmission) {
+    const points = game.verdict?.points;
+    // "queued" is never actually the value here — the shared submission
+    // pipeline only uses that status for `code` events. A pending (not yet
+    // judged) quiz submission is "running" from the moment it's accepted
+    // until the judge resolves it to "done"; checking for "queued" would
+    // fall through to the verdict banner and show "No points this time" to
+    // a team that hasn't been scored at all yet.
+    return (
+      <div>
+        {game.status === "running" ? (
+          <div className="border-2 border-web-blue-light bg-web-blue-dark/50 px-4 py-3">
+            <p className="font-comic text-xl text-paper-white">Locked in</p>
+            <p className="mt-1 text-sm text-paper-white/80">Scored once the coordinator&apos;s vision judge gets to it.</p>
+          </div>
+        ) : (
+          <div className={`border-2 border-l-8 px-4 py-3 ${(points ?? 0) > 0 ? "border-glitch-cyan bg-glitch-cyan/10" : "border-signal-wrong bg-signal-wrong/10"}`}>
+            <p className={`font-comic text-xl ${(points ?? 0) > 0 ? "text-glitch-cyan" : "text-signal-wrong"}`}>
+              {(points ?? 0) > 0 ? `+${points} pts` : "No points this time."}
+            </p>
+          </div>
+        )}
+        {!disabled && (
+          <button
+            type="button"
+            data-web-target=""
+            onClick={handleDelete}
+            disabled={deleting}
+            className="comic-btn comic-btn-pink mt-4 text-xs"
+          >
+            {deleting ? "…" : "Delete & try again"}
+          </button>
+        )}
+        {disabled && <p className="mt-3 text-xs text-paper-white/45">The window&apos;s closed — this is your final submission.</p>}
+        {error && <p className="mt-2 text-xs text-signal-wrong">{error}</p>}
+      </div>
+    );
+  }
+
   return (
     <div>
-      {referenceImage && (
+      {game.referenceImage && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={referenceImage} alt="The reference image to recreate" className="mt-1 mb-4 w-full max-w-xs border-2 border-paper-white/15" />
+        <img src={game.referenceImage} alt="The reference image to recreate" className="mt-1 mb-4 w-full max-w-xs border-2 border-paper-white/15" />
       )}
       <p className="mb-3 text-xs text-paper-white/50">
-        The only game where an outside AI image generator is allowed. Prompt, generate, upload — five minutes.
+        The only game where an outside AI image generator is allowed. Prompt, generate, upload — you can delete and
+        redo as many times as you like until the window closes.
       </p>
       <label
         className={`grid cursor-pointer place-items-center border-2 border-dashed px-4 py-8 text-center transition-colors ${
@@ -318,7 +348,6 @@ function ImageReplication({
         )}
       </label>
       {error && <p className="mt-2 text-xs text-signal-wrong">{error}</p>}
-      {status === "done" && <p className="mt-3 font-comic text-lg text-glitch-cyan">Locked in — this unlocks Connections. Scored once the coordinator judges it.</p>}
     </div>
   );
 }
@@ -377,9 +406,22 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
 
   return (
     <div>
-      <p className="mb-3 text-xs text-paper-white/50">
-        Four pictures, one shared technical term. A new tile unlocks every few seconds — type it the moment you&apos;re sure.
-      </p>
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-xs text-paper-white/50">
+          A handful of pictures, one shared technical term. The coordinator reveals a new tile live — type it the
+          moment you&apos;re sure.
+        </p>
+        <span className="shrink-0 pl-3 text-[0.65rem] uppercase tracking-widest text-paper-white/40">
+          Puzzle {game.puzzleIndex ?? 1} of {game.totalPuzzles ?? 5}
+        </span>
+      </div>
+
+      {game.clue && (
+        <p className="anim-pop mb-3 border-l-4 border-gadget-pink bg-gadget-pink/10 px-4 py-3 text-sm text-paper-white">
+          <span className="font-comic mr-2 text-base text-gadget-pink">Clue</span>
+          {game.clue}
+        </p>
+      )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {Array.from({ length: total }).map((_, i) => {
@@ -405,11 +447,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
       </div>
 
       <p className="mt-2 text-[0.7rem] text-paper-white/40">
-        {game.secondsToNextReveal !== null && game.secondsToNextReveal !== undefined
-          ? `Next tile in ${game.secondsToNextReveal}s…`
-          : images.length >= total
-            ? "All tiles are up."
-            : null}
+        {images.length >= total ? "All tiles are up." : `${images.length} of ${total} tiles revealed so far.`}
       </p>
 
       <div className="mt-4 flex gap-2">

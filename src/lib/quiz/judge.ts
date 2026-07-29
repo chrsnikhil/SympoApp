@@ -284,7 +284,13 @@ async function runImageJudging(challenge: Challenge, teamId: ObjectId, submissio
   const [subs, images] = await Promise.all([collections.submissions(), collections.promptImages()]);
 
   try {
-    const sub = await subs.findOne({ _id: submissionId, teamId, status: "queued" });
+    // "running", not "queued" — the shared submission pipeline (see
+    // lib/submission/pipeline.ts) only ever writes "queued" for `code`
+    // events. Every other event, including quiz, starts a submission at
+    // "running" and leaves it there when the grader returns `pending: true`,
+    // only moving to "done" once something resolves it. Filtering on
+    // "queued" here would never match a real pending image submission.
+    const sub = await subs.findOne({ _id: submissionId, teamId, status: "running" });
     if (!sub?.payload || !ObjectId.isValid(sub.payload)) return;
 
     const image = await images.findOne({ _id: new ObjectId(sub.payload), teamId, challengeSlug: challenge.slug });
@@ -294,7 +300,7 @@ async function runImageJudging(challenge: Challenge, teamId: ObjectId, submissio
     await resolvePromptImage(challenge.slug, { [String(teamId)]: verdict.similarity });
   } catch (err) {
     console.error(`[image-judge] background grading failed for ${challenge.slug}/${teamId} — releasing for retry`, err);
-    await subs.deleteOne({ _id: submissionId, teamId, status: "queued" }).catch((cleanupErr) => {
+    await subs.deleteOne({ _id: submissionId, teamId, status: "running" }).catch((cleanupErr) => {
       console.error(`[image-judge] release-for-retry cleanup failed for ${challenge.slug}/${teamId}`, cleanupErr);
     });
   }

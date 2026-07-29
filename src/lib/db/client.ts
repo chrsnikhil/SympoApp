@@ -12,6 +12,7 @@ import type {
   ProctorFlag,
   PromptImage,
   QuizServe,
+  QuizState,
   RoundQualification,
   ScoreEvent,
   Submission,
@@ -93,6 +94,8 @@ export const collections = {
     (await getDb()).collection<ComebackState>("comeback_states"),
   proctorFlags: async (): Promise<Collection<ProctorFlag>> =>
     (await getDb()).collection<ProctorFlag>("proctor_flags"),
+  quizState: async (): Promise<Collection<QuizState>> =>
+    (await getDb()).collection<QuizState>("quiz_state"),
 };
 
 /**
