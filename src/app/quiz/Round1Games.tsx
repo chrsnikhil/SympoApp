@@ -303,11 +303,15 @@ function PreGameRulesGate({
     <article className="halftone panel anim-pop p-8 text-center space-y-6">
       <div className="text-5xl animate-bounce">{cfg.icon}</div>
       <div className="space-y-3">
-        <div className="mx-auto inline-flex items-center gap-3 border-2 border-comic-yellow bg-comic-yellow/20 px-6 py-2.5 font-comic shadow-xl rounded">
-          <span className="h-3 w-3 rounded-full bg-comic-yellow animate-ping" />
-          <span className="font-display-xl text-lg text-comic-yellow tracking-wider">
-            GAME STARTING IN <span className="text-paper-white text-2xl font-bold underline px-1">{secondsLeft}s</span>
-          </span>
+        <div className="flex justify-center my-2">
+          <SpiderTimer
+            secondsLeft={secondsLeft}
+            totalSeconds={10}
+            urgent={secondsLeft <= 3}
+            size={85}
+            format="seconds"
+            phaseLabel="RULES"
+          />
         </div>
         <h2 className={`font-display-xl text-3xl uppercase italic ${cfg.color}`}>{cfg.title}</h2>
         <span className="inline-block text-xs font-semibold px-3 py-1 border border-paper-white/20 bg-ink-black/60 text-paper-white rounded">

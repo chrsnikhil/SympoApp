@@ -300,7 +300,7 @@ export default function WebShooter({
 
   const isTarget = useCallback((x: number, y: number) => {
     const el = document.elementFromPoint(x, y);
-    const target = el?.closest<HTMLElement>("[data-web-target]");
+    const target = el?.closest<HTMLElement>("[data-web-target], .quiz-answer");
     // A struck-out or expired option is not a valid target — the reticle
     // shouldn't invite a shot the grader is going to refuse.
     return !!target && !target.hasAttribute("disabled");
@@ -410,7 +410,7 @@ export default function WebShooter({
 
     const onDown = (e: PointerEvent) => {
       const el = document.elementFromPoint(e.clientX, e.clientY);
-      const btn = el?.closest<HTMLElement>("[data-web-target]");
+      const btn = el?.closest<HTMLElement>("[data-web-target], .quiz-answer");
       if (!btn || btn.hasAttribute("disabled")) return;
 
       // Fire from the nozzle, which is ARM_LENGTH along the aim vector from

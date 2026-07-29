@@ -12,6 +12,7 @@ import QuizRulesLobby from "./QuizRulesLobby";
 import Round1Games from "./Round1Games";
 import Standings from "./Standings";
 import WebShooter from "./WebShooter";
+import SpiderTimer from "./SpiderTimer";
 
 const DEFAULT_PERSONA = {
   colour: "#a41616",
@@ -297,11 +298,15 @@ function RoundTransition({ round, onDone }: { round: QuizRound; onDone: () => vo
         <Celebration />
 
         {/* 15-SECOND COUNTDOWN HEADER */}
-        <div className="inline-flex items-center gap-3 bg-tertiary-fixed text-on-tertiary-fixed px-5 py-2 comic-border mb-6">
-          <span className="font-display-xl text-3xl tabular-nums animate-pulse">{secondsLeft}s</span>
-          <span className="font-label-sm text-xs font-bold uppercase tracking-widest">
-            SYNCHRONIZING PORTAL...
-          </span>
+        <div className="flex justify-center mb-6">
+          <SpiderTimer
+            secondsLeft={secondsLeft}
+            totalSeconds={15}
+            urgent={secondsLeft <= 5}
+            size={90}
+            format="seconds"
+            phaseLabel="PORTAL"
+          />
         </div>
 
         <p className="font-label-sm text-tertiary-fixed uppercase tracking-[0.3em] mb-2">Round {round} Directives</p>

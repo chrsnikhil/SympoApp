@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { QuizRound } from "@/lib/db/types";
 import Celebration from "./Celebration";
 
+import SpiderTimer from "./SpiderTimer";
+
 interface Question {
   slug: string;
   title: string;
@@ -212,10 +214,15 @@ export default function Mcq2Phase({
         <article key={question.slug} className="space-y-6">
           {/* Status / Timer Header bar */}
           <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-            <div className="bg-surface comic-border-sm p-3 flex items-center gap-2 comic-tilt-left">
-              <span className={`font-display-xl text-headline-lg-mobile tabular-nums ${urgent ? "text-primary animate-pulse" : ""}`}>
-                ⏱️ {phase === "read" ? `0:0${readSecondsLeft}` : `0:${selectSecondsLeft.toString().padStart(2, "0")}`}
-              </span>
+            <div className="bg-surface comic-border-sm p-2 flex items-center gap-3 comic-tilt-left">
+              <SpiderTimer
+                secondsLeft={phase === "read" ? readSecondsLeft : selectSecondsLeft}
+                totalSeconds={phase === "read" ? 6 : 10}
+                urgent={urgent}
+                size={80}
+                format="seconds"
+                phaseLabel={phase === "read" ? "READ" : "PICK"}
+              />
             </div>
 
             <div className="flex-1 min-w-[160px] bg-surface-container comic-border-sm h-6 relative overflow-hidden mx-2">
@@ -280,6 +287,7 @@ export default function Mcq2Phase({
                         <button
                           key={i}
                           type="button"
+                          data-web-target
                           disabled={disabled}
                           onClick={() => setChoice(i)}
                           className={`quiz-answer group relative bg-surface comic-border p-6 ${tilts[i % 4]} hover:rotate-0 hover:scale-105 transition-all duration-200 text-left overflow-hidden min-h-[120px] ${
