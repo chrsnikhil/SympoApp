@@ -59,8 +59,10 @@ export default function QuizClient({
   const [eliminatedState, setEliminatedState] = useState(isEliminated);
   const [endedState, setEndedState] = useState(ended);
   const [startedState, setStartedState] = useState(started);
+  const [showCountdown, setShowCountdown] = useState(false);
   const [seenRound, setSeenRound] = useState(round);
   const knownRound = useRef(round);
+  const prevStarted = useRef(started);
 
   if (round !== seenRound) {
     setSeenRound(round);
@@ -72,6 +74,13 @@ export default function QuizClient({
   }, [round]);
 
   useEffect(() => {
+    if (!prevStarted.current && startedState) {
+      setShowCountdown(true);
+    }
+    prevStarted.current = startedState;
+  }, [startedState]);
+
+  useEffect(() => {
     let cancelled = false;
     const id = setInterval(async () => {
       try {
@@ -80,8 +89,16 @@ export default function QuizClient({
         const body: { round: QuizRound; eliminated?: boolean; ended?: boolean; started?: boolean } = await res.json();
         if (body.eliminated !== undefined) setEliminatedState(body.eliminated);
         if (body.ended !== undefined) setEndedState(body.ended);
-        if (body.started !== undefined) setStartedState(body.started);
-        if (body.round !== knownRound.current) setIncoming(body.round);
+        if (body.started !== undefined) {
+          setStartedState((prev) => {
+            if (!prev && body.started) setShowCountdown(true);
+            return body.started!;
+          });
+        }
+        if (body.round !== knownRound.current) {
+          setIncoming(body.round);
+          setShowCountdown(true);
+        }
       } catch {
         // Retry next poll
       }
@@ -92,16 +109,6 @@ export default function QuizClient({
     };
   }, []);
 
-  const [showStartCountdown, setShowStartCountdown] = useState(false);
-  const prevStarted = useRef(startedState);
-
-  useEffect(() => {
-    if (!prevStarted.current && startedState) {
-      setShowStartCountdown(true);
-    }
-    prevStarted.current = startedState;
-  }, [startedState]);
-
   if (endedState) {
     return <QuizEndedScreen round={round} teamName={teamName} avatar={avatar} />;
   }
@@ -111,13 +118,18 @@ export default function QuizClient({
     return <QuizRulesLobby teamName={teamName} avatar={avatar} round={round} />;
   }
 
-  /* 15-SECOND COUNTDOWN INTERLUDE SCREEN WHEN QUIZ FIRST STARTS */
-  if (showStartCountdown && !isAdmin) {
-    return <RoundTransition round={round} onDone={() => setShowStartCountdown(false)} />;
-  }
-
-  if (incoming) {
-    return <RoundTransition round={incoming} onDone={() => router.refresh()} />;
+  /* 15-SECOND COUNTDOWN INTERLUDE ON START & ROUND ADVANCE */
+  if (showCountdown || incoming) {
+    return (
+      <RoundTransition
+        round={incoming ?? round}
+        onDone={() => {
+          setShowCountdown(false);
+          setIncoming(null);
+          router.refresh();
+        }}
+      />
+    );
   }
 
   /* ELIMINATED / SOLACE SCREEN — SHOWS LEADERBOARD ALONE WITH SPIDER-VERSE CONSOLATION */
