@@ -91,11 +91,13 @@ export default function QuizClient({
         if (body.ended !== undefined) setEndedState(body.ended);
         if (body.started !== undefined) {
           setStartedState((prev) => {
-            if (!prev && body.started) setShowCountdown(true);
-            return body.started!;
+            if (!prev && body.started) {
+              setShowCountdown(true);
+            }
+            return Boolean(body.started);
           });
         }
-        if (body.round !== knownRound.current) {
+        if (body.round !== undefined && body.round !== knownRound.current) {
           setIncoming(body.round);
           setShowCountdown(true);
         }
