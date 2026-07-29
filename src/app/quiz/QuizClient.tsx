@@ -323,13 +323,10 @@ function RoundTransition({ round, onDone }: { round: QuizRound; onDone: () => vo
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={onDone}
-          className="bg-primary text-on-primary font-display-xl text-sm uppercase px-6 py-3 comic-border hover:scale-105 transition-transform"
-        >
-          Skip Countdown & Start Now →
-        </button>
+        <div className="bg-primary/20 border border-primary/40 text-on-primary font-display-xl text-xs uppercase px-6 py-3 comic-border flex items-center justify-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-tertiary-fixed animate-ping" />
+          <span>AUTO-DIRECTING TO QUIZ IN {secondsLeft} SECONDS…</span>
+        </div>
       </div>
     </main>
   );
