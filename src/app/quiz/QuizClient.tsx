@@ -11,21 +11,21 @@ import QuizEndedScreen from "./QuizEndedScreen";
 import QuizRulesLobby from "./QuizRulesLobby";
 import Round1Games from "./Round1Games";
 import Standings from "./Standings";
-import WebShooter, { WebNet } from "./WebShooter";
+import WebShooter from "./WebShooter";
 
 const DEFAULT_PERSONA = {
-  colour: "#3a86ff",
-  webColour: "#9ec5ff",
-  gloveColour: "#e5223b",
+  colour: "#a41616",
+  webColour: "#41617e",
+  gloveColour: "#1b1b1c",
   reticle: "classic" as const,
   shout: "NAILED IT.",
   miss: "...YEAH, NO.",
 };
 
 const ROUND_TITLES: Record<QuizRound, string> = {
-  1: "Final Universe",
-  2: "Universe 1 — Warm-up",
-  3: "Universe 2 — Multiverse Abilities",
+  1: "Into the Spider-Verse",
+  2: "Beyond the Spider-Verse",
+  3: "Multiverse Abilities",
 };
 
 const ROUND_SUBTITLES: Record<QuizRound, string> = {
@@ -83,7 +83,7 @@ export default function QuizClient({
         if (body.started !== undefined) setStartedState(body.started);
         if (body.round !== knownRound.current) setIncoming(body.round);
       } catch {
-        // A missed poll just tries again next tick
+        // Retry next poll
       }
     }, STATUS_POLL_MS);
     return () => {
@@ -141,40 +141,50 @@ export default function QuizClient({
   }
 
   return (
-    <main className="min-h-full">
+    <main className="min-h-full bg-background font-body-md text-on-surface pb-12">
       <WebShooter colour={persona.colour} webColour={persona.webColour} gloveColour={persona.gloveColour} shape={persona.reticle} />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0"
-        style={{ background: "radial-gradient(ellipse at 50% -10%, var(--web-blue-dark) 0%, transparent 55%)" }}
-      />
 
-      <div className="relative mx-auto max-w-5xl px-5 py-8">
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b-2 border-paper-white/10 pb-5">
-          <div className="flex items-center gap-3">
-            <span
-              className="grid h-12 w-12 place-items-center font-display text-xl"
-              style={{
-                background: avatar ? `${avatar.colour}1f` : "rgba(242,239,233,0.06)",
-                border: `3px solid ${avatar?.colour ?? "rgba(242,239,233,0.25)"}`,
-                boxShadow: `3px 3px 0 ${avatar?.colour ?? "rgba(242,239,233,0.25)"}33`,
-                color: avatar?.colour ?? "#F2EFE9",
-              }}
-            >
-              {teamName.slice(0, 1).toUpperCase()}
-            </span>
-            <div>
-              <div className="font-display text-lg uppercase leading-none tracking-wide text-paper-white">{teamName}</div>
-              <div className="mt-1 text-xs text-paper-white/55">{avatar ? `${avatar.name} · ${avatar.tagline}` : "Awaiting identity"}</div>
+      {/* Header bar */}
+      <header className="relative z-50 pt-gutter px-gutter mb-6">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-panel-gap bg-surface comic-border p-4 comic-tilt-right">
+          <div className="flex items-center gap-4">
+            <div className="bg-primary text-on-primary px-3 py-1 comic-border -rotate-2 font-headline-lg text-headline-lg uppercase tracking-tighter shadow-none">
+              No. 1
+            </div>
+            <span className="font-display-xl text-headline-lg text-on-surface uppercase italic">Action Tales!</span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-full comic-border-sm flex items-center justify-center font-display-xl text-on-primary text-base"
+                style={{ backgroundColor: avatar?.colour ?? "#a41616" }}
+              >
+                {teamName.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="text-left hidden sm:block">
+                <div className="font-headline-lg text-caption-bold uppercase leading-none">{teamName}</div>
+                <div className="font-label-sm text-[10px] text-on-surface-variant uppercase mt-0.5">
+                  {avatar ? `${avatar.name}` : "Spider Hero"}
+                </div>
+              </div>
+            </div>
+
+            <div id="status-stamp" className="bg-tertiary-fixed text-on-tertiary-fixed px-4 py-2 comic-border rotate-1 font-label-sm uppercase text-[12px]">
+              Issue: Round {round}
             </div>
           </div>
+        </div>
+      </header>
 
-          <div className="text-right">
-            <div className="text-[0.65rem] uppercase tracking-[0.25em] text-glitch-cyan">Round {round}</div>
-            <div className="display-title chromatic mt-0.5 text-2xl text-paper-white">{ROUND_TITLES[round]}</div>
-            <div className="mt-0.5 text-[0.7rem] text-paper-white/45">{ROUND_SUBTITLES[round]}</div>
-          </div>
-        </header>
+      <div className="relative mx-auto max-w-5xl px-5">
+        <div className="text-center mb-8">
+          <p className="font-label-sm text-primary uppercase tracking-[0.3em] mb-2">Round {round}</p>
+          <h1 className="font-display-xl text-[40px] md:text-[56px] leading-none uppercase italic text-on-background tracking-tighter">
+            {ROUND_TITLES[round]}
+          </h1>
+          <p className="font-label-sm text-on-surface-variant uppercase text-xs mt-2">{ROUND_SUBTITLES[round]}</p>
+        </div>
 
         <div className="grid gap-8 md:grid-cols-[18rem_1fr]">
           <Standings round={round} />
@@ -189,12 +199,9 @@ export default function QuizClient({
             )}
 
             {isAdmin && (
-              <p className="mt-6 border-l-2 border-paper-white/15 pl-3 text-xs text-paper-white/45">
-                Signed in as coordinator. The dashboard lives on the app host, not this event
-                subdomain — <code className="font-mono text-paper-white/70">/admin/quiz</code> on
-                app.&lt;domain&gt; (or plain localhost in dev), since <code className="font-mono text-paper-white/70">proxy.ts</code>{" "}
-                rewrites every other host into its event&apos;s route group.
-              </p>
+              <div className="mt-8 bg-surface-container comic-border-sm p-4 text-xs font-label-sm text-on-surface-variant uppercase">
+                Signed in as coordinator. Access admin control at <code className="font-mono text-primary">/admin/quiz</code>.
+              </div>
             )}
           </section>
         </div>
@@ -203,12 +210,7 @@ export default function QuizClient({
   );
 }
 
-/**
- * Full-screen "the coordinator just cut to the next round" moment. Shown for
- * a fixed beat, then hands off to `router.refresh()` so the server component
- * re-resolves the real round and everything downstream (serve, standings,
- * comeback state) loads fresh rather than being patched in client-side.
- */
+/** Full screen Round Transition interlude matching Screen 4 design */
 function RoundTransition({ round, onDone }: { round: QuizRound; onDone: () => void }) {
   useEffect(() => {
     const t = window.setTimeout(onDone, 2600);
@@ -216,20 +218,18 @@ function RoundTransition({ round, onDone }: { round: QuizRound; onDone: () => vo
   }, [onDone]);
 
   return (
-    <main className="relative grid min-h-dvh place-items-center overflow-hidden px-5">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(ellipse at 50% 40%, var(--web-blue-dark) 0%, transparent 60%)" }}
-      />
-      <span aria-hidden="true" className="web-sweep pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-        <WebNet colour="var(--glitch-cyan)" originX={50} originY={50} animate={false} />
-      </span>
-      <div className="halftone panel panel-accent anim-glitch-in relative max-w-lg overflow-visible p-10 text-center">
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden px-gutter py-24 bg-background">
+      <WebShooter colour="#a41616" webColour="#41617e" gloveColour="#1b1b1c" shape="classic" />
+      <div className="comic-border bg-on-background p-12 md:p-20 comic-tilt-left relative overflow-hidden text-center z-10 max-w-2xl">
+        <div className="absolute inset-0 ben-day-light opacity-10 pointer-events-none"></div>
         <Celebration />
-        <p className="text-[0.7rem] uppercase tracking-[0.3em] text-glitch-cyan">Round {round} unlocked</p>
-        <p className="display-title chromatic anim-surge mt-2 text-4xl text-paper-white sm:text-5xl">{ROUND_TITLES[round]}</p>
-        <p className="comic-shout mt-3 text-xl text-spider-red">{ROUND_SUBTITLES[round]}</p>
+        <p className="font-label-sm text-tertiary-fixed uppercase tracking-[0.3em] mb-4">Round {round} Unlocked</p>
+        <h1 className="font-display-xl text-[48px] md:text-[76px] leading-none uppercase italic text-on-primary tracking-tighter mb-4">
+          To Be<br />Continued...
+        </h1>
+        <p className="font-label-sm text-on-primary/70 uppercase tracking-[0.2em]">
+          {ROUND_TITLES[round]} — {ROUND_SUBTITLES[round]}
+        </p>
       </div>
     </main>
   );

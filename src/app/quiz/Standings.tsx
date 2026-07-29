@@ -2,20 +2,6 @@
 
 import { useEffect, useState } from "react";
 import type { QuizRound } from "@/lib/db/types";
-import { WebNet } from "./WebShooter";
-
-/**
- * Live standings for the current round. Polls rather than sockets — a poll
- * against a cached endpoint degrades far more gracefully under load than many
- * open connections, and this is exactly the "live leaderboard" Round 3 asks
- * for.
- *
- * Rows are absolutely positioned by rank rather than relying on flex/DOM
- * order, and each row keeps the same key (`teamId`) across polls — that's
- * what makes a rank change animate as a smooth slide (like an F1 timing
- * tower) instead of the whole list just re-rendering in a new order. React
- * only ever changes one row's `top`; the CSS transition does the rest.
- */
 
 interface Row {
   rank: number;
@@ -30,7 +16,7 @@ interface Row {
 }
 
 const POLL_MS = 4_000;
-const ROW_HEIGHT = 36;
+const ROW_HEIGHT = 42;
 
 export default function Standings({ round }: { round: QuizRound }) {
   const [rows, setRows] = useState<Row[]>([]);
@@ -61,19 +47,15 @@ export default function Standings({ round }: { round: QuizRound }) {
   }, [round]);
 
   return (
-    <aside className="halftone panel relative h-fit overflow-hidden p-4">
-      <span aria-hidden="true" className="pointer-events-none absolute -right-8 -top-8 opacity-15">
-        <WebNet colour="var(--glitch-cyan)" originX={50} originY={50} animate={false} />
-      </span>
-
+    <aside className="bg-surface comic-border p-5 comic-tilt-right h-fit">
       <div className="relative">
-        <div className="mb-3 flex items-baseline justify-between border-b-2 border-spider-red/40 pb-2">
-          <h3 className="display-title chromatic text-base uppercase tracking-wide text-paper-white">Standings</h3>
-          {stale && <span className="text-[0.6rem] uppercase tracking-widest text-glitch-cyan">reconnecting</span>}
+        <div className="mb-4 flex items-center justify-between border-b-2 border-on-surface/10 pb-3">
+          <h3 className="font-display-xl text-headline-lg-mobile text-on-surface uppercase italic">Multiverse Standings</h3>
+          {stale && <span className="font-label-sm text-xs text-primary uppercase animate-pulse">reconnecting...</span>}
         </div>
 
         {rows.length === 0 ? (
-          <p className="py-2 text-xs text-paper-white/45">Nothing scored yet.</p>
+          <p className="font-label-sm text-xs text-on-surface-variant uppercase py-2">Nothing scored yet, True Believer!</p>
         ) : (
           <div className="relative" style={{ height: rows.length * ROW_HEIGHT }}>
             {rows.map((row) => {
@@ -82,27 +64,29 @@ export default function Standings({ round }: { round: QuizRound }) {
               return (
                 <div
                   key={row.teamId}
-                  className={`absolute inset-x-0 flex items-center gap-2 border-l-2 py-1.5 pl-2 pr-1 text-xs ${
-                    out
-                      ? "border-transparent opacity-40"
-                      : leader
-                        ? "border-spider-red bg-spider-red/10"
-                        : "border-glitch-cyan/60 bg-paper-white/[0.03]"
+                  className={`absolute inset-x-0 flex items-center justify-between p-2.5 comic-border-sm transition-all ${
+                    out ? "bg-surface-container-low opacity-45" : leader ? "bg-tertiary-fixed/20 border-primary" : "bg-surface-container-lowest"
                   }`}
                   style={{
                     top: (row.rank - 1) * ROW_HEIGHT,
-                    height: ROW_HEIGHT - 4,
+                    height: ROW_HEIGHT - 6,
                     transition: "top 550ms cubic-bezier(0.22, 1, 0.36, 1), background-color 300ms ease-out",
                   }}
                 >
-                  <span className={`w-4 font-display tabular-nums ${leader ? "text-spider-red" : "text-paper-white/45"}`}>{row.rank}</span>
-                  <span
-                    className="h-2.5 w-2.5 shrink-0"
-                    style={{ background: row.avatarColour ?? "rgba(242,239,233,0.3)" }}
-                    title={row.avatarName ?? undefined}
-                  />
-                  <span className="flex-1 truncate text-paper-white/90">{row.teamName}</span>
-                  <span className="font-mono tabular-nums font-semibold text-paper-white">{row.points}</span>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="font-display-xl text-base text-on-surface w-4 shrink-0">{row.rank}</span>
+                    <div
+                      className="w-3.5 h-3.5 rounded-full comic-border-sm shrink-0"
+                      style={{ backgroundColor: row.avatarColour ?? "#a41616" }}
+                      title={row.avatarName ?? undefined}
+                    />
+                    <span className="font-headline-lg text-xs uppercase truncate text-on-surface">
+                      {row.teamName}
+                    </span>
+                  </div>
+                  <div className="font-display-xl text-sm text-primary shrink-0">
+                    {row.points} <span className="font-label-sm text-[10px] text-on-surface-variant">PTS</span>
+                  </div>
                 </div>
               );
             })}
