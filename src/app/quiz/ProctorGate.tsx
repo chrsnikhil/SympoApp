@@ -6,12 +6,6 @@ import type { QuizRound } from "@/lib/db/types";
 /**
  * Rounds 2 & 3 run full-screen and treat leaving that surface as worth
  * knowing about.
- *
- * DELIBERATELY NOT ENFORCEMENT. A browser can't be trusted to police itself —
- * a determined team can always suppress a client-side check, and this
- * doesn't pretend otherwise. It's a timestamped signal for the coordinator to
- * review (the admin dashboard's "Proctor flags" panel), same spirit as the
- * append-only score ledger: record what was observed, let a human decide.
  */
 export default function ProctorGate({ round, children }: { round: QuizRound; children: React.ReactNode }) {
   const [fullscreen, setFullscreen] = useState(() => typeof document !== "undefined" && !!document.fullscreenElement);
@@ -68,10 +62,6 @@ export default function ProctorGate({ round, children }: { round: QuizRound; chi
     try {
       await document.documentElement.requestFullscreen();
     } catch {
-      // Some browsers/embeds refuse fullscreen outright (iOS Safari on a
-      // non-video element, some kiosk/embedded webviews). Don't hard-block
-      // the quiz over a request the platform will never grant — drop the
-      // gate and stop asking, rather than stranding a team on this screen.
       setSupported(false);
     }
   }
@@ -80,15 +70,27 @@ export default function ProctorGate({ round, children }: { round: QuizRound; chi
 
   return (
     <div className="grid min-h-[60vh] place-items-center px-4">
-      <div className="halftone panel anim-glitch-in max-w-md p-8 text-center">
-        <p className="display-title chromatic text-3xl text-paper-white">Full Screen Required</p>
-        <p className="mt-3 text-sm text-paper-white/60">
+      <div className="bg-surface comic-border p-8 md:p-12 text-center max-w-md comic-tilt-left relative overflow-hidden">
+        <div className="absolute inset-0 ben-day pointer-events-none opacity-10"></div>
+        <p className="font-display-xl text-headline-lg text-on-surface uppercase italic mb-3">Full Screen Required</p>
+        <p className="font-body-md text-on-surface-variant text-sm leading-relaxed mb-4">
           Round {round} runs full-screen. Tab switches, window changes and dropping out of full screen are flagged
           for the coordinator to review.
         </p>
-        {justExited && <p className="anim-shake mt-3 text-xs text-signal-wrong">Left full screen — that&apos;s been flagged. Re-enter to continue.</p>}
-        <button type="button" onClick={enter} data-web-target="" className="comic-btn comic-btn-cyan mt-6">
-          Enter Full Screen
+        {justExited && (
+          <p className="font-label-sm text-primary uppercase text-xs mb-4">
+            Left full screen — that&apos;s been flagged. Re-enter to continue.
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={enter}
+          data-web-target=""
+          className="relative bg-primary px-8 py-4 comic-border comic-tilt-right inline-flex transition-all duration-100 hover:translate-x-1 hover:translate-y-1 hover:shadow-none shadow-[6px_6px_0px_0px_rgba(27,27,28,1)] active:scale-95"
+        >
+          <span className="font-display-xl text-headline-lg-mobile text-on-primary uppercase tracking-widest">
+            Enter Full Screen
+          </span>
         </button>
       </div>
     </div>

@@ -6,24 +6,6 @@ import Celebration from "./Celebration";
 import Standings from "./Standings";
 import { WebNet } from "./WebShooter";
 
-/**
- * Rounds 2 & 3 — the two-phase 6s-read / 10s-select MCQ the rules doc
- * specifies. The countdown here is DISPLAY ONLY: it counts down from the
- * deadlines the server issued, and nothing it does affects scoring — the
- * verdict is decided from the serve record server-side. If a laptop clock
- * drifts, the team sees a slightly wrong number and still gets marked
- * correctly.
- *
- * Auto-advances to the next question once this one closes (verdict shown, or
- * the select window expires) — no "Next question" click needed, which is what
- * the rules doc's "auto-advance" note for Round 3 asks for; applied to both
- * MCQ rounds here since the timing is server-driven either way.
- *
- * Per the rules doc, correct answers are never revealed mid-round — the
- * verdict panel below only ever says right/wrong and points, never which
- * option was correct.
- */
-
 interface Question {
   slug: string;
   title: string;
@@ -52,10 +34,6 @@ interface ComebackStatus {
   used: boolean;
 }
 
-// Long enough to actually read the standings shown alongside the verdict
-// below — this is a client-side display delay only. It doesn't touch the
-// server clock: the next question's read/select window starts from whenever
-// this team's client actually requests it, exactly as before.
 const AUTO_ADVANCE_DELAY_MS = 3400;
 
 export default function Mcq2Phase({
@@ -73,9 +51,6 @@ export default function Mcq2Phase({
   const [webHit, setWebHit] = useState({ x: 50, y: 50 });
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  // Seeded at 0 rather than Date.now() — reading the clock during render is
-  // an impure call React Compiler needs render to be free of; the ticking
-  // effect below sets the real value the moment it mounts.
   const [now, setNow] = useState(0);
   const [comeback, setComeback] = useState<ComebackStatus | null>(null);
 
@@ -126,9 +101,6 @@ export default function Mcq2Phase({
   }, [loadQuestion, loadComeback]);
 
   useEffect(() => {
-    // No immediate setNow() call here — an effect body must not call
-    // setState synchronously. The 200ms cadence means the first real tick
-    // lands imperceptibly after mount anyway.
     const id = setInterval(() => setNow(Date.now()), 200);
     return () => clearInterval(id);
   }, []);
@@ -147,7 +119,6 @@ export default function Mcq2Phase({
         ? "select"
         : "closed";
 
-  // Auto-advance once the question closes, whether by verdict or by time.
   useEffect(() => {
     if (!question) return;
     if (verdict || phase === "closed") {
@@ -158,8 +129,7 @@ export default function Mcq2Phase({
         void loadComeback();
       }, AUTO_ADVANCE_DELAY_MS);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [verdict, phase]);
+  }, [verdict, phase, question, loadQuestion, loadComeback]);
 
   async function submit() {
     if (!question || inFlight.current || choice === null) return;
@@ -206,30 +176,35 @@ export default function Mcq2Phase({
   const readSecondsLeft = Math.max(0, Math.ceil((readUntilMs - now) / 1000));
   const selectSecondsLeft = Math.max(0, Math.ceil((answerableUntilMs - now) / 1000));
   const urgent = phase === "select" && selectSecondsLeft <= 3;
+  const letters = ["A", "B", "C", "D"];
+  const tilts = ["comic-tilt-left", "", "comic-tilt-right", "-rotate-1"];
 
   return (
     <div>
       {error && (
-        <div role="alert" className="anim-shake mb-6 border-2 border-signal-wrong bg-signal-wrong/10 px-4 py-3 text-sm text-signal-wrong">
+        <div role="alert" className="pop-in mb-6 comic-border bg-primary text-on-primary p-4 font-headline-lg text-caption-bold uppercase">
           {error}
         </div>
       )}
 
-      {loading && !question && <p className="font-comic text-2xl text-paper-white/40">Loading…</p>}
+      {loading && !question && (
+        <p className="font-display-xl text-headline-lg uppercase text-on-surface-variant text-center my-12">Loading Question…</p>
+      )}
 
       {done && (
         <div className="space-y-6">
-          <div className="halftone panel anim-pop relative overflow-hidden p-10 text-center">
+          <div className="bg-surface comic-border p-10 text-center relative overflow-hidden comic-tilt-left">
+            <div className="absolute inset-0 ben-day pointer-events-none opacity-20"></div>
             {round === 3 && <Celebration />}
-            <div className="relative">
-              <div className="text-5xl">🕸</div>
-              <h2 className="display-title chromatic mt-4 text-3xl text-paper-white">
-                {round === 3 ? "Universe 2 complete" : "Round complete"}
+            <div className="relative z-10">
+              <span className="font-display-xl text-[64px]">🕸</span>
+              <h2 className="font-display-xl text-[40px] uppercase italic text-on-background mt-2">
+                {round === 3 ? "Multiverse Complete" : "Round Complete"}
               </h2>
-              <p className="mx-auto mt-3 max-w-sm text-sm text-paper-white/60">
+              <p className="font-body-md text-on-surface-variant max-w-md mx-auto mt-2">
                 {round === 3
-                  ? "That's every question across every universe. Final standings are live — thanks for playing."
-                  : "Every question answered! Click below to proceed to the next round."}
+                  ? "That's every question across every universe. Check out your final standings!"
+                  : "Every question answered! Proceed to the next round."}
               </p>
               {round < 3 && (
                 <button
@@ -237,7 +212,7 @@ export default function Mcq2Phase({
                   onClick={() => {
                     window.location.href = `/quiz?round=${round + 1}`;
                   }}
-                  className="comic-btn comic-btn-cyan mt-6 px-6 py-3 font-bold text-sm tracking-wider"
+                  className="mt-6 bg-primary text-on-primary font-display-xl text-headline-lg-mobile uppercase px-8 py-4 comic-border comic-tilt-right hover:scale-105 transition-transform"
                 >
                   Proceed to Round {round + 1} →
                 </button>
@@ -249,183 +224,167 @@ export default function Mcq2Phase({
       )}
 
       {question && (
-        <article key={question.slug} className={`halftone panel anim-glitch-in p-6 ${urgent ? "panel-accent" : ""}`}>
-          <div className="relative">
-            <div className="mb-4 flex items-center justify-between text-[0.65rem] uppercase tracking-[0.2em] text-paper-white/45">
-              <span>
-                Question <span className="tabular-nums text-paper-white/70">{question.index}</span> of{" "}
-                <span className="tabular-nums text-paper-white/70">{question.total}</span>
+        <article key={question.slug} className="space-y-6">
+          {/* Status / Timer Header bar */}
+          <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
+            <div className="bg-surface comic-border-sm p-3 flex items-center gap-2 comic-tilt-left">
+              <span className="material-symbols-outlined text-primary">timer</span>
+              <span className={`font-display-xl text-headline-lg-mobile tabular-nums ${urgent ? "text-primary animate-pulse" : ""}`}>
+                {phase === "read" ? `0:0${readSecondsLeft}` : `0:${selectSecondsLeft.toString().padStart(2, "0")}`}
               </span>
-              <span className="text-glitch-cyan">{question.points} pts</span>
             </div>
 
-            <h2 className="text-lg font-semibold leading-snug text-paper-white sm:text-xl">{question.title}</h2>
+            <div className="flex-1 min-w-[160px] bg-surface-container comic-border-sm h-6 relative overflow-hidden mx-2">
+              <div
+                className="absolute inset-y-0 left-0 bg-primary transition-all duration-300"
+                style={{
+                  width: `${Math.max(
+                    0,
+                    Math.min(
+                      100,
+                      phase === "read"
+                        ? ((readUntilMs - now) / 6000) * 100
+                        : ((answerableUntilMs - now) / 10000) * 100
+                    )
+                  )}%`,
+                }}
+              />
+            </div>
 
-            {/* CLEAN SPIDER-VERSE VISUAL TIMER DISPLAY */}
-            {!verdict && (
-              <div className="mt-5 mb-4 panel p-3 border-2 border-glitch-cyan halftone relative overflow-hidden flex items-center gap-4">
-                {/* BIG CHROMATIC COUNTDOWN NUMBER */}
-                <div
-                  className={`font-display text-3xl sm:text-4xl px-3 py-1 border-2 border-ink-black shadow-[3px_3px_0_#000] tabular-nums ${
-                    phase === "read"
-                      ? "bg-glitch-cyan text-ink-black"
-                      : urgent
-                        ? "bg-spider-red text-paper-white animate-pulse"
-                        : "bg-comic-yellow text-ink-black"
-                  }`}
-                >
-                  {phase === "read" ? `${readSecondsLeft}s` : `${selectSecondsLeft}s`}
+            <div className="bg-tertiary-fixed comic-border-sm p-3 comic-tilt-right">
+              <span className="font-label-sm uppercase text-[10px] block leading-none">Points</span>
+              <span className="font-display-xl text-headline-lg-mobile">{question.points}</span>
+            </div>
+          </div>
+
+          {/* Question Box */}
+          <div className="bg-surface-container-lowest comic-border p-8 md:p-12 relative overflow-hidden">
+            <div className="absolute inset-0 ben-day pointer-events-none opacity-10"></div>
+            <p className="font-label-sm text-primary uppercase tracking-[0.2em] mb-3 relative z-10">
+              Question {question.index} / {question.total}
+            </p>
+            <h2 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface leading-tight relative z-10">
+              {question.title}
+            </h2>
+          </div>
+
+          {question.hint && (
+            <div className="bg-tertiary-fixed p-4 comic-border comic-tilt-left">
+              <span className="font-label-sm text-on-tertiary-fixed-variant uppercase text-[11px] block font-bold">Intel Hint</span>
+              <p className="font-body-md text-on-tertiary-fixed font-bold italic">{question.hint}</p>
+            </div>
+          )}
+
+          {/* Options Grid */}
+          {!verdict && (
+            <div>
+              {phase === "read" ? (
+                <div className="bg-surface comic-border p-8 text-center comic-tilt-right">
+                  <div className="font-display-xl text-headline-lg text-on-surface-variant uppercase mb-1">🔒 Options Locked</div>
+                  <p className="font-label-sm text-on-surface-variant uppercase text-xs">
+                    Reading window active — options reveal in {readSecondsLeft}s
+                  </p>
                 </div>
-
-                {/* VISUAL ENERGY BAR TIMER (NO EXTRA TEXT) */}
-                <div className="flex-1">
-                  <div className="w-full bg-ink-black/90 border-2 border-paper-white/20 h-4 relative overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-200 ${
-                        phase === "read"
-                          ? "bg-glitch-cyan shadow-[0_0_12px_var(--glitch-cyan)]"
-                          : urgent
-                            ? "bg-spider-red shadow-[0_0_14px_var(--spider-red)]"
-                            : "bg-comic-yellow shadow-[0_0_12px_var(--comic-yellow)]"
-                      }`}
-                      style={{
-                        width: `${Math.max(
-                          0,
-                          Math.min(
-                            100,
-                            phase === "read"
-                              ? ((readUntilMs - now) / 6000) * 100
-                              : ((answerableUntilMs - now) / 10000) * 100
-                          )
-                        )}%`,
-                      }}
-                    />
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-panel-gap">
+                    {question.options.map((opt, i) => {
+                      const struck = question.eliminated.includes(i);
+                      const picked = choice === i;
+                      const disabled = struck || phase !== "select";
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          disabled={disabled}
+                          onClick={(e) => {
+                            const r = e.currentTarget.getBoundingClientRect();
+                            const hit =
+                              e.clientX === 0 && e.clientY === 0
+                                ? { x: 50, y: 50 }
+                                : { x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 };
+                            setWebHit(hit);
+                            setChoice(i);
+                          }}
+                          className={`quiz-answer group relative bg-surface comic-border p-6 ${tilts[i % 4]} hover:rotate-0 hover:scale-105 transition-all duration-200 text-left overflow-hidden min-h-[120px] ${
+                            picked ? "answer-selected pop-in" : ""
+                          } ${disabled ? "opacity-35 cursor-not-allowed" : ""}`}
+                        >
+                          {picked && <WebNet colour={persona.webColour} originX={webHit.x} originY={webHit.y} />}
+                          <span className="absolute top-2 left-2 font-display-xl text-surface-container-highest opacity-70 text-2xl">
+                            {letters[i]}
+                          </span>
+                          <div className="relative z-10 h-full flex flex-col justify-end">
+                            <span className="font-headline-lg text-headline-lg-mobile text-on-surface">{opt}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
-                </div>
-              </div>
-            )}
 
-            {question.hint && (
-              <p className="anim-pop mt-4 border-l-4 border-gadget-pink bg-gadget-pink/10 px-4 py-3 text-sm text-paper-white">
-                <span className="font-comic mr-2 text-base text-gadget-pink">Intel</span>
-                {question.hint}
-              </p>
-            )}
-
-            {/* OPTIONS LIST — ONLY SHOWN DURING PHASE 2 (SELECT PHASE) & CLOSED VERDICT */}
-            {!verdict && (
-              <div className="mt-6">
-                {phase === "read" ? (
-                  <div className="panel p-6 text-center border-2 border-dashed border-paper-white/20 bg-ink-black/60">
-                    <div className="font-comic text-2xl text-paper-white/40 mb-1">🔒 OPTIONS LOCKED</div>
-                    <p className="text-xs text-paper-white/50">Options will automatically reveal when reading time completes in {readSecondsLeft}s.</p>
-                  </div>
-                ) : (
-                  <>
-                    <ul className="grid gap-2 anim-glitch-in">
-                      {question.options.map((opt, i) => {
-                        const struck = question.eliminated.includes(i);
-                        const picked = choice === i;
-                        const disabled = struck || phase !== "select";
-                        return (
-                          <li key={i}>
-                            <button
-                              type="button"
-                              data-web-target=""
-                              disabled={disabled}
-                              aria-pressed={picked}
-                              onClick={(e) => {
-                                const r = e.currentTarget.getBoundingClientRect();
-                                const hit =
-                                  e.clientX === 0 && e.clientY === 0
-                                    ? { x: 50, y: 50 }
-                                    : { x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 };
-                                setWebHit(hit);
-                                setChoice(i);
-                              }}
-                              style={picked ? { borderColor: persona.colour } : undefined}
-                              className={`relative w-full overflow-hidden border-2 px-4 py-3 text-left text-sm transition-[transform,border-color,background-color] duration-100 ${
-                                struck
-                                  ? "cursor-not-allowed border-paper-white/8 text-paper-white/25 line-through"
-                                  : picked
-                                    ? "bg-paper-white/[0.06] text-paper-white"
-                                    : "border-paper-white/15 text-paper-white hover:border-paper-white/40 disabled:opacity-40"
-                              }`}
-                            >
-                              {picked && <WebNet colour={persona.webColour} originX={webHit.x} originY={webHit.y} />}
-                              <span className="relative flex items-start">
-                                <span className="mr-3 font-display" style={{ color: picked ? persona.colour : "rgba(242,239,233,0.4)" }}>
-                                  {String.fromCharCode(65 + i)}
-                                </span>
-                                <span>{opt}</span>
-                              </span>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-
+                  <div className="text-center pt-2">
                     <button
                       type="button"
                       onClick={submit}
                       disabled={submitting || phase !== "select" || choice === null}
-                      className="comic-btn comic-btn-cyan mt-5"
+                      className="relative bg-primary px-10 py-5 comic-border comic-tilt-right transition-all duration-100 hover:translate-x-1 hover:translate-y-1 hover:shadow-none shadow-[8px_8px_0px_0px_rgba(27,27,28,1)] active:scale-95 disabled:opacity-40"
                     >
-                      {submitting ? "Sending…" : "Lock it in"}
+                      <span className="font-display-xl text-headline-lg-mobile text-on-primary uppercase tracking-widest">
+                        {submitting ? "Locking in…" : "Lock it in"}
+                      </span>
                     </button>
-                  </>
-                )}
-              </div>
-            )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
-            {verdict && (
-              <div className="mt-6 anim-pop">
-                {verdict.correct ? (
-                  <div className="border-2 border-l-8 border-glitch-cyan bg-glitch-cyan/10 px-4 py-3" style={{ borderLeftColor: persona.colour }}>
-                    <p className="font-comic text-2xl text-glitch-cyan">
-                      {persona.shout} +{verdict.points}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="border-2 border-l-8 border-signal-wrong bg-signal-wrong/10 px-4 py-3" style={{ borderLeftColor: persona.colour }}>
-                    <p className="font-comic text-2xl text-signal-wrong">{persona.miss}</p>
-                  </div>
-                )}
-                <p className="mt-2 text-xs text-paper-white/40">Next question in a moment…</p>
-              </div>
-            )}
-          </div>
+          {/* Verdict Box */}
+          {verdict && (
+            <div className="pop-in mt-6">
+              {verdict.correct ? (
+                <div className="bg-tertiary-fixed text-on-tertiary-fixed comic-border p-6 comic-tilt-left text-center">
+                  <div className="font-display-xl text-[36px] uppercase leading-none">{persona.shout}</div>
+                  <div className="font-label-sm uppercase text-sm mt-1">+{verdict.points} Points Earned!</div>
+                </div>
+              ) : (
+                <div className="bg-primary text-on-primary comic-border p-6 comic-tilt-right text-center">
+                  <div className="font-display-xl text-[36px] uppercase leading-none">{persona.miss}</div>
+                  <div className="font-label-sm uppercase text-sm mt-1">No points awarded. Next question coming up...</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {verdict && (
+            <div className="mt-6">
+              <Standings round={round} />
+            </div>
+          )}
         </article>
       )}
 
-      {verdict && (
-        <div className="mt-6 anim-pop">
-          <Standings round={round} />
-        </div>
-      )}
-
+      {/* Comeback Meter for Round 3 */}
       {round === 3 && (
-        <section className="halftone panel mt-6 p-4 border-2 border-gadget-pink/40">
+        <section className="bg-surface comic-border p-6 mt-8 comic-tilt-left">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <div className="font-comic text-lg text-gadget-pink flex items-center gap-2">
+              <div className="font-display-xl text-headline-lg-mobile text-primary flex items-center gap-2">
                 <span>⚡ COMEBACK METER</span>
-                <span className="text-xs font-mono text-paper-white/60">({comeback?.bottomStreak ?? 0} / 3 NOTCHES)</span>
+                <span className="font-label-sm text-xs text-on-surface-variant">({comeback?.bottomStreak ?? 0} / 3 NOTCHES)</span>
               </div>
-              <div className="text-xs text-paper-white/50 mt-0.5">
-                Fills when finishing in the bottom tier. Reaching 3 notches unlocks a Multiverse Comeback Ability.
+              <div className="font-label-sm text-xs text-on-surface-variant uppercase mt-1">
+                Fills when finishing in bottom tier. Reaching 3 unlocks Multiverse Abilities!
               </div>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               {[1, 2, 3].map((notch) => {
                 const filled = (comeback?.bottomStreak ?? 0) >= notch;
                 return (
                   <div
                     key={notch}
-                    className={`h-4 w-8 border-2 transition-all duration-300 ${
-                      filled
-                        ? "border-gadget-pink bg-gadget-pink shadow-[0_0_10px_var(--gadget-pink)]"
-                        : "border-paper-white/20 bg-ink-black/60"
+                    className={`h-6 w-10 comic-border-sm transition-all duration-300 ${
+                      filled ? "bg-tertiary-fixed" : "bg-surface-container"
                     }`}
                   />
                 );
@@ -434,15 +393,19 @@ export default function Mcq2Phase({
           </div>
 
           {comeback?.ability && !comeback.used && comeback.usableOnSlug === question?.slug && !verdict && (
-            <div className="mt-4 pt-3 border-t border-paper-white/15 flex flex-wrap items-center justify-between gap-4">
-              <div className="anim-surge">
-                <div className="font-comic text-xl text-gadget-pink flex items-center gap-2">
-                  <span>{comeback.info?.icon}</span>
-                  <span>UNLOCKED: {comeback.info?.label}</span>
+            <div className="mt-4 pt-4 border-t-2 border-dashed border-on-surface/20 flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div className="font-display-xl text-headline-lg-mobile text-primary">
+                  {comeback.info?.icon} UNLOCKED: {comeback.info?.label}
                 </div>
-                <div className="mt-0.5 text-xs text-paper-white/70">{comeback.info?.description}</div>
+                <div className="font-label-sm text-xs text-on-surface-variant uppercase">{comeback.info?.description}</div>
               </div>
-              <button type="button" onClick={useAbility} disabled={phase !== "select"} className="comic-btn comic-btn-pink text-xs">
+              <button
+                type="button"
+                onClick={useAbility}
+                disabled={phase !== "select"}
+                className="bg-primary text-on-primary font-display-xl text-caption-bold px-6 py-3 comic-border comic-tilt-right"
+              >
                 Use Ability
               </button>
             </div>

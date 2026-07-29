@@ -1,99 +1,152 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════
-   SPIDER-VERSE DESIGN SYSTEM
+   SPIDER-VERSE SYMPOSIUM DESIGN SYSTEM
    ═══════════════════════════════════════════════════ */
 
 :root {
-  --spider-red: #E23636;
-  --spider-red-dark: #B82020;
-  --web-blue: #0D47A1;
-  --web-blue-light: #1565C0;
-  --web-blue-dark: #062654;
-  --ink-black: #0A0A0A;
-  --paper-white: #F2EFE9;
-  --glitch-cyan: #00E5FF;
-  --signal-wrong: #F87171;
-  --gadget-pink: #FF6EC7;
-  --comic-yellow: #FFE500;
+  --spider-red: #a41616;
+  --spider-red-dark: #92030b;
+  --web-blue: #41617e;
+  --ink-black: #1b1b1c;
+  --paper-white: #fcf9f8;
+  --comic-yellow: #e5c15c;
 }
 
 @theme inline {
-  --color-spider-red: #E23636;
-  --color-spider-red-dark: #B82020;
-  --color-web-blue: #0D47A1;
-  --color-web-blue-light: #1565C0;
-  --color-web-blue-dark: #062654;
-  --color-ink-black: #0A0A0A;
-  --color-paper-white: #F2EFE9;
-  --color-glitch-cyan: #00E5FF;
-  --color-signal-wrong: #F87171;
-  --color-gadget-pink: #FF6EC7;
-  --color-comic-yellow: #FFE500;
+  --color-on-primary: #ffffff;
+  --color-on-tertiary-fixed: #241a00;
+  --color-on-secondary-fixed: #001d32;
+  --color-surface-dim: #dcd9d9;
+  --color-background: #fcf9f8;
+  --color-tertiary: #745b00;
+  --color-tertiary-fixed-dim: #e7c35e;
+  --color-on-primary-container: #ffe7e4;
+  --color-on-tertiary-fixed-variant: #584400;
+  --color-surface-tint: #b52520;
+  --color-inverse-primary: #ffb4ab;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-bright: #fcf9f8;
+  --color-surface-container-low: #f6f3f2;
+  --color-surface: #fcf9f8;
+  --color-secondary: #41617e;
+  --color-surface-container-highest: #e5e2e1;
+  --color-primary-fixed-dim: #ffb4ab;
+  --color-surface-container: #f0eded;
+  --color-error-container: #ffdad6;
+  --color-on-secondary-container: #42627f;
+  --color-on-secondary-fixed-variant: #284a65;
+  --color-on-secondary: #ffffff;
+  --color-on-error-container: #93000a;
+  --color-on-background: #1b1b1c;
+  --color-tertiary-fixed: #e5c15c;
+  --color-secondary-container: #bddeff;
+  --color-inverse-on-surface: #f3f0ef;
+  --color-surface-container-high: #eae7e7;
+  --color-on-tertiary: #ffffff;
+  --color-primary-container: #c7322b;
+  --color-secondary-fixed-dim: #a9caeb;
+  --color-secondary-fixed: #cde5ff;
+  --color-primary-fixed: #ffdad5;
+  --color-on-primary-fixed: #410002;
+  --color-on-tertiary-container: #4f3d00;
+  --color-on-error: #ffffff;
+  --color-primary: #a41616;
+  --color-outline: #8e706c;
+  --color-on-surface-variant: #5a403d;
+  --color-tertiary-container: #caa846;
+  --color-on-primary-fixed-variant: #92030b;
+  --color-inverse-surface: #303030;
+  --color-error: #ba1a1a;
+  --color-outline-variant: #e3beba;
+  --color-on-surface: #1b1b1c;
+  --color-surface-variant: #e5e2e1;
 
-  --font-display: var(--font-anton), sans-serif;
-  --font-comic: var(--font-bangers), cursive;
-  --font-body: var(--font-inter), system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --color-spider-red: #a41616;
+  --color-web-blue: #41617e;
+  --color-ink-black: #1b1b1c;
+  --color-paper-white: #fcf9f8;
+  --color-comic-yellow: #e5c15c;
+
+  --spacing-gutter: 1.5rem;
+  --spacing-panel-gap: 12px;
+  --spacing-ink-offset: 2px;
+  --spacing-margin: 2rem;
+
+  --font-display-xl: var(--font-anybody), "Anybody", sans-serif;
+  --font-headline-lg: var(--font-anybody), "Anybody", sans-serif;
+  --font-headline-lg-mobile: var(--font-anybody), "Anybody", sans-serif;
+  --font-body-md: var(--font-bricolage), "Bricolage Grotesque", sans-serif;
+  --font-caption-bold: var(--font-bricolage), "Bricolage Grotesque", sans-serif;
+  --font-label-sm: var(--font-courier), "Courier Prime", monospace;
+  --font-display: var(--font-anton), "Anton", sans-serif;
+  --font-comic: var(--font-bangers), "Bangers", cursive;
 }
 
-* {
-  box-sizing: border-box;
+@layer base {
+  html, body { margin: 0; padding: 0; }
+  body {
+    overscroll-behavior: none;
+    background-color: var(--color-background);
+    color: var(--color-on-surface);
+    background-image: radial-gradient(circle, #00000011 1px, transparent 0);
+    background-size: 4px 4px;
+    font-family: var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif;
+  }
 }
 
-body {
-  background: var(--ink-black);
-  color: var(--paper-white);
-  font-family: var(--font-inter), system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+::-webkit-scrollbar { display: none; }
+
+.comic-border {
+  border: 3px solid #1b1b1c;
+  box-shadow: 8px 8px 0px 0px #1b1b1c;
+}
+.comic-border-sm {
+  border: 2px solid #1b1b1c;
+  box-shadow: 4px 4px 0px 0px #1b1b1c;
+}
+.comic-tilt-left { transform: rotate(-1.5deg); }
+.comic-tilt-right { transform: rotate(1.5deg); }
+
+.ben-day {
+  background-image: radial-gradient(#1b1b1c 1px, transparent 0);
+  background-size: 3px 3px;
+  opacity: 0.1;
+}
+.ben-day-light {
+  background-image: radial-gradient(#ffffff 1px, transparent 0);
+  background-size: 3px 3px;
 }
 
-::selection {
-  background: var(--spider-red);
-  color: var(--paper-white);
+.view { display: none; }
+.view.active { display: block; animation: pageflip 0.6s ease; }
+
+@keyframes pageflip {
+  from { opacity: 0; transform: perspective(1400px) rotateY(-10deg) scale(0.97); }
+  to { opacity: 1; transform: perspective(1400px) rotateY(0deg) scale(1); }
 }
 
-/* ═══════════════════════════════════════════════════
-   SPIDER-VERSE COMIC BOOK BACKGROUND SYSTEM
-   ═══════════════════════════════════════════════════ */
-
-.spiderverse-bg {
-  background-color: #060709;
-  background-image:
-    radial-gradient(ellipse at 20% 0%, rgba(226, 54, 54, 0.28) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 100%, rgba(13, 71, 161, 0.35) 0%, transparent 65%),
-    radial-gradient(ellipse at 50% 50%, rgba(0, 229, 255, 0.12) 0%, transparent 70%);
-  position: relative;
-  min-height: 100vh;
+@keyframes popIn {
+  0% { transform: scale(0.5) rotate(-8deg); opacity: 0; }
+  60% { transform: scale(1.08) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
 }
 
-/* Marvel Comic Action Speed Lines */
-.comic-speed-lines {
+.pop-in { animation: popIn 0.5s ease; }
+
+#toast {
   position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-conic-gradient(
-    from 0deg at 50% 30%,
-    rgba(242, 239, 233, 0.02) 0deg 1.5deg,
-    transparent 1.5deg 8deg
-  );
-  opacity: 0.85;
-  z-index: 0;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(150%);
+  transition: transform 0.3s ease;
+  z-index: 100;
 }
+#toast.show { transform: translateX(-50%) translateY(0); }
 
-/* Ben-Day dots comic texture */
-.halftone::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: radial-gradient(circle, var(--paper-white) 1px, transparent 1px);
-  background-size: 10px 10px;
-  opacity: 0.08;
-  z-index: 1;
-}
+.answer-selected { outline: 4px solid #1b1b1c; }
 
+/* Additional Panel & Noise styles */
 .noise-overlay {
   position: fixed;
   inset: 0;
@@ -102,183 +155,4 @@ body {
   opacity: 0.03;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
-}
-
-/* COMIC PANEL HARD SHADOW & INNER GLOW */
-.panel {
-  position: relative;
-  background: rgba(12, 14, 18, 0.88);
-  border: 3px solid var(--ink-black);
-  box-shadow: 7px 7px 0 var(--ink-black), inset 0 0 12px rgba(255, 255, 255, 0.03);
-  outline: 1px solid rgba(242, 239, 233, 0.15);
-  backdrop-filter: blur(12px);
-}
-
-.panel-accent {
-  border-color: var(--spider-red);
-  box-shadow: 7px 7px 0 var(--spider-red-dark);
-}
-
-/* COMIC BUTTON */
-.comic-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem 1.5rem;
-  font-family: var(--font-anton), sans-serif;
-  font-size: 1rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--paper-white);
-  background: var(--spider-red);
-  border: 3px solid var(--ink-black);
-  box-shadow: 4px 4px 0 var(--ink-black);
-  cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, color 0.12s ease;
-}
-
-.comic-btn:hover:not(:disabled) {
-  transform: translate(2px, 2px);
-  box-shadow: 2px 2px 0 var(--ink-black);
-  background: var(--ink-black);
-  color: var(--spider-red);
-  border-color: var(--spider-red);
-}
-
-.comic-btn:active:not(:disabled) {
-  transform: translate(4px, 4px);
-  box-shadow: 0 0 0 var(--ink-black);
-}
-
-.comic-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.comic-btn-cyan {
-  background: var(--glitch-cyan);
-  color: var(--ink-black);
-}
-.comic-btn-cyan:hover:not(:disabled) {
-  background: var(--ink-black);
-  color: var(--glitch-cyan);
-  border-color: var(--glitch-cyan);
-}
-
-.comic-btn-pink {
-  background: var(--gadget-pink);
-  color: var(--ink-black);
-}
-.comic-btn-pink:hover:not(:disabled) {
-  background: var(--ink-black);
-  color: var(--gadget-pink);
-  border-color: var(--gadget-pink);
-}
-
-.comic-btn-yellow {
-  background: var(--comic-yellow);
-  color: var(--ink-black);
-}
-.comic-btn-yellow:hover:not(:disabled) {
-  background: var(--ink-black);
-  color: var(--comic-yellow);
-  border-color: var(--comic-yellow);
-}
-
-.display-title {
-  font-family: var(--font-anton), sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  line-height: 0.95;
-}
-
-.chromatic {
-  text-shadow:
-    -2px 0 0 rgba(226, 54, 54, 0.85),
-    2px 0 0 rgba(0, 229, 255, 0.85);
-}
-
-.comic-shout {
-  font-family: var(--font-bangers), cursive;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-/* MARVEL COMIC SPEECH BUBBLE */
-.comic-speech-bubble {
-  position: relative;
-  background: #ffffff;
-  color: #0a0a0a;
-  border: 3px solid #0a0a0a;
-  box-shadow: 4px 4px 0 #0a0a0a;
-  padding: 0.75rem 1.25rem;
-  font-family: var(--font-bangers), cursive;
-  font-size: 1.1rem;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-.comic-speech-bubble::after {
-  content: "";
-  position: absolute;
-  bottom: -14px;
-  left: 24px;
-  border-width: 14px 12px 0 0;
-  border-style: solid;
-  border-color: #ffffff transparent transparent transparent;
-  display: block;
-  width: 0;
-}
-
-/* MARVEL COMIC YELLOW CAPTION BOX */
-.comic-caption-yellow {
-  background: var(--comic-yellow);
-  color: #0a0a0a;
-  border: 3px solid #0a0a0a;
-  box-shadow: 5px 5px 0 #0a0a0a;
-  font-family: var(--font-anton), sans-serif;
-  text-transform: uppercase;
-  padding: 0.6rem 1rem;
-}
-
-/* COMIC TABLE STYLING */
-.admin-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 0.85rem;
-}
-.admin-table th {
-  background: #14171d;
-  color: var(--glitch-cyan);
-  font-family: var(--font-anton), sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 0.6rem 0.8rem;
-  border-bottom: 2px solid var(--ink-black);
-  text-align: left;
-}
-.admin-table td {
-  padding: 0.6rem 0.8rem;
-  border-bottom: 1px solid rgba(242, 239, 233, 0.08);
-  color: var(--paper-white);
-}
-
-@keyframes glitch-in {
-  0% {
-    opacity: 0;
-    transform: translateY(14px) skewX(-4deg);
-  }
-  60% {
-    opacity: 0.9;
-    transform: translateY(-3px) skewX(1.5deg);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) skewX(0);
-  }
-}
-
-.anim-glitch-in {
-  animation: glitch-in 300ms ease-out;
 }

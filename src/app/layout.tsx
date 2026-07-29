@@ -1,33 +1,35 @@
 import type { Metadata } from "next";
-import { Anton, Bangers, Geist_Mono, Inter } from "next/font/google";
+import { Anybody, Bricolage_Grotesque, Courier_Prime, Inter, Anton, Bangers, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-/**
- * Fonts are self-hosted through next/font rather than a <link> to Google.
- * Two reasons, both about the moment many people open this at once: it
- * removes a third-party round trip from the critical path, and it eliminates
- * the layout shift a font swap causes — which would otherwise land
- * mid-countdown, moving the answer a team is about to click.
- *
- * Anton and Bangers are DISPLAY faces. Neither has a lowercase worth reading
- * at body size, and neither should ever hold question text — see the "part
- * people get wrong" note in globals.css.
- */
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const anton = Anton({ weight: "400", subsets: ["latin"], variable: "--font-anton" });
 const bangers = Bangers({ weight: "400", subsets: ["latin"], variable: "--font-bangers" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
+const anybody = Anybody({ subsets: ["latin"], variable: "--font-anybody" });
+const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-bricolage" });
+const courier = Courier_Prime({ weight: ["400", "700"], subsets: ["latin"], variable: "--font-courier" });
+
 export const metadata: Metadata = {
-  title: "XPLORE'26 — Spider Multiverse Tech Quiz",
-  description: "Spider Multiverse Tech Quiz — XPLORE'26 event platform.",
+  title: "Spider-Verse Tech Challenge — Symposium Quiz",
+  description: "Spider-Verse Tech Challenge — XPLORE'26 event platform.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${anton.variable} ${bangers.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
+    <html
+      lang="en"
+      className={`${inter.variable} ${anton.variable} ${bangers.variable} ${geistMono.variable} ${anybody.variable} ${bricolage.variable} ${courier.variable} h-full antialiased`}
+    >
+      <head>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="min-h-full flex flex-col bg-background font-body-md text-on-surface selection:bg-primary selection:text-on-primary">
+        <div className="fixed inset-0 pointer-events-none ben-day" id="global-ben-day" />
         {children}
         {/* Takes the flatness off large black areas. Fixed, non-interactive. */}
         <div className="noise-overlay" aria-hidden="true" />
@@ -35,3 +37,4 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     </html>
   );
 }
+

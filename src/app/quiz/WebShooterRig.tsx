@@ -65,7 +65,10 @@ export default function WebShooterRig({
   useEffect(() => {
     let cancelled = false;
     fetch(MODEL_URL, { method: "HEAD" })
-      .then((res) => !cancelled && setHasModel(res.ok))
+      .then((res) => {
+        const ct = res.headers.get("content-type") || "";
+        if (!cancelled) setHasModel(res.ok && !ct.includes("text/html") && !ct.includes("html"));
+      })
       .catch(() => !cancelled && setHasModel(false));
     return () => {
       cancelled = true;
