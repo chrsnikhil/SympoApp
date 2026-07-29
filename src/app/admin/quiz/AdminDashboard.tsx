@@ -88,6 +88,9 @@ export default function AdminDashboard() {
     setBusy(true);
     setMessage(null);
     try {
+      if (body.action === "restart-quiz") {
+        setRound(1);
+      }
       const res = await fetch("/api/quiz/advance", {
         method: "POST",
         headers: { "content-type": "application/json" },
