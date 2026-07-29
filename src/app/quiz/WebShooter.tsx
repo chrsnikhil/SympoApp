@@ -672,13 +672,13 @@ function ShooterArm({
           <path d="M80 98 Q87 106 93 98" stroke={INK} strokeWidth="2" fill="none" opacity="0.6" />
         </g>
 
-        {/* 4. INDEX FINGER (Left side - Extended UP & somewhat bent) */}
+        {/* 4. PINKY FINGER (Left side - Extended UP & shorter for natural hand anatomy) */}
         <g>
           <path
             d={
               firing
-                ? "M44 94 Q34 58 40 28 Q44 14 56 18 Q64 24 62 46 Q58 64 60 92 Z"
-                : "M44 94 Q36 58 42 26 Q46 14 56 18 Q64 24 62 46 Q58 64 60 92 Z"
+                ? "M44 94 Q34 68 40 44 Q44 34 54 37 Q60 42 58 58 Q56 72 58 92 Z"
+                : "M44 94 Q36 68 42 42 Q46 32 54 35 Q60 40 58 58 Q56 72 58 92 Z"
             }
             fill={glove}
             stroke={INK}
@@ -686,7 +686,7 @@ function ShooterArm({
             strokeLinejoin="round"
             style={{ transition: "d 100ms ease-out" }}
           />
-          <path d="M48 60 Q54 56 58 60" stroke={INK} strokeWidth="2" fill="none" opacity="0.5" />
+          <path d="M48 68 Q53 64 57 68" stroke={INK} strokeWidth="2" fill="none" opacity="0.5" />
         </g>
 
         {/* 5. PINKY FINGER (Right side - Extended UP & somewhat bent) */}
