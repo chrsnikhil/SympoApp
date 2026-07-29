@@ -34,7 +34,7 @@ const ROUND_SUBTITLES: Record<QuizRound, string> = {
   3: "Same clock. Live leaderboard. Comeback Meter is live.",
 };
 
-const STATUS_POLL_MS = 6000;
+const STATUS_POLL_MS = 2500;
 
 export default function QuizClient({
   round,

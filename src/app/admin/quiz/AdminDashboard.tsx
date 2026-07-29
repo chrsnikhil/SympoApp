@@ -88,8 +88,12 @@ export default function AdminDashboard() {
     setBusy(true);
     setMessage(null);
     try {
+      if (body.action === "start-quiz") {
+        setData((prev) => (prev ? { ...prev, started: true } : prev));
+      }
       if (body.action === "restart-quiz") {
         setRound(1);
+        setData((prev) => (prev ? { ...prev, started: false, ended: false } : prev));
       }
       const res = await fetch("/api/quiz/advance", {
         method: "POST",
