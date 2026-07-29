@@ -160,6 +160,7 @@ function PhaseTracker({ phase }: { phase: Phase }) {
 function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number; onChanged: () => void }) {
   const { game, phase } = data;
   const mountTime = useRef<number>(Date.now());
+  const [acceptedRules, setAcceptedRules] = useState<Record<string, boolean>>({});
 
   if (!game) return null;
 
@@ -179,6 +180,10 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
       onChanged();
     }
   }, [secondsLeft, closed, onChanged]);
+
+  if (!acceptedRules[phase]) {
+    return <MiniGameRuleGate phase={phase} onStart={() => setAcceptedRules((prev) => ({ ...prev, [phase]: true }))} />;
+  }
 
   return (
     <article className="halftone panel anim-glitch-in p-6">
@@ -203,46 +208,6 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
           )}
         </div>
 
-        {/* GAME-SPECIFIC RULES BANNER */}
-        {phase === "image" && (
-          <div className="halftone panel border-l-4 border-glitch-cyan p-4 mb-5 bg-ink-black/80 space-y-1">
-            <div className="font-comic text-base text-glitch-cyan flex items-center gap-2">
-              <span>🎮 GAME 1 RULES: AI IMAGE REPLICATION</span>
-            </div>
-            <ul className="text-xs text-paper-white/80 space-y-1 pl-4 list-disc font-mono">
-              <li>Examine the reference image carefully.</li>
-              <li>Type descriptive prompts to regenerate the image using AI.</li>
-              <li>You get up to 3 prompt submissions. Highest visual similarity score wins!</li>
-            </ul>
-          </div>
-        )}
-
-        {phase === "connections" && (
-          <div className="halftone panel border-l-4 border-comic-yellow p-4 mb-5 bg-ink-black/80 space-y-1">
-            <div className="font-comic text-base text-comic-yellow flex items-center gap-2">
-              <span>🧩 GAME 2 RULES: CONNECTIONS PUZZLES (5 PUZZLES)</span>
-            </div>
-            <ul className="text-xs text-paper-white/80 space-y-1 pl-4 list-disc font-mono">
-              <li>4 images reveal one by one live on stage.</li>
-              <li>Identify the common theme/connection linking all 4 images.</li>
-              <li>Type the exact connection answer before time expires!</li>
-            </ul>
-          </div>
-        )}
-
-        {phase === "memory" && (
-          <div className="halftone panel border-l-4 border-gadget-pink p-4 mb-5 bg-ink-black/80 space-y-1">
-            <div className="font-comic text-base text-gadget-pink flex items-center gap-2">
-              <span>🃏 GAME 3 RULES: MEMORY MATCH</span>
-            </div>
-            <ul className="text-xs text-paper-white/80 space-y-1 pl-4 list-disc font-mono">
-              <li>Click to flip and match Multiverse Spider-Hero cards.</li>
-              <li>Match all 6 pairs in as few flips as possible.</li>
-              <li>Fewer total flips = higher bonus points!</li>
-            </ul>
-          </div>
-        )}
-
         {notOpenYet ? (
           <p className="text-sm text-paper-white/50">Waiting for the coordinator to open this game…</p>
         ) : phase === "image" ? (
@@ -254,6 +219,84 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
         )}
       </div>
     </article>
+  );
+}
+
+function MiniGameRuleGate({ phase, onStart }: { phase: Phase; onStart: () => void }) {
+  const configs: Record<Phase, { title: string; subtitle: string; color: string; points: string[] }> = {
+    image: {
+      title: "🎮 GAME 1: AI IMAGE REPLICATION",
+      subtitle: "Master prompt engineering to recreate the secret reference image using AI.",
+      color: "var(--glitch-cyan)",
+      points: [
+        "Examine the reference image provided on your screen.",
+        "Type descriptive prompts to regenerate a similar image via AI.",
+        "You get up to 3 prompt submissions. The highest similarity score wins max points!",
+      ],
+    },
+    connections: {
+      title: "🧩 GAME 2: CONNECTIONS PUZZLES (5 PUZZLES)",
+      subtitle: "Connect the hidden themes across 5 sequential multi-image puzzles.",
+      color: "var(--comic-yellow)",
+      points: [
+        "4 images will be revealed one by one live on stage.",
+        "Identify the underlying common theme or connection linking all 4 images.",
+        "Type the exact connection answer before the puzzle time expires!",
+      ],
+    },
+    memory: {
+      title: "🃏 GAME 3: MEMORY MATCH",
+      subtitle: "Flip and match pairs of Multiverse Spider-Hero cards as fast as possible.",
+      color: "var(--gadget-pink)",
+      points: [
+        "Click tiles to flip and match Multiverse Spider-Hero pairs.",
+        "Match all 6 pairs in as few total flips as possible.",
+        "Fewer total flips & faster time = higher score!",
+      ],
+    },
+    done: {
+      title: "ROUND 1 COMPLETE",
+      subtitle: "All mini-games complete.",
+      color: "var(--signal-good)",
+      points: [],
+    },
+  };
+
+  const config = configs[phase];
+
+  return (
+    <div className="halftone panel border-2 p-8 text-center space-y-6 animate-pop" style={{ borderColor: config.color }}>
+      <div className="space-y-2">
+        <span className="font-comic text-xs uppercase tracking-widest px-3 py-1 bg-surface/20 border rounded inline-block" style={{ color: config.color, borderColor: config.color }}>
+          PRE-GAME RULES BRIEFING
+        </span>
+        <h2 className="font-display-xl text-3xl md:text-4xl text-paper-white uppercase italic">
+          {config.title}
+        </h2>
+        <p className="font-body-md text-sm text-paper-white/80 max-w-md mx-auto">
+          {config.subtitle}
+        </p>
+      </div>
+
+      <div className="text-left bg-ink-black/80 comic-border p-5 space-y-2 max-w-lg mx-auto">
+        <h3 className="font-comic text-sm uppercase" style={{ color: config.color }}>DIRECTIVES:</h3>
+        {config.points.map((pt, i) => (
+          <div key={i} className="font-label-sm text-xs flex items-start gap-2 text-paper-white/90">
+            <span style={{ color: config.color }}>•</span>
+            <span>{pt}</span>
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={onStart}
+        className="comic-btn px-8 py-3.5 text-sm font-bold uppercase shadow-lg hover:scale-105 transition-transform"
+        style={{ backgroundColor: config.color, color: "#1b1b1c" }}
+      >
+        ▶ READY — START GAME →
+      </button>
+    </div>
   );
 }
 

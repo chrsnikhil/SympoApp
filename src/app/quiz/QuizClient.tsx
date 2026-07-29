@@ -92,6 +92,16 @@ export default function QuizClient({
     };
   }, []);
 
+  const [showStartCountdown, setShowStartCountdown] = useState(false);
+  const prevStarted = useRef(startedState);
+
+  useEffect(() => {
+    if (!prevStarted.current && startedState) {
+      setShowStartCountdown(true);
+    }
+    prevStarted.current = startedState;
+  }, [startedState]);
+
   if (endedState) {
     return <QuizEndedScreen round={round} teamName={teamName} avatar={avatar} />;
   }
@@ -99,6 +109,11 @@ export default function QuizClient({
   /* PRE-QUIZ LOBBY & RULES SCREEN — SHOWS TEAM DETAILS AND RULES BEFORE START */
   if (!startedState && !isAdmin) {
     return <QuizRulesLobby teamName={teamName} avatar={avatar} round={round} />;
+  }
+
+  /* 15-SECOND COUNTDOWN INTERLUDE SCREEN WHEN QUIZ FIRST STARTS */
+  if (showStartCountdown && !isAdmin) {
+    return <RoundTransition round={round} onDone={() => setShowStartCountdown(false)} />;
   }
 
   if (incoming) {
