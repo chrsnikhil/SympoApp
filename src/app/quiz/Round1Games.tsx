@@ -159,35 +159,42 @@ function PhaseTracker({ phase }: { phase: Phase }) {
 
 function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number; onChanged: () => void }) {
   const { game, phase } = data;
-  const mountTime = useRef<number>(Date.now());
   const [rulesAccepted, setRulesAccepted] = useState<Record<string, boolean>>({});
+  const [gameStartTimes, setGameStartTimes] = useState<Record<string, number>>({});
 
   if (!game) return null;
 
+  const handleRulesDone = (p: string) => {
+    setRulesAccepted((prev) => ({ ...prev, [p]: true }));
+    setGameStartTimes((prev) => ({ ...prev, [p]: Date.now() }));
+  };
+
+  const isRulesShowing = phase !== "done" && !rulesAccepted[phase];
   const notOpenYet = game.opensAt && now > 0 && now < new Date(game.opensAt).getTime();
   const closed = !!(game.closesAt && now > new Date(game.closesAt).getTime());
 
   const DEFAULT_GAME_SECONDS = 270; // 4 min 30 sec
-  const closeMs = game.closesAt ? new Date(game.closesAt).getTime() : mountTime.current + DEFAULT_GAME_SECONDS * 1000;
-  const openMs = game.opensAt ? new Date(game.opensAt).getTime() : mountTime.current;
+  const gameStartMs = gameStartTimes[phase] ?? Date.now();
+  const closeMs = game.closesAt ? new Date(game.closesAt).getTime() : gameStartMs + DEFAULT_GAME_SECONDS * 1000;
+  const openMs = game.opensAt ? new Date(game.opensAt).getTime() : gameStartMs;
   const totalSeconds = Math.max(1, Math.round((closeMs - openMs) / 1000));
-  const currentNow = now > 0 ? now : Date.now();
+  const currentNow = isRulesShowing ? gameStartMs : (now > 0 ? now : Date.now());
   const secondsLeft = Math.max(0, Math.ceil((closeMs - currentNow) / 1000));
   const timerActive = !notOpenYet && !closed && secondsLeft > 0;
 
   useEffect(() => {
-    if (secondsLeft === 0 && !closed) {
+    if (!isRulesShowing && secondsLeft === 0 && !closed) {
       onChanged();
     }
-  }, [secondsLeft, closed, onChanged]);
+  }, [isRulesShowing, secondsLeft, closed, onChanged]);
 
   /* DEDICATED PRE-GAME RULES GATE — SHOWN FOR 10 SECONDS BEFORE GAME STARTS */
-  if (phase !== "done" && !rulesAccepted[phase]) {
+  if (isRulesShowing) {
     return (
       <PreGameRulesGate
         phase={phase}
         points={game.points}
-        onDone={() => setRulesAccepted((prev) => ({ ...prev, [phase]: true }))}
+        onDone={() => handleRulesDone(phase)}
       />
     );
   }
@@ -295,10 +302,12 @@ function PreGameRulesGate({
   return (
     <article className="halftone panel anim-pop p-8 text-center space-y-6">
       <div className="text-5xl animate-bounce">{cfg.icon}</div>
-      <div className="space-y-2">
-        <div className="inline-flex items-center gap-2 border-2 border-glitch-cyan bg-ink-black px-4 py-1.5 font-mono text-xs font-bold text-glitch-cyan">
-          <span className="h-2 w-2 rounded-full bg-glitch-cyan animate-ping" />
-          <span>GAME STARTING IN {secondsLeft} SECONDS...</span>
+      <div className="space-y-3">
+        <div className="mx-auto inline-flex items-center gap-3 border-2 border-comic-yellow bg-comic-yellow/20 px-6 py-2.5 font-comic shadow-xl rounded">
+          <span className="h-3 w-3 rounded-full bg-comic-yellow animate-ping" />
+          <span className="font-display-xl text-lg text-comic-yellow tracking-wider">
+            GAME STARTING IN <span className="text-paper-white text-2xl font-bold underline px-1">{secondsLeft}s</span>
+          </span>
         </div>
         <h2 className={`font-display-xl text-3xl uppercase italic ${cfg.color}`}>{cfg.title}</h2>
         <span className="inline-block text-xs font-semibold px-3 py-1 border border-paper-white/20 bg-ink-black/60 text-paper-white rounded">
@@ -316,8 +325,8 @@ function PreGameRulesGate({
         ))}
       </div>
 
-      <div className="border border-paper-white/20 bg-ink-black/80 p-3 text-center text-xs font-mono text-paper-white/60">
-        ⌛ Auto-directing to game screen when timer reaches 0…
+      <div className="border border-paper-white/20 bg-ink-black/80 p-3 text-center text-xs font-mono text-paper-white/70">
+        ⌛ Auto-directing to game screen when timer reaches 0s…
       </div>
     </article>
   );
