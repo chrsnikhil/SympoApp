@@ -3,7 +3,7 @@ import { ObjectId } from "mongodb";
 import { ForbiddenError, requireAdmin, UnauthorizedError } from "@/lib/auth/guard";
 import { collections } from "@/lib/db/client";
 import { judgeAll, judgeAvailable } from "@/lib/quiz/judge";
-import { ROUNDS, advanceFrom } from "@/lib/quiz/rounds";
+import { ROUNDS, advanceFrom, eliminateTeam, restoreTeam } from "@/lib/quiz/rounds";
 import { resolveEstimate, resolvePromptImage } from "@/lib/quiz/scoring";
 import { avatarForCoin, formatCoin, parseCoin } from "@/lib/quiz/avatars";
 import type { QuizRound } from "@/lib/db/types";
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
       round?: number;
       count?: number;
       slug?: string;
+      teamId?: string;
       scores?: Record<string, number>;
       minutes?: number;
       coin?: string | number;
@@ -62,6 +63,20 @@ export async function POST(request: Request) {
           intoTitle: ROUNDS[(round + 1) as QuizRound].title,
           qualified,
         });
+      }
+
+      case "eliminate-team": {
+        const teamIdStr = (body.teamId || body.slug) as string;
+        if (!teamIdStr) return NextResponse.json({ error: "Missing teamId" }, { status: 400 });
+        await eliminateTeam(teamIdStr);
+        return NextResponse.json({ ok: true, note: "Team eliminated" });
+      }
+
+      case "restore-team": {
+        const teamIdStr = (body.teamId || body.slug) as string;
+        if (!teamIdStr) return NextResponse.json({ error: "Missing teamId" }, { status: 400 });
+        await restoreTeam(teamIdStr);
+        return NextResponse.json({ ok: true, note: "Team restored" });
       }
 
       case "resolve-estimate": {
@@ -261,11 +276,8 @@ export async function POST(request: Request) {
         const disc = await coins.findOne({ _id: parsed });
         if (!disc) return NextResponse.json({ error: "That isn't a valid coin" }, { status: 404 });
         if (disc.teamId) {
-          const lockedTeam = await teams.findOne({ _id: disc.teamId });
-          return NextResponse.json(
-            { error: `Coin ${formatCoin(parsed)} is already locked to "${lockedTeam?.name ?? "a team"}" — revoke it first` },
-            { status: 409 }
-          );
+          await teams.updateOne({ _id: disc.teamId }, { $set: { name: teamName, avatar: forCoin.id } });
+          return NextResponse.json({ ok: true, coin: formatCoin(parsed), teamId: disc.teamId.toString(), teamName, avatar: forCoin.name });
         }
 
         const existingTeam = await teams.findOne({ name: new RegExp(`^${teamName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") });
@@ -309,6 +321,12 @@ export async function POST(request: Request) {
         await coins.updateOne({ _id: parsed }, { $set: { teamId: null, claimedAt: null } });
         await teams.updateOne({ _id: disc.teamId }, { $unset: { avatar: "", coin: "" } });
         return NextResponse.json({ ok: true, coin: formatCoin(parsed) });
+      }
+
+      case "start-quiz": {
+        const state = await collections.quizState();
+        await state.updateOne({ _id: "quiz" }, { $set: { started: true, startedAt: new Date() } }, { upsert: true });
+        return NextResponse.json({ ok: true, started: true, note: "Quiz started!" });
       }
 
       case "end-quiz": {

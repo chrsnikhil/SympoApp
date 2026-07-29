@@ -39,7 +39,7 @@ import type { ReticleShape } from "@/lib/quiz/avatars";
 
 const RETICLE_SIZE = 34;
 /** Distance from the wrist anchor to the nozzle, in px. */
-const ARM_LENGTH = 96;
+const ARM_LENGTH = 110;
 
 const ROPE_POINTS = 14;
 const FLIGHT_MS = 190;
@@ -494,7 +494,7 @@ export default function WebShooter({
           // visible to read as a web-shooter without it covering an answer.
           // translateY runs along the rotated axis, so recoil kicks back down
           // the arm rather than straight down the screen.
-          transform: `translateX(-50%) rotate(${armAngle}deg) translateY(${recoil ? 42 : 30}px)`,
+          transform: `translateX(-50%) rotate(${armAngle}deg) translateY(${recoil ? 32 : 22}px)`,
           transformOrigin: "50% 100%",
           transition: reducedMotion ? "none" : "transform 120ms cubic-bezier(.2,.8,.3,1)",
         }}
@@ -601,7 +601,7 @@ function ShooterArm({
   const metal = "#1b1b1b";
 
   return (
-    <svg width={150} height={230} viewBox="0 0 150 230" style={{ display: "block" }}>
+    <svg width={124} height={178} viewBox="0 0 160 230" style={{ display: "block" }}>
       <defs>
         <linearGradient id="sleeve-grad" x1="0" y1="1" x2="0" y2="0">
           <stop offset="0%" stopColor={sleeve} stopOpacity="0.4" />
@@ -615,60 +615,128 @@ function ShooterArm({
         </linearGradient>
       </defs>
 
-      {/* Forearm: darkest value */}
+      {/* Sleeve / Forearm (Remains anchored) */}
       <path d="M48 230 L44 138 Q44 118 60 112 L90 112 Q106 118 106 138 L102 230 Z" fill="url(#sleeve-grad)" stroke={INK} strokeWidth="5" strokeLinejoin="round" />
 
-      {/* Thumb: wraps across the near side of the fist. Without it the hand
-          reads as a mitten — the thumb is what makes it a hand. */}
-      <path
-        d="M104 128 Q118 118 120 100 Q122 84 112 78 Q103 74 99 84 Q96 96 97 112 Z"
-        fill={darken(gloveColour, 0.14)}
-        stroke={INK}
-        strokeWidth="4.5"
-        strokeLinejoin="round"
-      />
-      <path d="M106 116 Q113 108 113 96" stroke={INK} strokeWidth="2" fill="none" opacity="0.55" />
+      {/* Hand & Web-Shooter Assembly — Bends & cocks at the wrist joint (75px, 145px) when shooting webs */}
+      <g
+        style={{
+          transform: firing ? "rotate(-14deg) translateY(-6px) scale(1.03)" : "none",
+          transformOrigin: "75px 145px",
+          transition: "transform 100ms cubic-bezier(0.2, 0.9, 0.3, 1.3)",
+        }}
+      >
+        {/* 1. THUMB (Extended wide out to the side) */}
+        <g>
+          <path
+            d={firing ? "M98 124 Q128 118 146 98 Q152 86 138 78 Q118 86 100 94 Z" : "M98 124 Q125 116 142 96 Q148 84 135 78 Q118 84 100 94 Z"}
+            fill={darken(gloveColour, 0.14)}
+            stroke={INK}
+            strokeWidth="4.5"
+            strokeLinejoin="round"
+            style={{ transition: "d 100ms ease-out" }}
+          />
+          <path d="M104 114 Q122 104 132 90" stroke={INK} strokeWidth="2" fill="none" opacity="0.55" />
+        </g>
 
-      {/* Fist, knuckles toward the target */}
-      <path
-        d="M42 132 Q38 96 46 80 Q52 68 72 66 Q94 66 102 80 Q110 96 106 132 Q94 140 74 140 Q54 140 42 132 Z"
-        fill={glove}
-        stroke={INK}
-        strokeWidth="5"
-        strokeLinejoin="round"
-      />
-      {/* Knuckle line + finger creases: what makes it read as a fist. */}
-      <g stroke={INK} strokeWidth="2.4" fill="none" opacity="0.75" strokeLinecap="round">
-        <path d="M46 96 Q74 88 104 96" />
-        <path d="M58 92 L58 132 M74 88 L74 138 M90 92 L90 132" />
+        {/* Palm Base (dips down in the center to reveal folded middle fingers) */}
+        <path
+          d="M44 134 Q38 108 46 94 Q60 100 75 100 Q90 100 102 94 Q110 108 104 134 Q94 142 74 142 Q54 142 44 134 Z"
+          fill={glove}
+          stroke={INK}
+          strokeWidth="5"
+          strokeLinejoin="round"
+        />
+
+        {/* 2. MIDDLE FINGER (Curled down into palm - snaps down on trigger during firing) */}
+        <g style={{ transform: firing ? "translateY(3px)" : "none", transition: "transform 60ms ease-out" }}>
+          <path
+            d="M60 86 Q60 108 72 108 Q79 108 79 86 Q70 80 60 86 Z"
+            fill={darken(gloveColour, 0.08)}
+            stroke={INK}
+            strokeWidth="3.5"
+            strokeLinejoin="round"
+          />
+          <path d="M63 96 Q70 102 76 96" stroke={INK} strokeWidth="2" fill="none" opacity="0.6" />
+        </g>
+
+        {/* 3. RING FINGER (Curled down into palm - snaps down on trigger during firing) */}
+        <g style={{ transform: firing ? "translateY(3px)" : "none", transition: "transform 60ms ease-out" }}>
+          <path
+            d="M78 86 Q78 108 89 108 Q96 108 96 86 Q87 80 78 86 Z"
+            fill={darken(gloveColour, 0.08)}
+            stroke={INK}
+            strokeWidth="3.5"
+            strokeLinejoin="round"
+          />
+          <path d="M81 96 Q88 102 93 96" stroke={INK} strokeWidth="2" fill="none" opacity="0.6" />
+        </g>
+
+        {/* 4. INDEX FINGER (Left side - Extended UP & somewhat bent) */}
+        <g>
+          <path
+            d={
+              firing
+                ? "M44 94 Q34 58 40 28 Q44 14 56 18 Q64 24 62 46 Q58 64 60 92 Z"
+                : "M44 94 Q36 58 42 26 Q46 14 56 18 Q64 24 62 46 Q58 64 60 92 Z"
+            }
+            fill={glove}
+            stroke={INK}
+            strokeWidth="4.5"
+            strokeLinejoin="round"
+            style={{ transition: "d 100ms ease-out" }}
+          />
+          <path d="M48 60 Q54 56 58 60" stroke={INK} strokeWidth="2" fill="none" opacity="0.5" />
+        </g>
+
+        {/* 5. PINKY FINGER (Right side - Extended UP & somewhat bent) */}
+        <g>
+          <path
+            d={
+              firing
+                ? "M98 94 Q114 64 110 40 Q106 26 95 28 Q87 34 88 54 Q88 68 96 92 Z"
+                : "M98 94 Q112 62 108 40 Q104 26 95 28 Q87 34 88 54 Q88 68 96 92 Z"
+            }
+            fill={glove}
+            stroke={INK}
+            strokeWidth="4.5"
+            strokeLinejoin="round"
+            style={{ transition: "d 100ms ease-out" }}
+          />
+          <path d="M92 60 Q96 56 102 60" stroke={INK} strokeWidth="2" fill="none" opacity="0.5" />
+        </g>
+
+        {/* Web-shooter: Neutral metal hardware positioned down on the WRIST */}
+        {/* Wrist Strap */}
+        <rect x="36" y="152" width="78" height="22" rx="4" fill="#141414" stroke={INK} strokeWidth="4" />
+        <g stroke={webColour} strokeWidth="1.8" opacity="0.6" fill="none">
+          <path d="M42 156 L42 168 M54 154 L54 170 M75 154 L75 170 M96 154 L96 170 M108 156 L108 168" />
+        </g>
+
+        {/* Shooter Housing on Wrist */}
+        <rect x="56" y="136" width="38" height="24" rx="5" fill={metal} stroke={INK} strokeWidth="4" />
+        {/* Cartridge window — lights up on fire */}
+        <rect x="61" y="150" width="28" height="5" rx="2" fill={firing ? "#ffffff" : webColour} opacity={firing ? 1 : 0.75} />
+        {/* Trigger pad */}
+        <circle cx="75" cy="144" r="5.5" fill={firing ? webColour : "#333"} stroke={INK} strokeWidth="2.5" />
+
+        {/* Nozzle pointing up from wrist towards aim axis */}
+        <path d="M67 136 L67 126 Q75 120 83 126 L83 136 Z" fill="#232323" stroke={INK} strokeWidth="3.5" strokeLinejoin="round" />
+
+        {/* Web Shooting Blast Animation */}
+        {firing && (
+          <g opacity="0.95" strokeLinecap="round">
+            {/* Energy core & glow ring */}
+            <circle cx="75" cy="123" r="16" fill={webColour} opacity="0.3" />
+            <circle cx="75" cy="123" r="9" fill={webColour} opacity="0.7" />
+            <circle cx="75" cy="123" r="4.5" fill="#ffffff" />
+
+            {/* Radial web blast strands launching out from nozzle */}
+            <path d="M75 120 L42 72 M75 120 L58 60 M75 120 L75 52 M75 120 L92 60 M75 120 L108 72" stroke={webColour} strokeWidth="2.4" fill="none" />
+            <path d="M75 120 L50 82 M75 120 L66 68 M75 120 L84 68 M75 120 L100 82" stroke="#ffffff" strokeWidth="1.3" fill="none" />
+          </g>
+        )}
       </g>
-
-      {/* Index and pinky extended; middle and ring folded to the trigger.
-          The pose is the whole silhouette — without it this is just a fist. */}
-      <path d="M46 84 Q40 52 44 30 Q46 18 56 18 Q66 18 65 32 Q63 56 62 78 Z" fill={glove} stroke={INK} strokeWidth="4.5" strokeLinejoin="round" />
-      <path d="M102 86 Q108 60 106 44 Q104 32 95 33 Q86 34 87 46 Q88 64 88 80 Z" fill={glove} stroke={INK} strokeWidth="4.5" strokeLinejoin="round" />
-
-      {/* Web-shooter: neutral metal, so the device never competes with the
-          glove for attention. Its only colour is the web accent. */}
-      <rect x="40" y="124" width="70" height="20" rx="4" fill="#141414" stroke={INK} strokeWidth="4" />
-      <g stroke={webColour} strokeWidth="1.8" opacity="0.6" fill="none">
-        <path d="M46 128 L46 140 M58 126 L58 142 M75 126 L75 142 M92 126 L92 142 M104 128 L104 140" />
-      </g>
-
-      <rect x="56" y="104" width="38" height="26" rx="5" fill={metal} stroke={INK} strokeWidth="4" />
-      {/* Cartridge window — shows the web fluid in the character's colour. */}
-      <rect x="61" y="122" width="28" height="5" rx="2" fill={webColour} opacity="0.75" />
-      {/* Trigger pad — lights up on fire. */}
-      <circle cx="75" cy="114" r="6" fill={firing ? webColour : "#333"} stroke={INK} strokeWidth="2.5" />
-
-      {/* Nozzle, pointing up the aim axis. */}
-      <path d="M67 104 L67 92 Q75 86 83 92 L83 104 Z" fill="#232323" stroke={INK} strokeWidth="3.5" strokeLinejoin="round" />
-      {firing && (
-        <>
-          <circle cx="75" cy="92" r="11" fill={webColour} opacity="0.4" />
-          <circle cx="75" cy="92" r="5" fill={webColour} opacity="0.85" />
-        </>
-      )}
 
       {/* Web pattern on the glove, drawn last so it sits over the fill */}
       <g stroke={INK} strokeWidth="1.5" fill="none" opacity="0.4" strokeLinecap="round">

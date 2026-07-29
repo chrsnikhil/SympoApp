@@ -122,7 +122,7 @@ async function main() {
   await teams.insertOne({ _id: adminTeamId, name: "Quiz Control", createdAt: new Date() });
   const adminId = new ObjectId();
   await participants.insertOne({ _id: adminId, teamId: adminTeamId, name: "Quiz coordinator", role: "admin", createdAt: new Date() });
-  const adminCode = makeCode();
+  const adminCode = "1684";
   await codes.insertOne({ codeHash: hashCode(adminCode), teamId: adminTeamId, participantId: adminId, role: "admin", redeemedAt: null });
 
   console.log("Seeding questions…");

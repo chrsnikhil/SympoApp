@@ -11,6 +11,7 @@ interface StandingRow {
   answered: number;
   avatarName: string | null;
   qualifying: boolean | null;
+  eliminated?: boolean;
 }
 
 interface ConnectionsPuzzleInfo {
@@ -31,6 +32,7 @@ interface Overview {
   defaultAdvances: number | null;
   groqConfigured: boolean;
   ended: boolean;
+  started?: boolean;
   standings: StandingRow[];
   round1?: {
     games: Array<{ slug: string; title: string; format: string; points: number }>;
@@ -62,6 +64,7 @@ export default function AdminDashboard() {
   const [showStageLeaderboard, setShowStageLeaderboard] = useState(false);
   const [assignCoin, setAssignCoin] = useState("");
   const [assignTeamName, setAssignTeamName] = useState("");
+  const [customCount, setCustomCount] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/admin/quiz/overview?round=${round}`, { cache: "no-store" });
@@ -170,7 +173,17 @@ export default function AdminDashboard() {
               : "Round 3 — final round."}
           </p>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            {round === 1 && !data.started && (
+              <button
+                disabled={busy}
+                onClick={() => callAdvance({ action: "start-quiz" })}
+                className="comic-btn comic-btn-yellow px-5 py-2.5 text-sm font-bold shadow-lg animate-pulse"
+              >
+                ▶ START QUIZ
+              </button>
+            )}
+
             {round < 3 &&
               (!advanceConfirm ? (
                 <button onClick={() => setAdvanceConfirm(true)} className="comic-btn comic-btn-cyan px-4 py-2 text-xs">
@@ -178,7 +191,9 @@ export default function AdminDashboard() {
                 </button>
               ) : (
                 <div className="flex items-center gap-2 border border-signal-good bg-ink-black p-2">
-                  <span className="text-xs font-bold text-signal-good">PROCEED TO ROUND {round + 1}?</span>
+                  <span className="text-xs font-bold text-signal-good">
+                    PROCEED TO ROUND {round + 1}? (Remaining qualified teams will advance)
+                  </span>
                   <button
                     disabled={busy}
                     onClick={async () => {
@@ -196,32 +211,33 @@ export default function AdminDashboard() {
                 </div>
               ))}
 
-            {data.ended ? (
-              <button disabled={busy} onClick={() => callAdvance({ action: "resume-quiz" })} className="comic-btn comic-btn-cyan px-4 py-2 text-xs">
-                ▶ Resume Quiz
-              </button>
-            ) : !endConfirm ? (
-              <button onClick={() => setEndConfirm(true)} className="comic-btn comic-btn-pink px-4 py-2 text-xs">
-                ⏹ End Quiz
-              </button>
-            ) : (
-              <div className="flex items-center gap-2 border border-signal-wrong bg-ink-black p-2">
-                <span className="text-xs font-bold text-signal-wrong">END THE QUIZ? No more submissions will score.</span>
-                <button
-                  disabled={busy}
-                  onClick={async () => {
-                    await callAdvance({ action: "end-quiz" });
-                    setEndConfirm(false);
-                  }}
-                  className="comic-btn comic-btn-pink px-3 py-1 text-xs font-bold"
-                >
-                  YES, END IT
+            {(round === 3 || data.ended) &&
+              (data.ended ? (
+                <div className="inline-flex items-center gap-2 border-2 border-signal-good bg-signal-good/10 px-4 py-2 text-signal-good text-xs font-bold uppercase tracking-widest rounded">
+                  🏁 QUIZ CONCLUDED — CHAMPIONS VICTORY SCREEN IS LIVE
+                </div>
+              ) : !endConfirm ? (
+                <button onClick={() => setEndConfirm(true)} className="comic-btn comic-btn-pink px-4 py-2 text-xs">
+                  ⏹ End Quiz
                 </button>
-                <button onClick={() => setEndConfirm(false)} className="comic-btn bg-ink-black px-3 py-1 text-xs">
-                  CANCEL
-                </button>
-              </div>
-            )}
+              ) : (
+                <div className="flex items-center gap-2 border border-signal-wrong bg-ink-black p-2">
+                  <span className="text-xs font-bold text-signal-wrong">END THE QUIZ? All participants will see the Champions Victory page.</span>
+                  <button
+                    disabled={busy}
+                    onClick={async () => {
+                      await callAdvance({ action: "end-quiz" });
+                      setEndConfirm(false);
+                    }}
+                    className="comic-btn comic-btn-pink px-3 py-1 text-xs font-bold"
+                  >
+                    YES, END IT
+                  </button>
+                  <button onClick={() => setEndConfirm(false)} className="comic-btn bg-ink-black px-3 py-1 text-xs">
+                    CANCEL
+                  </button>
+                </div>
+              ))}
           </div>
         </section>
 
@@ -238,6 +254,7 @@ export default function AdminDashboard() {
                   <th>Points</th>
                   <th>Time</th>
                   <th>Status</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -249,12 +266,33 @@ export default function AdminDashboard() {
                     <td className="font-mono font-bold text-comic-yellow">{s.points}</td>
                     <td>{s.tiebreakSeconds}s</td>
                     <td>
-                      {s.qualifying === null ? (
-                        "—"
+                      <span className={`text-[0.65rem] font-bold ${s.eliminated ? "text-signal-wrong" : "text-signal-good"}`}>
+                        {s.eliminated ? "CUT" : "QUALIFIED"}
+                      </span>
+                    </td>
+                    <td>
+                      {s.eliminated ? (
+                        <button
+                          disabled={busy}
+                          onClick={async () => {
+                            await callAdvance({ action: "restore-team", teamId: s.teamId });
+                          }}
+                          className="px-2.5 py-1 text-[0.65rem] font-bold border border-signal-good bg-signal-good/20 text-signal-good hover:bg-signal-good hover:text-ink-black transition-colors rounded"
+                          title="Restore team back into the round"
+                        >
+                          ↩ Restore
+                        </button>
                       ) : (
-                        <span className={`text-[0.65rem] font-bold ${s.qualifying ? "text-signal-good" : "text-signal-wrong"}`}>
-                          {s.qualifying ? "QUALIFIED" : "CUT"}
-                        </span>
+                        <button
+                          disabled={busy}
+                          onClick={async () => {
+                            await callAdvance({ action: "eliminate-team", teamId: s.teamId });
+                          }}
+                          className="px-2.5 py-1 text-[0.65rem] font-bold border border-spider-red bg-spider-red/20 text-spider-red hover:bg-spider-red hover:text-paper-white transition-colors rounded"
+                          title="Eliminate team instantly"
+                        >
+                          ✂ Eliminate
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -302,11 +340,6 @@ export default function AdminDashboard() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2 border-t border-paper-white/10 pt-4">
-                <button disabled={busy} onClick={() => callAdvance({ action: "open", slug: "image-1", minutes: 5 })} className="border border-paper-white/20 px-4 py-2 text-xs text-paper-white/70 hover:border-paper-white/50">
-                  Open Image Replication (5 min)
-                </button>
               </div>
             </section>
 

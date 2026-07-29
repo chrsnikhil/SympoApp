@@ -168,19 +168,71 @@ export async function standings(round: QuizRound): Promise<Standing[]> {
   }));
 }
 
+/** Get current active global round of the quiz event (1, 2, or 3). */
+export async function getActiveQuizRound(): Promise<QuizRound> {
+  const quals = await collections.roundQualifications();
+  const count3 = await quals.countDocuments({ round: 3 });
+  if (count3 > 0) return 3;
+  const count2 = await quals.countDocuments({ round: 2 });
+  if (count2 > 0) return 2;
+  return 1;
+}
+
+/** Check if the coordinator has ended the quiz event. */
+export async function isQuizEnded(): Promise<boolean> {
+  const state = await (await collections.quizState()).findOne({ _id: "quiz" });
+  return Boolean(state?.ended);
+}
+
+/** Check if the coordinator has started the quiz event. */
+export async function isQuizStarted(): Promise<boolean> {
+  const state = await (await collections.quizState()).findOne({ _id: "quiz" });
+  return Boolean(state?.started);
+}
+
+/** Eliminate a specific team. Instantly redirects them to the solace screen. */
+export async function eliminateTeam(teamIdStr: string): Promise<void> {
+  const elims = await collections.roundEliminations();
+  await elims.updateOne(
+    { teamId: new ObjectId(teamIdStr) },
+    { $set: { teamId: new ObjectId(teamIdStr), eliminatedAt: new Date() } },
+    { upsert: true }
+  );
+}
+
+/** Restore a previously eliminated team. */
+export async function restoreTeam(teamIdStr: string): Promise<void> {
+  const elims = await collections.roundEliminations();
+  await elims.deleteOne({ teamId: new ObjectId(teamIdStr) });
+}
+
+/** Check if a team is currently eliminated. */
+export async function isTeamEliminated(teamId: ObjectId): Promise<boolean> {
+  const elims = await collections.roundEliminations();
+  const found = await elims.findOne({ teamId });
+  if (found) return true;
+
+  const activeRound = await getActiveQuizRound();
+  if (activeRound > 1) {
+    const qualified = await isQualified(teamId, activeRound);
+    if (!qualified) return true;
+  }
+  return false;
+}
+
 /**
- * Make the cut into the next round. Idempotent: re-running it after a score
- * correction rewrites the qualification set rather than appending to it.
+ * Make the cut into the next round. Qualifies remaining non-eliminated teams.
  */
 export async function advanceFrom(round: QuizRound, count?: number): Promise<Standing[]> {
   const spec = ROUNDS[round];
-  if (spec.defaultAdvances === null && count === undefined) {
-    throw new Error(`Round ${round} is the final round`);
-  }
-  const advances = count ?? spec.defaultAdvances!;
-
   const table = await standings(round);
-  const qualifying = table.slice(0, advances);
+  const elims = await collections.roundEliminations();
+  const elimDocs = await elims.find({}).toArray();
+  const elimIds = new Set(elimDocs.map((e) => String(e.teamId)));
+
+  const nonEliminated = table.filter((s) => !elimIds.has(s.teamId));
+  const advances = count ?? (spec.defaultAdvances ? Math.min(nonEliminated.length, spec.defaultAdvances) : nonEliminated.length);
+  const qualifying = nonEliminated.slice(0, advances);
   const next = (round + 1) as QuizRound;
 
   const quals = await collections.roundQualifications();

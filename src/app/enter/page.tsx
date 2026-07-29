@@ -15,12 +15,10 @@ import WebShooter, { WebNet } from "@/app/quiz/WebShooter";
  */
 export default function EnterPage() {
   const [value, setValue] = useState("");
-  const [teamName, setTeamName] = useState("");
-  const [needsName, setNeedsName] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const looksLikeCode = value.includes("-");
+  const looksLikeCode = value.includes("-") || value.trim() === "1684" || (value.trim().length >= 4 && parseCoin(value) === null);
   const parsedCoin = looksLikeCode ? null : parseCoin(value);
   const preview = parsedCoin === null ? null : avatarForCoin(parsedCoin);
 
@@ -29,7 +27,7 @@ export default function EnterPage() {
     setBusy(true);
     setError(null);
     try {
-      const body = looksLikeCode ? { code: value } : { coin: value, teamName: needsName ? teamName : undefined };
+      const body = looksLikeCode ? { code: value } : { coin: value };
       const res = await fetch("/api/enter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -38,11 +36,6 @@ export default function EnterPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        if (data.needsTeamName) {
-          setNeedsName(true);
-          setError(null);
-          return;
-        }
         setError(data.error ?? "That didn't work");
         return;
       }
@@ -53,11 +46,7 @@ export default function EnterPage() {
         return;
       }
 
-      // No rt means this wasn't a proxy bounce off an event subdomain — most
-      // often someone landed straight on the plain host and logged in from
-      // there. Send participants on to the quiz subdomain explicitly instead
-      // of leaving them stranded on the landing page; the admin dashboard
-      // already lives on this host, so admins just go there.
+      // Send participants on to the quiz subdomain explicitly; admins go to /admin/quiz
       if (data.role === "admin") {
         window.location.href = "/admin/quiz";
       } else {
@@ -71,9 +60,6 @@ export default function EnterPage() {
     }
   }
 
-  // The reticle picks up the previewed character's colours the moment a
-  // coin resolves to one — a small "yes, this is really you" cue before the
-  // form is even submitted.
   const persona = preview ?? { colour: "#3a86ff", webColour: "#9ec5ff", gloveColour: "#e5223b", reticle: "classic" as const };
 
   return (
@@ -100,7 +86,6 @@ export default function EnterPage() {
             value={value}
             onChange={(e) => {
               setValue(e.target.value);
-              setNeedsName(false);
               setError(null);
             }}
             placeholder="00"
@@ -127,24 +112,6 @@ export default function EnterPage() {
             </div>
           )}
 
-          {needsName && (
-            <div className="anim-pop mt-4">
-              <label htmlFor="teamName" className="block text-[0.65rem] uppercase tracking-[0.2em] text-paper-white/50">
-                Team name
-              </label>
-              <input
-                id="teamName"
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-                placeholder="What should we call you?"
-                maxLength={40}
-                autoFocus
-                className="mt-1.5 w-full border-2 border-paper-white/20 bg-ink-black/60 px-4 py-3 text-base text-paper-white outline-none transition-colors placeholder:text-paper-white/25 focus:border-glitch-cyan"
-              />
-              <p className="mt-2 text-[0.7rem] text-paper-white/40">This coin is new — name your team and it&apos;s yours for the event.</p>
-            </div>
-          )}
-
           {error && (
             <p id="entry-error" role="alert" className="anim-shake mt-4 border-l-2 border-signal-wrong pl-3 text-sm text-signal-wrong">
               {error}
@@ -154,10 +121,10 @@ export default function EnterPage() {
           <button
             type="submit"
             data-web-target=""
-            disabled={busy || (!looksLikeCode && !preview) || (needsName && !teamName.trim())}
+            disabled={busy || (!looksLikeCode && !preview)}
             className="comic-btn mt-6 w-full"
           >
-            {busy ? "Checking…" : needsName ? "Claim it" : "Thwip in"}
+            {busy ? "Checking…" : "Thwip in"}
           </button>
         </div>
       </form>

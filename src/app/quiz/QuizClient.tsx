@@ -7,6 +7,8 @@ import type { QuizRound } from "@/lib/db/types";
 import Celebration from "./Celebration";
 import Mcq2Phase from "./Mcq2Phase";
 import ProctorGate from "./ProctorGate";
+import QuizEndedScreen from "./QuizEndedScreen";
+import QuizRulesLobby from "./QuizRulesLobby";
 import Round1Games from "./Round1Games";
 import Standings from "./Standings";
 import WebShooter, { WebNet } from "./WebShooter";
@@ -39,25 +41,27 @@ export default function QuizClient({
   teamName,
   avatar,
   isAdmin,
+  isEliminated = false,
+  ended = false,
+  started = false,
 }: {
   round: QuizRound;
   teamName: string;
   avatar: Avatar | null;
   isAdmin: boolean;
+  isEliminated?: boolean;
+  ended?: boolean;
+  started?: boolean;
 }) {
   const persona = avatar ?? DEFAULT_PERSONA;
   const router = useRouter();
   const [incoming, setIncoming] = useState<QuizRound | null>(null);
+  const [eliminatedState, setEliminatedState] = useState(isEliminated);
+  const [endedState, setEndedState] = useState(ended);
+  const [startedState, setStartedState] = useState(started);
   const [seenRound, setSeenRound] = useState(round);
   const knownRound = useRef(round);
 
-  // Notices the moment the coordinator cuts to the next round, rather than
-  // requiring a manual reload — this is what makes "round 2 starts once the
-  // admin approves" actually visible to a team sitting on the Round 1 done
-  // screen instead of a silent state change they'd only see on refresh.
-  // Adjusting state during render (not in an effect) for the reset itself —
-  // this is the React-sanctioned way to reset state in response to a prop
-  // change without an extra render pass.
   if (round !== seenRound) {
     setSeenRound(round);
     setIncoming(null);
@@ -73,10 +77,13 @@ export default function QuizClient({
       try {
         const res = await fetch("/api/quiz/status", { cache: "no-store" });
         if (!res.ok || cancelled) return;
-        const body: { round: QuizRound } = await res.json();
+        const body: { round: QuizRound; eliminated?: boolean; ended?: boolean; started?: boolean } = await res.json();
+        if (body.eliminated !== undefined) setEliminatedState(body.eliminated);
+        if (body.ended !== undefined) setEndedState(body.ended);
+        if (body.started !== undefined) setStartedState(body.started);
         if (body.round !== knownRound.current) setIncoming(body.round);
       } catch {
-        // A missed poll just tries again next tick — nothing to surface.
+        // A missed poll just tries again next tick
       }
     }, STATUS_POLL_MS);
     return () => {
@@ -85,8 +92,52 @@ export default function QuizClient({
     };
   }, []);
 
+  if (endedState) {
+    return <QuizEndedScreen round={round} teamName={teamName} avatar={avatar} />;
+  }
+
+  /* PRE-QUIZ LOBBY & RULES SCREEN — SHOWS TEAM DETAILS AND RULES BEFORE START */
+  if (!startedState && !isAdmin) {
+    return <QuizRulesLobby teamName={teamName} avatar={avatar} round={round} />;
+  }
+
   if (incoming) {
     return <RoundTransition round={incoming} onDone={() => router.refresh()} />;
+  }
+
+  /* ELIMINATED / SOLACE SCREEN — SHOWS LEADERBOARD ALONE WITH SPIDER-VERSE CONSOLATION */
+  if (eliminatedState) {
+    return (
+      <main className="min-h-full py-8 px-4">
+        <WebShooter colour={persona.colour} webColour={persona.webColour} gloveColour={persona.gloveColour} shape={persona.reticle} />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0"
+          style={{ background: "radial-gradient(ellipse at 50% -10%, var(--spider-red) 0%, transparent 60%)" }}
+        />
+
+        <div className="relative mx-auto max-w-4xl space-y-8 text-center">
+          <div className="halftone panel panel-accent p-8 space-y-4 border-2 border-spider-red bg-ink-black/80">
+            <div className="text-5xl animate-bounce">🕸️</div>
+            <h1 className="display-title chromatic text-3xl sm:text-4xl text-spider-red uppercase tracking-wide">
+              HEROIC EFFORT, {teamName.toUpperCase()}!
+            </h1>
+            <p className="text-sm sm:text-base text-paper-white/80 max-w-lg mx-auto leading-relaxed">
+              Your active journey in this round has concluded, but your performance was legendary! 
+              You can sit back and watch the live multiverse leaderboard below as the remaining Spider-Heroes battle for glory.
+            </p>
+            <div className="inline-block px-4 py-1.5 border border-comic-yellow bg-comic-yellow/10 text-comic-yellow text-xs font-bold uppercase tracking-widest rounded">
+              📺 Live Spectator Mode — Leaderboard
+            </div>
+          </div>
+
+          {/* LEADERBOARD ALONE */}
+          <div className="max-w-md mx-auto">
+            <Standings round={round} />
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (

@@ -35,11 +35,16 @@ export async function GET(request: Request) {
     const teamDocs = await teamsCol.find({}).toArray();
     const teamById = new Map(teamDocs.map((t) => [String(t._id), t]));
 
+    const elimsCol = await collections.roundEliminations();
+    const elimDocs = await elimsCol.find({}).toArray();
+    const elimIds = new Set(elimDocs.map((e) => String(e.teamId)));
+
     const rows = table.map((row, i) => ({
       rank: i + 1,
       ...row,
       avatarName: avatarById(row.avatar as AvatarId | null)?.name ?? null,
-      qualifying: spec.defaultAdvances === null ? null : i < spec.defaultAdvances,
+      eliminated: elimIds.has(row.teamId),
+      qualifying: elimIds.has(row.teamId) ? false : (spec.defaultAdvances === null ? null : i < spec.defaultAdvances),
     }));
 
     const payload: Record<string, unknown> = {
@@ -180,6 +185,7 @@ export async function GET(request: Request) {
 
     const quizState = await (await collections.quizState()).findOne({ _id: "quiz" });
     payload.ended = quizState?.ended ?? false;
+    payload.started = quizState?.started ?? false;
 
     // Coin claim state — small enough to always include; the coordinator's
     // desk view of "which discs are out and with whom."

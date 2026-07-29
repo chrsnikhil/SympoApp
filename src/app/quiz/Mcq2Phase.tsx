@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { QuizRound } from "@/lib/db/types";
 import Celebration from "./Celebration";
-import Standings from "./Standings";
+import SpiderTimer from "./SpiderTimer";
 import { WebNet } from "./WebShooter";
 
 /**
@@ -218,92 +218,48 @@ export default function Mcq2Phase({
       {loading && !question && <p className="font-comic text-2xl text-paper-white/40">Loading…</p>}
 
       {done && (
-        <div className="space-y-6">
-          <div className="halftone panel anim-pop relative overflow-hidden p-10 text-center">
-            {round === 3 && <Celebration />}
-            <div className="relative">
-              <div className="text-5xl">🕸</div>
-              <h2 className="display-title chromatic mt-4 text-3xl text-paper-white">
-                {round === 3 ? "Universe 2 complete" : "Round complete"}
-              </h2>
-              <p className="mx-auto mt-3 max-w-sm text-sm text-paper-white/60">
-                {round === 3
-                  ? "That's every question across every universe. Final standings are live — thanks for playing."
-                  : "Every question answered! Click below to proceed to the next round."}
-              </p>
-              {round < 3 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    window.location.href = `/quiz?round=${round + 1}`;
-                  }}
-                  className="comic-btn comic-btn-cyan mt-6 px-6 py-3 font-bold text-sm tracking-wider"
-                >
-                  Proceed to Round {round + 1} →
-                </button>
-              )}
-            </div>
+        <div className="halftone panel anim-pop relative overflow-hidden p-10 text-center">
+          {round === 3 && <Celebration />}
+          <div className="relative">
+            <div className="text-5xl">🕸</div>
+            <h2 className="display-title chromatic mt-4 text-3xl text-paper-white">
+              {round === 3 ? "Universe 2 complete" : "Round complete"}
+            </h2>
+            <p className="mx-auto mt-3 max-w-sm text-sm text-paper-white/60">
+              {round === 3
+                ? "That's every question across every universe. Final standings are live — thanks for playing."
+                : "Every question answered. Standings are live — hold tight while the coordinator makes the cut."}
+            </p>
           </div>
-          <Standings round={round} />
         </div>
       )}
 
       {question && (
         <article key={question.slug} className={`halftone panel anim-glitch-in p-6 ${urgent ? "panel-accent" : ""}`}>
           <div className="relative">
-            <div className="mb-4 flex items-center justify-between text-[0.65rem] uppercase tracking-[0.2em] text-paper-white/45">
-              <span>
-                Question <span className="tabular-nums text-paper-white/70">{question.index}</span> of{" "}
-                <span className="tabular-nums text-paper-white/70">{question.total}</span>
-              </span>
-              <span className="text-glitch-cyan">{question.points} pts</span>
-            </div>
-
-            <h2 className="text-lg font-semibold leading-snug text-paper-white sm:text-xl">{question.title}</h2>
-
-            {/* CLEAN SPIDER-VERSE VISUAL TIMER DISPLAY */}
-            {!verdict && (
-              <div className="mt-5 mb-4 panel p-3 border-2 border-glitch-cyan halftone relative overflow-hidden flex items-center gap-4">
-                {/* BIG CHROMATIC COUNTDOWN NUMBER */}
-                <div
-                  className={`font-display text-3xl sm:text-4xl px-3 py-1 border-2 border-ink-black shadow-[3px_3px_0_#000] tabular-nums ${
-                    phase === "read"
-                      ? "bg-glitch-cyan text-ink-black"
-                      : urgent
-                        ? "bg-spider-red text-paper-white animate-pulse"
-                        : "bg-comic-yellow text-ink-black"
-                  }`}
-                >
-                  {phase === "read" ? `${readSecondsLeft}s` : `${selectSecondsLeft}s`}
+            <div className="mb-4 flex items-start justify-between gap-4 border-b border-paper-white/10 pb-4">
+              <div className="flex-1">
+                <div className="mb-1.5 flex items-center gap-3 text-[0.65rem] uppercase tracking-[0.2em] text-paper-white/45">
+                  <span>
+                    Question <span className="tabular-nums text-paper-white/70">{question.index}</span> of{" "}
+                    <span className="tabular-nums text-paper-white/70">{question.total}</span>
+                  </span>
+                  <span className="text-glitch-cyan font-semibold">{question.points} pts</span>
                 </div>
-
-                {/* VISUAL ENERGY BAR TIMER (NO EXTRA TEXT) */}
-                <div className="flex-1">
-                  <div className="w-full bg-ink-black/90 border-2 border-paper-white/20 h-4 relative overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-200 ${
-                        phase === "read"
-                          ? "bg-glitch-cyan shadow-[0_0_12px_var(--glitch-cyan)]"
-                          : urgent
-                            ? "bg-spider-red shadow-[0_0_14px_var(--spider-red)]"
-                            : "bg-comic-yellow shadow-[0_0_12px_var(--comic-yellow)]"
-                      }`}
-                      style={{
-                        width: `${Math.max(
-                          0,
-                          Math.min(
-                            100,
-                            phase === "read"
-                              ? ((readUntilMs - now) / 6000) * 100
-                              : ((answerableUntilMs - now) / 10000) * 100
-                          )
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
+                <h2 className="text-lg font-semibold leading-snug text-paper-white sm:text-xl">{question.title}</h2>
               </div>
-            )}
+
+              {!verdict && (
+                <div className="shrink-0 flex items-center">
+                  <SpiderTimer
+                    secondsLeft={phase === "read" ? readSecondsLeft : selectSecondsLeft}
+                    totalSeconds={phase === "read" ? 6 : 10}
+                    urgent={urgent}
+                    size={95}
+                  />
+                </div>
+              )}
+            </div>
 
             {question.hint && (
               <p className="anim-pop mt-4 border-l-4 border-gadget-pink bg-gadget-pink/10 px-4 py-3 text-sm text-paper-white">
@@ -396,12 +352,6 @@ export default function Mcq2Phase({
             )}
           </div>
         </article>
-      )}
-
-      {verdict && (
-        <div className="mt-6 anim-pop">
-          <Standings round={round} />
-        </div>
       )}
 
       {round === 3 && (

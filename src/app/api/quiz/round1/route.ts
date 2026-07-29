@@ -83,8 +83,11 @@ export async function GET() {
     };
 
     if (phase === "image") {
-      const subs = await collections.submissions();
-      const sub = await subs.findOne({ challengeId: challenge._id, teamId });
+      const [subs, promptImages] = await Promise.all([collections.submissions(), collections.promptImages()]);
+      const [sub, userImg] = await Promise.all([
+        subs.findOne({ challengeId: challenge._id, teamId }),
+        promptImages.findOne({ teamId, challengeSlug: challenge.slug }),
+      ]);
       return NextResponse.json(
         {
           phase,
@@ -92,6 +95,7 @@ export async function GET() {
           game: {
             ...base,
             referenceImage: challenge.config.referenceImage ?? null,
+            uploadedImage: userImg?.dataUrl ?? null,
             status: sub?.status ?? "not-started",
             verdict: sub?.verdict ? { correct: sub.verdict.correct, points: sub.verdict.points } : null,
           },

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Celebration from "./Celebration";
 import MemoryGrid from "./MemoryGrid";
+import SpiderTimer from "./SpiderTimer";
 
 type Phase = "image" | "connections" | "memory" | "done";
 
@@ -15,6 +16,7 @@ interface Round1Game {
   closesAt: string | null;
   // image
   referenceImage?: string | null;
+  uploadedImage?: string | null;
   status?: "not-started" | "queued" | "running" | "done" | "error";
   verdict?: { correct: boolean; points: number } | null;
   // connections
@@ -157,17 +159,48 @@ function PhaseTracker({ phase }: { phase: Phase }) {
 
 function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number; onChanged: () => void }) {
   const { game, phase } = data;
+  const mountTime = useRef<number>(Date.now());
+
   if (!game) return null;
 
   const notOpenYet = game.opensAt && now > 0 && now < new Date(game.opensAt).getTime();
   const closed = !!(game.closesAt && now > new Date(game.closesAt).getTime());
 
+  const DEFAULT_GAME_SECONDS = 270; // 4 min 30 sec
+  const closeMs = game.closesAt ? new Date(game.closesAt).getTime() : mountTime.current + DEFAULT_GAME_SECONDS * 1000;
+  const openMs = game.opensAt ? new Date(game.opensAt).getTime() : mountTime.current;
+  const totalSeconds = Math.max(1, Math.round((closeMs - openMs) / 1000));
+  const currentNow = now > 0 ? now : Date.now();
+  const secondsLeft = Math.max(0, Math.ceil((closeMs - currentNow) / 1000));
+  const timerActive = !notOpenYet && !closed && secondsLeft > 0;
+
+  useEffect(() => {
+    if (secondsLeft === 0 && !closed) {
+      onChanged();
+    }
+  }, [secondsLeft, closed, onChanged]);
+
   return (
     <article className="halftone panel anim-glitch-in p-6">
       <div className="relative">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-paper-white sm:text-xl">{game.title}</h2>
-          <span className="text-glitch-cyan text-sm">{game.points} pts</span>
+        <div className="mb-4 flex items-start justify-between gap-4 border-b border-paper-white/10 pb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-paper-white sm:text-xl">{game.title}</h2>
+            <span className="inline-block mt-1.5 text-glitch-cyan text-xs font-semibold px-2 py-0.5 border border-glitch-cyan/30 bg-glitch-cyan/10 rounded">
+              {game.points} pts
+            </span>
+          </div>
+
+          {timerActive && (
+            <div className="shrink-0 flex items-center">
+              <SpiderTimer
+                secondsLeft={secondsLeft}
+                totalSeconds={totalSeconds}
+                urgent={secondsLeft <= 30}
+                size={95}
+              />
+            </div>
+          )}
         </div>
 
         {notOpenYet ? (
@@ -213,6 +246,7 @@ function ImageReplication({ game, disabled, onChanged }: { game: Round1Game; dis
   const [deleting, setDeleting] = useState(false);
 
   const hasSubmission = game.status !== undefined && game.status !== "not-started";
+  const displayImage = preview || game.uploadedImage;
 
   async function handleFile(file: File) {
     setStatus("uploading");
@@ -246,7 +280,6 @@ function ImageReplication({ game, disabled, onChanged }: { game: Round1Game; dis
       }
 
       setStatus("idle");
-      setPreview(null);
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not read that file");
@@ -264,50 +297,14 @@ function ImageReplication({ game, disabled, onChanged }: { game: Round1Game; dis
         setError(body.error ?? "Could not withdraw that submission");
         return;
       }
+      setPreview(null);
       onChanged();
     } finally {
       setDeleting(false);
     }
   }
 
-  if (hasSubmission) {
-    const points = game.verdict?.points;
-    // "queued" is never actually the value here — the shared submission
-    // pipeline only uses that status for `code` events. A pending (not yet
-    // judged) quiz submission is "running" from the moment it's accepted
-    // until the judge resolves it to "done"; checking for "queued" would
-    // fall through to the verdict banner and show "No points this time" to
-    // a team that hasn't been scored at all yet.
-    return (
-      <div>
-        {game.status === "running" ? (
-          <div className="border-2 border-web-blue-light bg-web-blue-dark/50 px-4 py-3">
-            <p className="font-comic text-xl text-paper-white">Locked in</p>
-            <p className="mt-1 text-sm text-paper-white/80">Scored once the coordinator&apos;s vision judge gets to it.</p>
-          </div>
-        ) : (
-          <div className={`border-2 border-l-8 px-4 py-3 ${(points ?? 0) > 0 ? "border-glitch-cyan bg-glitch-cyan/10" : "border-signal-wrong bg-signal-wrong/10"}`}>
-            <p className={`font-comic text-xl ${(points ?? 0) > 0 ? "text-glitch-cyan" : "text-signal-wrong"}`}>
-              {(points ?? 0) > 0 ? `+${points} pts` : "No points this time."}
-            </p>
-          </div>
-        )}
-        {!disabled && (
-          <button
-            type="button"
-            data-web-target=""
-            onClick={handleDelete}
-            disabled={deleting}
-            className="comic-btn comic-btn-pink mt-4 text-xs"
-          >
-            {deleting ? "…" : "Delete & try again"}
-          </button>
-        )}
-        {disabled && <p className="mt-3 text-xs text-paper-white/45">The window&apos;s closed — this is your final submission.</p>}
-        {error && <p className="mt-2 text-xs text-signal-wrong">{error}</p>}
-      </div>
-    );
-  }
+  const points = game.verdict?.points;
 
   return (
     <div>
@@ -316,37 +313,75 @@ function ImageReplication({ game, disabled, onChanged }: { game: Round1Game; dis
         <img src={game.referenceImage} alt="The reference image to recreate" className="mt-1 mb-4 w-full max-w-xs border-2 border-paper-white/15" />
       )}
       <p className="mb-3 text-xs text-paper-white/50">
-        The only game where an outside AI image generator is allowed. Prompt, generate, upload — you can delete and
-        redo as many times as you like until the window closes.
+        Prompt, generate, upload — you can delete and redo as many times as you like until the window closes.
       </p>
-      <label
-        className={`grid cursor-pointer place-items-center border-2 border-dashed px-4 py-8 text-center transition-colors ${
-          preview ? "border-glitch-cyan/50" : "border-paper-white/25 hover:border-paper-white/45"
-        } ${disabled ? "pointer-events-none opacity-40" : ""}`}
-      >
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="sr-only"
-          disabled={disabled}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleFile(file);
-          }}
-        />
-        {preview ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={preview} alt="Your recreation" className="max-h-48 border border-paper-white/20" />
-            <span className="mt-3 text-xs text-paper-white/50">{status === "uploading" ? "Uploading…" : "Tap to choose a different image"}</span>
-          </>
-        ) : (
-          <>
-            <span className="font-comic text-2xl text-paper-white/70">Upload your image</span>
-            <span className="mt-1 text-xs text-paper-white/45">JPEG, PNG or WebP — resized automatically</span>
-          </>
-        )}
-      </label>
+
+      {hasSubmission || displayImage ? (
+        <div className="halftone panel border-2 border-glitch-cyan/60 p-4 relative space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-paper-white/10 pb-3">
+            <div>
+              {game.status === "running" ? (
+                <span className="font-comic text-base text-glitch-cyan flex items-center gap-1.5">
+                  🔒 Locked In
+                  <span className="text-xs font-sans text-paper-white/60">(Pending Vision Judge Scoring)</span>
+                </span>
+              ) : (
+                <span className={`font-comic text-base ${(points ?? 0) > 0 ? "text-glitch-cyan" : "text-signal-wrong"}`}>
+                  {(points ?? 0) > 0 ? `+${points} pts Scored` : "No points awarded"}
+                </span>
+              )}
+            </div>
+
+
+          </div>
+
+          <div className="flex justify-center p-2 bg-ink-black/60 border border-paper-white/15">
+            {displayImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={displayImage} alt="Your uploaded recreation" className="max-h-64 object-contain rounded" />
+            ) : (
+              <div className="py-8 text-center text-xs text-paper-white/45">Image uploaded and submitted</div>
+            )}
+          </div>
+
+          {!disabled && (
+            <label className="block text-center cursor-pointer text-xs text-glitch-cyan hover:underline py-1">
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleFile(file);
+                }}
+              />
+              {status === "uploading" ? "Uploading new image…" : "Click to replace with a different image"}
+            </label>
+          )}
+
+          {disabled && <p className="text-xs text-paper-white/45 text-center">Window closed — submission final.</p>}
+        </div>
+      ) : (
+        <label
+          className={`grid cursor-pointer place-items-center border-2 border-dashed px-4 py-8 text-center transition-colors border-paper-white/25 hover:border-paper-white/45 ${
+            disabled ? "pointer-events-none opacity-40" : ""
+          }`}
+        >
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="sr-only"
+            disabled={disabled}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleFile(file);
+            }}
+          />
+          <span className="font-comic text-2xl text-paper-white/70">Upload your image</span>
+          <span className="mt-1 text-xs text-paper-white/45">JPEG, PNG or WebP — resized automatically</span>
+        </label>
+      )}
+
       {error && <p className="mt-2 text-xs text-signal-wrong">{error}</p>}
     </div>
   );

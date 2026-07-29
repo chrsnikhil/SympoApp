@@ -1,4 +1,4 @@
-import { MongoClient, type Db, type Collection } from "mongodb";
+import { MongoClient, ObjectId, type Db, type Collection } from "mongodb";
 import { requireEnv } from "@/lib/config";
 import type {
   AccessCode,
@@ -90,6 +90,8 @@ export const collections = {
     (await getDb()).collection<QuizServe>("quiz_serves"),
   roundQualifications: async (): Promise<Collection<RoundQualification>> =>
     (await getDb()).collection<RoundQualification>("round_qualifications"),
+  roundEliminations: async (): Promise<Collection<{ teamId: ObjectId; eliminatedAt: Date }>> =>
+    (await getDb()).collection<{ teamId: ObjectId; eliminatedAt: Date }>("round_eliminations"),
   comebackStates: async (): Promise<Collection<ComebackState>> =>
     (await getDb()).collection<ComebackState>("comeback_states"),
   proctorFlags: async (): Promise<Collection<ProctorFlag>> =>

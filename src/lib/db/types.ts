@@ -370,4 +370,6 @@ export interface QuizState {
   _id: "quiz";
   ended: boolean;
   endedAt: Date | null;
+  started?: boolean;
+  startedAt?: Date | null;
 }
