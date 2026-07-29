@@ -106,73 +106,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "That isn't a valid coin" }, { status: 404 });
   }
 
-  // Already bound — the number alone is enough from here on.
-  if (disc.teamId) {
-    const team = await teams.findOne({ _id: disc.teamId });
-    const participant = await participants.findOne({ teamId: disc.teamId });
-    if (!team || !participant?._id) {
-      return NextResponse.json({ error: "That coin's team is missing — tell a coordinator" }, { status: 409 });
-    }
-
-    const token = await sessionFor(team._id!, participant._id, participant.role);
-    const res = NextResponse.json({
-      ok: true,
-      teamId: team._id!.toString(),
-      role: participant.role,
-      teamName: team.name,
-      coin: formatCoin(parsed),
-      avatar: avatarById(team.avatar),
-      returning: true,
-    });
-    res.cookies.set({ ...sessionCookieOptions(), value: token });
-    return res;
+  // Only allow login if the token/coin has been assigned by the coordinator in Token Management.
+  if (!disc.teamId) {
+    return NextResponse.json(
+      { error: `Token #${formatCoin(parsed)} has not been assigned to a team yet. Please contact event coordinators!` },
+      { status: 403 }
+    );
   }
 
-  // Unclaimed: assign team name automatically based on character avatar & coin number if not explicitly given.
-  const name =
-    typeof body.teamName === "string" && body.teamName.trim()
-      ? body.teamName.trim()
-      : `${forCoin.name} #${formatCoin(parsed)}`;
-  if (name.length > 40) {
-    return NextResponse.json({ error: "Team names cap at 40 characters" }, { status: 400 });
+  const team = await teams.findOne({ _id: disc.teamId });
+  const participant = await participants.findOne({ teamId: disc.teamId });
+  if (!team || !participant?._id) {
+    return NextResponse.json({ error: "That coin's team is missing — tell a coordinator" }, { status: 409 });
   }
 
-  const teamId = new ObjectId();
-  const participantId = new ObjectId();
-
-  // Claim the disc FIRST, conditionally on it still being free. `_id` is the
-  // stamped number, so this is one atomic update and needs no extra index —
-  // Cosmos cannot add a unique index to a collection that already holds
-  // documents, so this is the only way to get uniqueness here.
-  const claimed = await coins.findOneAndUpdate(
-    { _id: parsed, teamId: null },
-    { $set: { teamId, claimedAt: new Date() } },
-    { returnDocument: "after" }
-  );
-
-  if (!claimed) {
-    return NextResponse.json({ error: `Coin ${formatCoin(parsed)} was just taken` }, { status: 409 });
-  }
-
-  // Only now create the team, so a lost race can't leave an orphan.
-  await teams.insertOne({ _id: teamId, name, avatar: forCoin.id, coin: parsed, createdAt: new Date() });
-  await participants.insertOne({
-    _id: participantId,
-    teamId,
-    name: `${name} captain`,
-    role: "participant",
-    createdAt: new Date(),
-  });
-
-  const token = await sessionFor(teamId, participantId, "participant");
+  const token = await sessionFor(team._id!, participant._id, participant.role);
   const res = NextResponse.json({
     ok: true,
-    teamId: teamId.toString(),
-    role: "participant",
-    teamName: name,
+    teamId: team._id!.toString(),
+    role: participant.role,
+    teamName: team.name,
     coin: formatCoin(parsed),
-    avatar: avatarById(forCoin.id),
-    returning: false,
+    avatar: avatarById(team.avatar),
+    returning: true,
   });
   res.cookies.set({ ...sessionCookieOptions(), value: token });
   return res;
