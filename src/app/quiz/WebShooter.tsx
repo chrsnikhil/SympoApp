@@ -648,28 +648,28 @@ function ShooterArm({
           strokeLinejoin="round"
         />
 
-        {/* 2. MIDDLE FINGER (Curled down into palm - snaps down on trigger during firing) */}
+        {/* 2. MIDDLE FINGER (Curled down deeper into palm - snaps down on trigger during firing) */}
         <g style={{ transform: firing ? "translateY(3px)" : "none", transition: "transform 60ms ease-out" }}>
           <path
-            d="M60 86 Q60 108 72 108 Q79 108 79 86 Q70 80 60 86 Z"
+            d="M58 78 Q58 118 71 118 Q79 118 79 78 Q68 72 58 78 Z"
             fill={darken(gloveColour, 0.08)}
             stroke={INK}
             strokeWidth="3.5"
             strokeLinejoin="round"
           />
-          <path d="M63 96 Q70 102 76 96" stroke={INK} strokeWidth="2" fill="none" opacity="0.6" />
+          <path d="M62 98 Q69 106 76 98" stroke={INK} strokeWidth="2" fill="none" opacity="0.6" />
         </g>
 
-        {/* 3. RING FINGER (Curled down into palm - snaps down on trigger during firing) */}
+        {/* 3. RING FINGER (Curled down deeper into palm - snaps down on trigger during firing) */}
         <g style={{ transform: firing ? "translateY(3px)" : "none", transition: "transform 60ms ease-out" }}>
           <path
-            d="M78 86 Q78 108 89 108 Q96 108 96 86 Q87 80 78 86 Z"
+            d="M77 78 Q77 117 88 117 Q96 117 96 78 Q87 72 77 78 Z"
             fill={darken(gloveColour, 0.08)}
             stroke={INK}
             strokeWidth="3.5"
             strokeLinejoin="round"
           />
-          <path d="M81 96 Q88 102 93 96" stroke={INK} strokeWidth="2" fill="none" opacity="0.6" />
+          <path d="M80 98 Q87 106 93 98" stroke={INK} strokeWidth="2" fill="none" opacity="0.6" />
         </g>
 
         {/* 4. INDEX FINGER (Left side - Extended UP & somewhat bent) */}
