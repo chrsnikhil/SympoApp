@@ -213,8 +213,17 @@ export default function AdminDashboard() {
 
             {(round === 3 || data.ended) &&
               (data.ended ? (
-                <div className="inline-flex items-center gap-2 border-2 border-signal-good bg-signal-good/10 px-4 py-2 text-signal-good text-xs font-bold uppercase tracking-widest rounded">
-                  🏁 QUIZ CONCLUDED — CHAMPIONS VICTORY SCREEN IS LIVE
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="inline-flex items-center gap-2 border-2 border-signal-good bg-signal-good/10 px-4 py-2 text-signal-good text-xs font-bold uppercase tracking-widest rounded">
+                    🏁 QUIZ CONCLUDED — CHAMPIONS VICTORY SCREEN IS LIVE
+                  </div>
+                  <button
+                    disabled={busy}
+                    onClick={() => callAdvance({ action: "restart-quiz" })}
+                    className="comic-btn comic-btn-yellow px-4 py-2 text-xs font-bold"
+                  >
+                    🔄 Restart Quiz (Reset to Lobby)
+                  </button>
                 </div>
               ) : !endConfirm ? (
                 <button onClick={() => setEndConfirm(true)} className="comic-btn comic-btn-pink px-4 py-2 text-xs">

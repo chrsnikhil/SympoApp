@@ -335,6 +335,31 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: true, ended: true });
       }
 
+      case "restart-quiz": {
+        const state = await collections.quizState();
+        await state.updateOne({ _id: "quiz" }, { $set: { ended: false, endedAt: null, started: false, startedAt: null } }, { upsert: true });
+
+        const quals = await collections.roundQualifications();
+        await quals.deleteMany({});
+
+        const serves = await collections.quizServes();
+        await serves.deleteMany({});
+
+        const memoryStates = await collections.memoryStates();
+        await memoryStates.deleteMany({});
+
+        const comebacks = await collections.comebackStates();
+        await comebacks.deleteMany({});
+
+        const subs = await collections.submissions();
+        await subs.deleteMany({});
+
+        const scores = await collections.scoreEvents();
+        await scores.deleteMany({});
+
+        return NextResponse.json({ ok: true, restarted: true, note: "Quiz reset back to lobby!" });
+      }
+
       case "resume-quiz": {
         // Undo for a mis-click — End Quiz should be a real switch, not a
         // one-way door with no recovery.
