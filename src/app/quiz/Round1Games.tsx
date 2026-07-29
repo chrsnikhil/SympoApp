@@ -181,75 +181,14 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
     }
   }, [secondsLeft, closed, onChanged]);
 
-  /* DEDICATED PRE-GAME RULES GATE — SHOWN BEFORE GAME STARTS */
+  /* DEDICATED PRE-GAME RULES GATE — 10 SECOND AUTO COUNTDOWN BEFORE GAME STARTS */
   if (phase !== "done" && !rulesAccepted[phase]) {
-    const rulesConfig: Record<string, { title: string; color: string; bgBorder: string; icon: string; points: string[] }> = {
-      image: {
-        title: "GAME 1: AI IMAGE REPLICATION",
-        color: "text-glitch-cyan",
-        bgBorder: "border-glitch-cyan bg-glitch-cyan/10",
-        icon: "🎮",
-        points: [
-          "Examine the reference image displayed on screen carefully.",
-          "Type descriptive prompts to recreate the image using Groq AI.",
-          "You get up to 3 prompt submissions. The highest similarity score wins!",
-        ],
-      },
-      connections: {
-        title: "GAME 2: CONNECTIONS PUZZLES (5 PUZZLES)",
-        color: "text-comic-yellow",
-        bgBorder: "border-comic-yellow bg-comic-yellow/10",
-        icon: "🧩",
-        points: [
-          "4 images will be revealed one by one live on stage.",
-          "Identify the common theme/connection linking all 4 images.",
-          "Type the exact connection answer before time expires!",
-        ],
-      },
-      memory: {
-        title: "GAME 3: MEMORY MATCH GAME",
-        color: "text-gadget-pink",
-        bgBorder: "border-gadget-pink bg-gadget-pink/10",
-        icon: "🃏",
-        points: [
-          "Click to flip and match Multiverse Spider-Hero cards.",
-          "Match all 6 pairs in as few flips as possible.",
-          "Fewer total flips = higher bonus points!",
-        ],
-      },
-    };
-
-    const cfg = rulesConfig[phase];
-
     return (
-      <article className="halftone panel anim-pop p-8 text-center space-y-6">
-        <div className="text-5xl animate-bounce">{cfg.icon}</div>
-        <div className="space-y-2">
-          <p className="font-comic text-xs uppercase tracking-widest text-paper-white/50">PRE-GAME RULES BRIEFING</p>
-          <h2 className={`font-display-xl text-3xl uppercase italic ${cfg.color}`}>{cfg.title}</h2>
-          <span className="inline-block text-xs font-semibold px-3 py-1 border border-paper-white/20 bg-ink-black/60 text-paper-white rounded">
-            Worth {game.points} Points
-          </span>
-        </div>
-
-        <div className={`text-left border-2 p-5 space-y-2.5 rounded ${cfg.bgBorder}`}>
-          <p className="font-display text-sm uppercase tracking-wide text-paper-white mb-1">RULES & DIRECTIVES:</p>
-          {cfg.points.map((pt, i) => (
-            <div key={i} className="font-mono text-xs text-paper-white/90 flex items-start gap-2">
-              <span className="font-bold text-glitch-cyan">0{i + 1}.</span>
-              <span>{pt}</span>
-            </div>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setRulesAccepted((prev) => ({ ...prev, [phase]: true }))}
-          className="comic-btn comic-btn-yellow w-full py-4 text-base font-bold tracking-widest shadow-lg hover:scale-105 transition-transform"
-        >
-          🚀 I&apos;M READY — START {cfg.title.split(":")[0]}
-        </button>
-      </article>
+      <PreGameRulesGate
+        phase={phase}
+        points={game.points}
+        onAccept={() => setRulesAccepted((prev) => ({ ...prev, [phase]: true }))}
+      />
     );
   }
 
@@ -582,5 +521,89 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
       {error && <p className="anim-shake mt-2 text-xs text-signal-wrong">{error}</p>}
       {game.solved && <p className="mt-3 font-comic text-lg text-glitch-cyan">Solved! Unlocking the Memory Game…</p>}
     </div>
+  );
+}
+
+function PreGameRulesGate({ phase, points, onAccept }: { phase: string; points: number; onAccept: () => void }) {
+  const [secondsLeft, setSecondsLeft] = useState(10);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSecondsLeft((s) => {
+        if (s <= 1) {
+          clearInterval(interval);
+          onAccept();
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [onAccept]);
+
+  const rulesConfig: Record<string, { title: string; color: string; bgBorder: string; icon: string; points: string[] }> = {
+    image: {
+      title: "GAME 1: AI IMAGE REPLICATION",
+      color: "text-glitch-cyan",
+      bgBorder: "border-glitch-cyan bg-glitch-cyan/10",
+      icon: "🎮",
+      points: [
+        "Examine the reference image displayed on screen carefully.",
+        "Type descriptive prompts to recreate the image using Groq AI.",
+        "You get up to 3 prompt submissions. The highest similarity score wins!",
+      ],
+    },
+    connections: {
+      title: "GAME 2: CONNECTIONS PUZZLES (5 PUZZLES)",
+      color: "text-comic-yellow",
+      bgBorder: "border-comic-yellow bg-comic-yellow/10",
+      icon: "🧩",
+      points: [
+        "4 images will be revealed one by one live on stage.",
+        "Identify the common theme/connection linking all 4 images.",
+        "Type the exact connection answer before time expires!",
+      ],
+    },
+    memory: {
+      title: "GAME 3: MEMORY MATCH GAME",
+      color: "text-gadget-pink",
+      bgBorder: "border-gadget-pink bg-gadget-pink/10",
+      icon: "🃏",
+      points: [
+        "Click to flip and match Multiverse Spider-Hero cards.",
+        "Match all 6 pairs in as few flips as possible.",
+        "Fewer total flips = higher bonus points!",
+      ],
+    },
+  };
+
+  const cfg = rulesConfig[phase] ?? rulesConfig.image;
+
+  return (
+    <article className="halftone panel anim-pop p-8 text-center space-y-6">
+      <div className="text-5xl animate-bounce">{cfg.icon}</div>
+      <div className="space-y-2">
+        <p className="font-comic text-xs uppercase tracking-widest text-paper-white/50">PRE-GAME RULES BRIEFING</p>
+        <h2 className={`font-display-xl text-3xl uppercase italic ${cfg.color}`}>{cfg.title}</h2>
+        <span className="inline-block text-xs font-semibold px-3 py-1 border border-paper-white/20 bg-ink-black/60 text-paper-white rounded">
+          Worth {points} Points
+        </span>
+      </div>
+
+      <div className={`text-left border-2 p-5 space-y-2.5 rounded ${cfg.bgBorder}`}>
+        <p className="font-display text-sm uppercase tracking-wide text-paper-white mb-1">RULES & DIRECTIVES:</p>
+        {cfg.points.map((pt, i) => (
+          <div key={i} className="font-mono text-xs text-paper-white/90 flex items-start gap-2">
+            <span className="font-bold text-glitch-cyan">0{i + 1}.</span>
+            <span>{pt}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="halftone panel comic-btn-yellow w-full py-4 text-center font-bold tracking-widest shadow-lg flex items-center justify-center gap-3">
+        <span className="font-display-xl text-xl animate-pulse">{secondsLeft}s</span>
+        <span className="text-xs uppercase font-mono">GAME STARTING IN {secondsLeft} SECONDS…</span>
+      </div>
+    </article>
   );
 }
