@@ -203,6 +203,46 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
           )}
         </div>
 
+        {/* GAME-SPECIFIC RULES BANNER */}
+        {phase === "image" && (
+          <div className="halftone panel border-l-4 border-glitch-cyan p-4 mb-5 bg-ink-black/80 space-y-1">
+            <div className="font-comic text-base text-glitch-cyan flex items-center gap-2">
+              <span>🎮 GAME 1 RULES: AI IMAGE REPLICATION</span>
+            </div>
+            <ul className="text-xs text-paper-white/80 space-y-1 pl-4 list-disc font-mono">
+              <li>Examine the reference image carefully.</li>
+              <li>Type descriptive prompts to regenerate the image using AI.</li>
+              <li>You get up to 3 prompt submissions. Highest visual similarity score wins!</li>
+            </ul>
+          </div>
+        )}
+
+        {phase === "connections" && (
+          <div className="halftone panel border-l-4 border-comic-yellow p-4 mb-5 bg-ink-black/80 space-y-1">
+            <div className="font-comic text-base text-comic-yellow flex items-center gap-2">
+              <span>🧩 GAME 2 RULES: CONNECTIONS PUZZLES (5 PUZZLES)</span>
+            </div>
+            <ul className="text-xs text-paper-white/80 space-y-1 pl-4 list-disc font-mono">
+              <li>4 images reveal one by one live on stage.</li>
+              <li>Identify the common theme/connection linking all 4 images.</li>
+              <li>Type the exact connection answer before time expires!</li>
+            </ul>
+          </div>
+        )}
+
+        {phase === "memory" && (
+          <div className="halftone panel border-l-4 border-gadget-pink p-4 mb-5 bg-ink-black/80 space-y-1">
+            <div className="font-comic text-base text-gadget-pink flex items-center gap-2">
+              <span>🃏 GAME 3 RULES: MEMORY MATCH</span>
+            </div>
+            <ul className="text-xs text-paper-white/80 space-y-1 pl-4 list-disc font-mono">
+              <li>Click to flip and match Multiverse Spider-Hero cards.</li>
+              <li>Match all 6 pairs in as few flips as possible.</li>
+              <li>Fewer total flips = higher bonus points!</li>
+            </ul>
+          </div>
+        )}
+
         {notOpenYet ? (
           <p className="text-sm text-paper-white/50">Waiting for the coordinator to open this game…</p>
         ) : phase === "image" ? (

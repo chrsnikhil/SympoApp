@@ -210,26 +210,97 @@ export default function QuizClient({
   );
 }
 
-/** Full screen Round Transition interlude matching Screen 4 design */
+/** Full screen Round Transition interlude with 15-second countdown & round rules */
 function RoundTransition({ round, onDone }: { round: QuizRound; onDone: () => void }) {
+  const [secondsLeft, setSecondsLeft] = useState(15);
+
   useEffect(() => {
-    const t = window.setTimeout(onDone, 2600);
-    return () => window.clearTimeout(t);
+    const interval = setInterval(() => {
+      setSecondsLeft((s) => {
+        if (s <= 1) {
+          clearInterval(interval);
+          onDone();
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
   }, [onDone]);
 
+  const roundRules: Record<QuizRound, { title: string; desc: string; points: string[] }> = {
+    1: {
+      title: "Round 1 — Final Universe (3 Mini-Games)",
+      desc: "Prepare for 3 sequential mini-games. Each game tests a different dimension of skill!",
+      points: [
+        "🎮 Game 1: AI Image Replication (Prompt engineering & similarity)",
+        "🧩 Game 2: Connections Puzzles (5 sequential visual theme puzzles)",
+        "🃏 Game 3: Memory Match (Flip and match Multiverse Spider-Hero pairs)",
+      ],
+    },
+    2: {
+      title: "Round 2 — Universe 1 (Warm-Up MCQs)",
+      desc: "Speed and accuracy are key! You have a strict time window per question.",
+      points: [
+        "📖 Reading Window: 6 seconds to read the question stem (options locked)",
+        "⚡ Answer Window: 10 seconds to select your answer",
+        "⏱️ Speed Bonus: Faster correct answers break ties",
+      ],
+    },
+    3: {
+      title: "Round 3 — Universe 2 (Multiverse Abilities)",
+      desc: "High-stakes finale with live leaderboard and Comeback Meter powers!",
+      points: [
+        "🔥 Finalist MCQs with live stage standings",
+        "⚡ Comeback Meter: Unlocks special abilities for trailing teams",
+        "🏆 Top 3 teams win the Multiverse Championship!",
+      ],
+    },
+  };
+
+  const currentRules = roundRules[round];
+
   return (
-    <main className="relative grid min-h-dvh place-items-center overflow-hidden px-gutter py-24 bg-background">
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden px-6 py-12 bg-background">
       <WebShooter colour="#a41616" webColour="#41617e" gloveColour="#1b1b1c" shape="classic" />
-      <div className="comic-border bg-on-background p-12 md:p-20 comic-tilt-left relative overflow-hidden text-center z-10 max-w-2xl">
-        <div className="absolute inset-0 ben-day-light opacity-10 pointer-events-none"></div>
+      <div className="comic-border bg-on-background p-8 md:p-12 comic-tilt-left relative overflow-hidden text-center z-10 max-w-2xl w-full">
+        <div className="absolute inset-0 ben-day-light opacity-10 pointer-events-none" />
         <Celebration />
-        <p className="font-label-sm text-tertiary-fixed uppercase tracking-[0.3em] mb-4">Round {round} Unlocked</p>
-        <h1 className="font-display-xl text-[48px] md:text-[76px] leading-none uppercase italic text-on-primary tracking-tighter mb-4">
-          To Be<br />Continued...
+
+        {/* 15-SECOND COUNTDOWN HEADER */}
+        <div className="inline-flex items-center gap-3 bg-tertiary-fixed text-on-tertiary-fixed px-5 py-2 comic-border mb-6">
+          <span className="font-display-xl text-3xl tabular-nums animate-pulse">{secondsLeft}s</span>
+          <span className="font-label-sm text-xs font-bold uppercase tracking-widest">
+            SYNCHRONIZING PORTAL...
+          </span>
+        </div>
+
+        <p className="font-label-sm text-tertiary-fixed uppercase tracking-[0.3em] mb-2">Round {round} Directives</p>
+        <h1 className="font-display-xl text-3xl md:text-5xl uppercase italic text-on-primary tracking-tighter mb-4">
+          {currentRules.title}
         </h1>
-        <p className="font-label-sm text-on-primary/70 uppercase tracking-[0.2em]">
-          {ROUND_TITLES[round]} — {ROUND_SUBTITLES[round]}
+
+        <p className="font-body-md text-on-primary/80 text-sm max-w-lg mx-auto mb-6">
+          {currentRules.desc}
         </p>
+
+        {/* RULES LIST */}
+        <div className="text-left bg-surface/10 comic-border p-4 space-y-2 mb-6 text-on-primary">
+          {currentRules.points.map((pt, i) => (
+            <div key={i} className="font-label-sm text-xs flex items-center gap-2">
+              <span className="text-tertiary-fixed font-bold">›</span>
+              <span>{pt}</span>
+            </div>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={onDone}
+          className="bg-primary text-on-primary font-display-xl text-sm uppercase px-6 py-3 comic-border hover:scale-105 transition-transform"
+        >
+          Skip Countdown & Start Now →
+        </button>
       </div>
     </main>
   );
