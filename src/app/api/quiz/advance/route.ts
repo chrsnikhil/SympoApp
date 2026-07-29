@@ -342,6 +342,9 @@ export async function POST(request: Request) {
         const quals = await collections.roundQualifications();
         await quals.deleteMany({});
 
+        const elims = await collections.roundEliminations();
+        await elims.deleteMany({});
+
         const serves = await collections.quizServes();
         await serves.deleteMany({});
 
@@ -357,7 +360,28 @@ export async function POST(request: Request) {
         const scores = await collections.scoreEvents();
         await scores.deleteMany({});
 
-        return NextResponse.json({ ok: true, restarted: true, note: "Quiz reset back to lobby!" });
+        const promptImages = await collections.promptImages();
+        await promptImages.deleteMany({});
+
+        const proctorFlags = await collections.proctorFlags();
+        await proctorFlags.deleteMany({});
+
+        const teams = await collections.teams();
+        await teams.deleteMany({});
+
+        const participants = await collections.participants();
+        await participants.deleteMany({});
+
+        const coins = await collections.coins();
+        await coins.updateMany({}, { $set: { teamId: null, claimedAt: null } });
+
+        const challenges = await collections.challenges();
+        await challenges.updateMany(
+          { type: "quiz" },
+          { $set: { "config.connectionsRevealedCount": 0, closesAt: null } }
+        );
+
+        return NextResponse.json({ ok: true, restarted: true, note: "Quiz completely reset to clean state!" });
       }
 
       case "resume-quiz": {
