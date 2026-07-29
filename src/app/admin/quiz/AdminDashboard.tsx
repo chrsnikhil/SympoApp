@@ -163,7 +163,7 @@ export default function AdminDashboard() {
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
-            {round === 1 && !data.started && (
+            {round === 1 && !data.started ? (
               <button
                 disabled={busy}
                 onClick={() => callAdvance({ action: "start-quiz" })}
@@ -171,9 +171,8 @@ export default function AdminDashboard() {
               >
                 ▶ START QUIZ
               </button>
-            )}
-
-            {round < 3 &&
+            ) : (
+              round < 3 &&
               (!advanceConfirm ? (
                 <button onClick={() => setAdvanceConfirm(true)} className="comic-btn comic-btn-cyan px-4 py-2 text-xs">
                   ▶ Proceed to Round {round + 1}
@@ -198,7 +197,8 @@ export default function AdminDashboard() {
                     CANCEL
                   </button>
                 </div>
-              ))}
+              ))
+            )}
 
             {(round === 3 || data.ended) &&
               (data.ended ? (
