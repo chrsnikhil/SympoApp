@@ -131,20 +131,9 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button onClick={() => setShowStageLeaderboard(true)} className="comic-btn comic-btn-yellow px-3 py-1.5 text-xs">
-              📺 View Leaderboard
+            <button onClick={() => setShowStageLeaderboard(true)} className="comic-btn comic-btn-yellow px-4 py-2 text-xs font-bold">
+              📺 View Stage Leaderboard
             </button>
-            <div className="flex gap-1 border-l border-paper-white/20 pl-2">
-              {[1, 2, 3].map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setRound(r)}
-                  className={`comic-btn px-3 py-1.5 text-xs ${round === r ? "comic-btn-cyan" : "bg-ink-black/80 text-paper-white/60"}`}
-                >
-                  Round {r}
-                </button>
-              ))}
-            </div>
           </div>
         </header>
 
