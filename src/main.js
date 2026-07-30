@@ -35,8 +35,8 @@ function loadLevel(index) {
   lastPlacedAt = null;
   gameWon = false;
 
-  const selectEl = document.getElementById('level-select');
-  if (selectEl) selectEl.value = index;
+  const textEl = document.getElementById('level-display-text');
+  if (textEl) textEl.textContent = `Lvl ${level.id}: ${level.name}`;
 
   ui.initLevel(level);
   ui.hideWin();
@@ -58,21 +58,7 @@ function loadLevel(index) {
   updateActionBar();
 }
 
-function initLevelSelector() {
-  const selectEl = document.getElementById('level-select');
-  if (!selectEl) return;
-  selectEl.innerHTML = '';
-  LEVELS.forEach((lvl, i) => {
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = `Lvl ${lvl.id}: ${lvl.name}`;
-    selectEl.appendChild(opt);
-  });
 
-  selectEl.addEventListener('change', (e) => {
-    loadLevel(parseInt(e.target.value, 10));
-  });
-}
 
 // ── Action Bar Buttons ───────────────────
 document.getElementById('btn-rotate')?.addEventListener('pointerdown', (e) => {
@@ -253,7 +239,5 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// ── Initial State ────────────────────────
-initLevelSelector();
 loadLevel(0);
 updateActionBar();

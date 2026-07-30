@@ -25,6 +25,8 @@ export const LEVELS = [
       { type: 'CORNER_LT',   count: 2, panel: 'left'  },
       { type: 'CORNER_BL',   count: 1, panel: 'right' },
       { type: 'MOD_SUB_1_C', count: 2, panel: 'right' },
+      { type: 'MOD_ADD_1',   count: 1, panel: 'right' }, // Decoy
+      { type: 'MOD_SUB_2',   count: 1, panel: 'right' }, // Decoy
     ],
   },
   {
@@ -78,6 +80,9 @@ export const LEVELS = [
       { type: 'CORNER_RB',   count: 1, panel: 'right' },
       { type: 'MOD_SUB_3_C', count: 2, panel: 'right' },
       { type: 'MOD_ADD_1',   count: 2, panel: 'right' },
+      { type: 'MOD_SUB_2_C', count: 1, panel: 'right' }, // Decoy
+      { type: 'MOD_ADD_1_C', count: 1, panel: 'right' }, // Decoy
+      { type: 'MOD_SUB_3',   count: 1, panel: 'right' }, // Decoy
     ],
   },
   {
@@ -140,6 +145,9 @@ export const LEVELS = [
       { type: 'CORNER_BL',   count: 2, panel: 'right' },
       { type: 'MOD_SUB_3_C', count: 2, panel: 'right' },
       { type: 'MOD_ADD_1',   count: 2, panel: 'right' },
+      { type: 'MOD_SUB_2_C', count: 1, panel: 'right' }, // Decoy
+      { type: 'MOD_SUB_3',   count: 1, panel: 'right' }, // Decoy
+      { type: 'MOD_ADD_1_C', count: 1, panel: 'right' }, // Decoy
     ],
   },
   {
@@ -213,6 +221,9 @@ export const LEVELS = [
       { type: 'CORNER_BL',   count: 1, panel: 'right' },
       { type: 'CORNER_RB',   count: 1, panel: 'right' },
       { type: 'MOD_SUB_2_C', count: 2, panel: 'right' },
+      { type: 'MOD_ADD_1',   count: 2, panel: 'right' }, // Decoy
+      { type: 'MOD_SUB_3_C', count: 1, panel: 'right' }, // Decoy
+      { type: 'MOD_SUB_2',   count: 1, panel: 'right' }, // Decoy
     ],
   },
   {
@@ -297,6 +308,9 @@ export const LEVELS = [
       { type: 'MOD_SUB_3',   count: 2, panel: 'right' },
       { type: 'MOD_SUB_3_C', count: 1, panel: 'right' },
       { type: 'MOD_ADD_1',   count: 3, panel: 'right' },
+      { type: 'MOD_SUB_2_C', count: 2, panel: 'right' }, // Decoy
+      { type: 'MOD_ADD_1_C', count: 2, panel: 'right' }, // Decoy
+      { type: 'MOD_SUB_1_C', count: 1, panel: 'right' }, // Decoy
     ],
   },
 ];
