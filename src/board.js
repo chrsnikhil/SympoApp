@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-// board.js — 5×5 Octagonal Grid Renderer
+// board.js — Dynamic Octagonal Grid Renderer
 // Canvas 2D rendering of the game board
 // ═══════════════════════════════════════════
 
@@ -8,8 +8,8 @@ import {
   drawVoltageModifier, drawXBlock, drawEndNode, drawOctagon
 } from './pieces.js';
 
-const GRID_ROWS = 5;
-const GRID_COLS = 5;
+const DEFAULT_ROWS = 5;
+const DEFAULT_COLS = 5;
 
 export class Board {
   constructor(canvasId, level, onCellClick) {
@@ -18,9 +18,12 @@ export class Board {
     this.level       = level;
     this.onCellClick = onCellClick;
 
-    // 5×5 grid: each cell is null or { type, rotation }
-    this.grid = Array.from({ length: GRID_ROWS }, () =>
-      Array(GRID_COLS).fill(null)
+    this.rows        = level.rows || DEFAULT_ROWS;
+    this.cols        = level.cols || DEFAULT_COLS;
+
+    // Dynamic grid: each cell is null or { type, rotation }
+    this.grid = Array.from({ length: this.rows }, () =>
+      Array(this.cols).fill(null)
     );
 
     this.hoveredCell  = null;
@@ -31,6 +34,11 @@ export class Board {
     this.tileSize     = 80;
     this.gap          = 4;
     this.rafId        = null;
+
+    // Grid placement/rotation scales for animations
+    this.pieceScales = Array.from({ length: this.rows }, () =>
+      Array(this.cols).fill(1.0)
+    );
 
     this._setupCanvas();
     this._startLoop();
@@ -43,18 +51,19 @@ export class Board {
 
   _resize() {
     const container = this.canvas.parentElement;
+    if (!container) return;
     const cw = container.clientWidth;
     const ch = container.clientHeight;
 
     const gap     = 4;
     const padding = 20;
-    const maxTileW = Math.floor((cw - padding * 2 - gap * (GRID_COLS - 1)) / GRID_COLS);
-    const maxTileH = Math.floor((ch - padding * 2 - gap * (GRID_ROWS - 1)) / GRID_ROWS);
+    const maxTileW = Math.floor((cw - padding * 2 - gap * (this.cols - 1)) / this.cols);
+    const maxTileH = Math.floor((ch - padding * 2 - gap * (this.rows - 1)) / this.rows);
     this.tileSize  = Math.min(maxTileW, maxTileH, 90);
     this.gap       = gap;
 
-    const totalW = this.tileSize * GRID_COLS + gap * (GRID_COLS - 1);
-    const totalH = this.tileSize * GRID_ROWS + gap * (GRID_ROWS - 1);
+    const totalW = this.tileSize * this.cols + gap * (this.cols - 1);
+    const totalH = this.tileSize * this.rows + gap * (this.rows - 1);
 
     this.canvas.width  = totalW;
     this.canvas.height = totalH;
@@ -69,6 +78,17 @@ export class Board {
       this.flowPhase   = (ts / 650)   % 1;
       this.pulsePhase  = (ts / 1000)  * Math.PI * 2;
       this.xShakePhase = (ts / 1800)  * Math.PI * 2;
+
+      // Animate grid scales towards 1.0 (smooth slide/pop)
+      for (let r = 0; r < this.rows; r++) {
+        for (let c = 0; c < this.cols; c++) {
+          if (this.pieceScales[r][c] < 1.0) {
+            this.pieceScales[r][c] += 0.08; // speed of pop
+            if (this.pieceScales[r][c] > 1.0) this.pieceScales[r][c] = 1.0;
+          }
+        }
+      }
+
       this._render();
       this.rafId = requestAnimationFrame(loop);
     };
@@ -82,8 +102,8 @@ export class Board {
     // Draw connection lines BEHIND tiles first (shows routing between cells)
     this._drawConnectionLines();
 
-    for (let row = 0; row < GRID_ROWS; row++) {
-      for (let col = 0; col < GRID_COLS; col++) {
+    for (let row = 0; row < this.rows; row++) {
+      for (let col = 0; col < this.cols; col++) {
         const x   = col * (ts + gap);
         const y   = row * (ts + gap);
         const key = `${row},${col}`;
@@ -94,7 +114,8 @@ export class Board {
           if (fixed.kind === 'source') {
             drawPowerSource(ctx, x, y, ts, fixed.voltage, this.pulsePhase);
           } else if (fixed.kind === 'modifier') {
-            drawVoltageModifier(ctx, x, y, ts, fixed.value);
+            const isLit = this.litCells.has(key);
+            drawVoltageModifier(ctx, x, y, ts, fixed.value, fixed.connections, isLit);
           } else if (fixed.kind === 'endnode') {
             const isEndLit = this.litCells.has(key);
             drawEndNode(ctx, x, y, ts, isEndLit, this.pulsePhase);
@@ -110,12 +131,25 @@ export class Board {
           const cell = this.grid[row][col];
           if (cell) {
             const isLit = this.litCells.has(key);
+            const scale = this.pieceScales[row][col];
+
+            ctx.save();
+            // Apply scale pop animation from cell center
+            if (scale < 1.0) {
+              const cx = x + ts / 2;
+              const cy = y + ts / 2;
+              ctx.translate(cx, cy);
+              ctx.scale(scale, scale);
+              ctx.translate(-cx, -cy);
+            }
+
             drawPiece(
               ctx, x, y, ts,
               cell.type, cell.rotation,
               isLit ? 'lit' : 'normal',
               isLit ? this.flowPhase : 0
             );
+            ctx.restore();
           } else {
             const isHovered = this.hoveredCell?.row === row
                            && this.hoveredCell?.col === col;
@@ -170,8 +204,8 @@ export class Board {
     if (
       px >= cx && px <= cx + ts &&
       py >= cy && py <= cy + ts &&
-      row >= 0 && row < GRID_ROWS &&
-      col >= 0 && col < GRID_COLS
+      row >= 0 && row < this.rows &&
+      col >= 0 && col < this.cols
     ) {
       return { row, col };
     }
@@ -191,6 +225,7 @@ export class Board {
     const isFixed = this.level.fixedTiles.some(t => t.row === row && t.col === col);
     if (isFixed) return false;
     this.grid[row][col] = { type, rotation };
+    this.pieceScales[row][col] = 0.25; // Trigger placement pop
     return true;
   }
 
@@ -199,6 +234,7 @@ export class Board {
     if (isFixed) return null;
     const cell = this.grid[row][col];
     this.grid[row][col] = null;
+    this.pieceScales[row][col] = 1.0;
     return cell;
   }
 
@@ -208,13 +244,15 @@ export class Board {
     const cell = this.grid[row][col];
     if (!cell) return false;
     cell.rotation = (cell.rotation + 1) % 4;
+    this.pieceScales[row][col] = 0.78; // Trigger rotation pop
     return true;
   }
 
   setLitCells(litCells) { this.litCells = litCells; }
 
   reset() {
-    this.grid     = Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(null));
+    this.grid     = Array.from({ length: this.rows }, () => Array(this.cols).fill(null));
+    this.pieceScales = Array.from({ length: this.rows }, () => Array(this.cols).fill(1.0));
     this.litCells = new Set();
   }
 

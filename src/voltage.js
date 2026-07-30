@@ -8,8 +8,6 @@
 
 import { getConnections } from './pieces.js';
 
-const GRID_SIZE = 5;
-
 // Direction vectors: [row delta, col delta]
 const DIR_DELTA = [
   [-1, 0],  // 0: top
@@ -20,17 +18,17 @@ const DIR_DELTA = [
 
 /**
  * Solve the circuit using BFS from the source tile.
- * Returns: { voltage, litCells, connected, modifiersHit }
+ * Returns: { voltage, litCells, connected, modifiersHit, endNodeReached }
  */
 export function solveCircuit(grid, level) {
+  const rows = level.rows || 5;
+  const cols = level.cols || 5;
+
   const sourceFixed = level.fixedTiles.find(t => t.kind === 'source');
   if (!sourceFixed) return { voltage: 0, litCells: new Set(), connected: false, modifiersHit: [], endNodeReached: false };
 
   const { row: sr, col: sc, voltage: sourceVoltage } = sourceFixed;
-
-  // Find end node position
-  const endFixed = level.fixedTiles.find(t => t.kind === 'endnode');
-  const endKey   = endFixed ? `${endFixed.row},${endFixed.col}` : null;
+  const endNodes = level.fixedTiles.filter(t => t.kind === 'endnode');
 
   const visited      = new Set();
   const queue        = [{ row: sr, col: sc }];
@@ -52,7 +50,7 @@ export function solveCircuit(grid, level) {
       const key = `${nr},${nc}`;
 
       if (visited.has(key)) continue;
-      if (nr < 0 || nr >= GRID_SIZE || nc < 0 || nc >= GRID_SIZE) continue;
+      if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
 
       const neighbor = getCellAt(grid, level, nr, nc);
       if (!neighbor) continue;
@@ -71,17 +69,27 @@ export function solveCircuit(grid, level) {
         if (neighbor.kind === 'modifier') {
           voltage += neighbor.value;
           modifiersHit.push({ row: nr, col: nc, value: neighbor.value });
+        } else if (neighbor.kind === 'piece' && neighbor.type.startsWith('MOD_')) {
+          const parts = neighbor.type.split('_');
+          const val = parseInt(parts[2]) || 0;
+          const value = neighbor.type.includes('ADD') ? val : -val;
+          voltage += value;
+          modifiersHit.push({ row: nr, col: nc, value: value });
         }
       }
     }
   }
+
+  const endNodeReached = endNodes.length > 0 && endNodes.every(node => {
+    return litCells.has(`${node.row},${node.col}`);
+  });
 
   return {
     voltage,
     litCells,
     connected:       litCells.size > 1,
     modifiersHit,
-    endNodeReached:  endKey ? litCells.has(endKey) : false,
+    endNodeReached,
   };
 }
 
@@ -95,6 +103,7 @@ function getCellAt(grid, level, row, col) {
       kind:    fixed.kind,
       value:   fixed.value   || 0,
       voltage: fixed.voltage || 0,
+      connections: fixed.connections,
       type:    fixed.kind === 'source'   ? '_SOURCE'
              : fixed.kind === 'modifier' ? '_MODIFIER'
              : fixed.kind === 'endnode'  ? '_ENDNODE'
@@ -126,8 +135,12 @@ function canConnect(cellA, cellB, dirAtoB) {
 function getEffectiveConnections(cell, dir) {
   if (!cell) return false;
   if (cell.kind === 'xblock') return false;
-  // Source, modifier, and endnode fixed tiles accept connections from ALL 4 directions
-  if (cell.isFixed) return true;
+  // Source and endnode fixed tiles accept connections from ALL 4 directions
+  if (cell.kind === 'source' || cell.kind === 'endnode') return true;
+  // Modifier fixed tiles check specific allowed connections
+  if (cell.kind === 'modifier') {
+    return (cell.connections || [0, 1, 2, 3]).includes(dir);
+  }
   // Player-placed pieces: check rotation-aware connection map
   return getConnections(cell.type, cell.rotation).includes(dir);
 }

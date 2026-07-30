@@ -14,6 +14,13 @@ export const PIECE_TYPES = {
   T_LRB:      { id: 'T_LRB',      label: 'T-Junction', rotations: [[1,2,3],[0,2,3],[0,1,3],[0,1,2]] },
   LOOP:       { id: 'LOOP',       label: 'Loop',        rotations: [[1,3],[0,2],[1,3],[0,2]] },
   CROSS:      { id: 'CROSS',      label: 'Cross',       rotations: [[0,1,2,3],[0,1,2,3],[0,1,2,3],[0,1,2,3]] },
+  MOD_ADD_1:  { id: 'MOD_ADD_1',  label: '+1 Mod',     rotations: [[1,3],[0,2],[1,3],[0,2]] },
+  MOD_SUB_2:  { id: 'MOD_SUB_2',  label: '-2 Mod',     rotations: [[1,3],[0,2],[1,3],[0,2]] },
+  MOD_SUB_3:  { id: 'MOD_SUB_3',  label: '-3 Mod',     rotations: [[1,3],[0,2],[1,3],[0,2]] },
+  MOD_ADD_1_C:{ id: 'MOD_ADD_1_C',label: '+1 Corner',  rotations: [[0,1],[1,2],[2,3],[3,0]] },
+  MOD_SUB_1_C:{ id: 'MOD_SUB_1_C',label: '-1 Corner',  rotations: [[0,1],[1,2],[2,3],[3,0]] },
+  MOD_SUB_2_C:{ id: 'MOD_SUB_2_C',label: '-2 Corner',  rotations: [[0,1],[1,2],[2,3],[3,0]] },
+  MOD_SUB_3_C:{ id: 'MOD_SUB_3_C',label: '-3 Corner',  rotations: [[0,1],[1,2],[2,3],[3,0]] },
 };
 
 export function getConnections(pieceType, rotation) {
@@ -251,6 +258,13 @@ export function drawPiece(ctx, x, y, size, pieceType, rotation, state = 'normal'
   const isLit   = state === 'lit';
   const isCross = pieceType === 'CROSS';
   const isLoop  = pieceType === 'LOOP';
+  const isMod   = pieceType.startsWith('MOD_');
+  let modVal = 0;
+  if (isMod) {
+    const parts = pieceType.split('_');
+    const val = parseInt(parts[2]) || 0;
+    modVal = pieceType.includes('ADD') ? val : -val;
+  }
   const conns   = getConnections(pieceType, rotation);
 
   ctx.save();
@@ -313,14 +327,38 @@ export function drawPiece(ctx, x, y, size, pieceType, rotation, state = 'normal'
     ctx.shadowBlur  = 0;
   }
 
-  // ── Layer 7: Centre node ──
-  ctx.beginPath();
-  ctx.arc(cx, cy, isLit ? 4.5 : 3.5, 0, Math.PI * 2);
-  ctx.fillStyle   = traceColor;
-  ctx.shadowColor = traceColor;
-  ctx.shadowBlur  = isLit ? 14 : 6;
-  ctx.fill();
-  ctx.shadowBlur  = 0;
+  // ── Layer 7: Centre node or Modifier Badge ──
+  if (isMod) {
+    const neg = modVal < 0;
+    const badgeCol = neg ? C.amber : C.green;
+    
+    // Draw badge container
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.48, 0, Math.PI * 2);
+    ctx.fillStyle = neg ? 'rgba(55,28,5,0.95)' : 'rgba(10,45,10,0.95)';
+    ctx.fill();
+    ctx.strokeStyle = badgeCol;
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+    
+    // Draw value text
+    ctx.font = 'bold 15px Rajdhani, "Share Tech Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = badgeCol;
+    ctx.shadowColor = badgeCol;
+    ctx.shadowBlur = isLit ? 10 : 4;
+    ctx.fillText(`${modVal > 0 ? '+' : ''}${modVal}`, cx, cy + 1);
+    ctx.shadowBlur = 0;
+  } else {
+    ctx.beginPath();
+    ctx.arc(cx, cy, isLit ? 4.5 : 3.5, 0, Math.PI * 2);
+    ctx.fillStyle   = traceColor;
+    ctx.shadowColor = traceColor;
+    ctx.shadowBlur  = isLit ? 14 : 6;
+    ctx.fill();
+    ctx.shadowBlur  = 0;
+  }
 
   // ── Layer 8: Connection ports ──
   drawConnectionPorts(ctx, cx, cy, r, conns, isLit, state);
@@ -588,7 +626,7 @@ export function drawPowerSource(ctx, x, y, size, voltage, pulsePhase = 0) {
 // ═══════════════════════════════════════════════════════════
 // VOLTAGE MODIFIER TILE
 // ═══════════════════════════════════════════════════════════
-export function drawVoltageModifier(ctx, x, y, size, value) {
+export function drawVoltageModifier(ctx, x, y, size, value, connections, isLit = false) {
   const pad  = 5;
   const r    = size / 2 - pad;
   const cx   = x + size / 2;
@@ -628,6 +666,16 @@ export function drawVoltageModifier(ctx, x, y, size, value) {
   ctx.strokeStyle = `rgba(${neg ? '232,145,42' : '57,255,20'},0.2)`;
   ctx.lineWidth   = 0.8;
   ctx.stroke();
+
+  // Draw traces and connection ports for fixated directions
+  if (connections && connections.length > 0) {
+    const traceColor = isLit ? (neg ? C.red : C.green) : `rgba(${neg ? '255,45,109' : '57,255,20'}, 0.45)`;
+    const traceW = isLit ? 3.2 : 2.5;
+    connections.forEach(dir => {
+      drawTrace(ctx, cx, cy, dir, r, traceColor, traceW, 0, isLit);
+    });
+    drawConnectionPorts(ctx, cx, cy, r, connections, isLit, isLit ? 'lit' : 'normal');
+  }
 
   // Rivets
   drawRivets(ctx, cx, cy, r + 0.5, neg ? 'rgba(232,145,42,0.55)' : 'rgba(57,255,20,0.5)', 2.2);

@@ -13,24 +13,66 @@ import { BackgroundRenderer } from './background.js';
 import { LEVELS }             from './levels.js';
 
 // ── Game State ────────────────────────────
-const level = LEVELS[0];
+let currentLevelIndex = 0;
+let level = LEVELS[currentLevelIndex];
 let selectedItem  = null;  // Currently selected inventory item
 let lastPlacedAt  = null;  // { row, col } — last placed piece location
 let gameWon       = false;
+
+let board = null;
+let inventory = null;
 
 // ── Init Modules ──────────────────────────
 const bgRenderer = new BackgroundRenderer('bg-canvas', 'bg-video');
 bgRenderer.start();
 
 const ui = new UI();
-ui.setTarget(level.targetVoltage);
 
-const inventory = new Inventory(level, (item) => {
-  selectedItem = item;
+function loadLevel(index) {
+  currentLevelIndex = index;
+  level = LEVELS[index];
+  selectedItem = null;
+  lastPlacedAt = null;
+  gameWon = false;
+
+  const selectEl = document.getElementById('level-select');
+  if (selectEl) selectEl.value = index;
+
+  ui.initLevel(level);
+  ui.hideWin();
+  ui.update(0, false);
+
+  if (!inventory) {
+    inventory = new Inventory(level, (item) => {
+      selectedItem = item;
+      updateActionBar();
+    });
+  } else {
+    inventory.reset(level);
+  }
+
+  if (board) board.destroy();
+  board = new Board('board-canvas', level, handleCellClick);
+
+  updateCircuit();
   updateActionBar();
-});
+}
 
-const board = new Board('board-canvas', level, handleCellClick);
+function initLevelSelector() {
+  const selectEl = document.getElementById('level-select');
+  if (!selectEl) return;
+  selectEl.innerHTML = '';
+  LEVELS.forEach((lvl, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `Lvl ${lvl.id}: ${lvl.name}`;
+    selectEl.appendChild(opt);
+  });
+
+  selectEl.addEventListener('change', (e) => {
+    loadLevel(parseInt(e.target.value, 10));
+  });
+}
 
 // ── Action Bar Buttons ───────────────────
 document.getElementById('btn-rotate')?.addEventListener('pointerdown', (e) => {
@@ -47,18 +89,15 @@ document.getElementById('btn-remove')?.addEventListener('pointerdown', (e) => {
 });
 document.getElementById('btn-select')?.addEventListener('pointerdown', (e) => {
   e.preventDefault();
-  // SELECT just focuses — handled by inventory clicks
 });
 
 // ── Win Screen ───────────────────────────
 ui.onPlayAgain(() => {
-  gameWon = false;
-  board.reset();
-  inventory.reset(level);
-  ui.hideWin();
-  ui.update(0, false);
-  updateCircuit();
-  updateActionBar();
+  if (currentLevelIndex < LEVELS.length - 1) {
+    loadLevel(currentLevelIndex + 1);
+  } else {
+    loadLevel(currentLevelIndex);
+  }
 });
 
 // ── Board Interaction ────────────────────
@@ -85,8 +124,10 @@ function handleCellClick(row, col) {
       selectedItem = null;
     }
   } else if (existingPiece) {
-    // Tap placed piece — select it for rotation/removal
+    // Tap placed piece — directly rotate it!
+    board.rotatePiece(row, col);
     lastPlacedAt = { row, col };
+    updateCircuit();
   }
 
   updateActionBar();
@@ -107,6 +148,7 @@ function handleRotate() {
 }
 
 function handleReset() {
+  if (!board) return;
   board.reset();
   inventory.reset(level);
   selectedItem = null;
@@ -116,7 +158,7 @@ function handleReset() {
 }
 
 function handleRemoveSelected() {
-  if (!lastPlacedAt) return;
+  if (!lastPlacedAt || !board) return;
   const removed = board.removePiece(lastPlacedAt.row, lastPlacedAt.col);
   if (removed) {
     inventory.returnPiece(removed.type);
@@ -128,18 +170,20 @@ function handleRemoveSelected() {
 
 // ── Circuit Solver ───────────────────────
 function updateCircuit() {
+  if (!board) return;
   const result = solveCircuit(board.grid, level);
   board.setLitCells(result.litCells);
   ui.update(result.voltage, result.connected, result.modifiersHit, result.endNodeReached);
 
-  // Win = correct voltage AND end node reached
+  // Win = correct voltage AND all end nodes reached
   const won = result.connected
             && result.voltage === level.targetVoltage
             && result.endNodeReached;
 
   if (!gameWon && won) {
     gameWon = true;
-    setTimeout(() => ui.showWin(result.voltage), 800);
+    const hasNext = currentLevelIndex < LEVELS.length - 1;
+    setTimeout(() => ui.showWin(result.voltage, hasNext), 800);
   }
 }
 
@@ -171,12 +215,13 @@ function getBoardCell(e) {
 }
 
 boardContainer.addEventListener('pointermove', (e) => {
+  if (!board) return;
   const cell = getBoardCell(e);
   board.setHovered(cell?.row ?? null, cell?.col ?? null);
 });
 
 boardContainer.addEventListener('pointerleave', () => {
-  board.setHovered(null, null);
+  if (board) board.setHovered(null, null);
 });
 
 boardContainer.addEventListener('pointerdown', (e) => {
@@ -187,8 +232,6 @@ boardContainer.addEventListener('pointerdown', (e) => {
 
 // ── Placement Animation ──────────────────
 function animatePlacement(row, col) {
-  // Flash the cell briefly with a brighter glow
-  // (handled via board's lit animation; nothing extra needed in DOM)
 }
 
 // ── Keyboard Support (desktop bonus) ─────
@@ -203,7 +246,7 @@ window.addEventListener('keydown', (e) => {
       handleRemoveSelected();
       break;
     case 'Escape':
-      inventory.deselectAll();
+      if (inventory) inventory.deselectAll();
       selectedItem = null;
       updateActionBar();
       break;
@@ -211,4 +254,6 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ── Initial State ────────────────────────
+initLevelSelector();
+loadLevel(0);
 updateActionBar();

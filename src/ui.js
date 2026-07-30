@@ -21,11 +21,31 @@ export class UI {
 
     this._targetVoltage = 4;
     this._lastStatus = null;
+    this._level = null;
   }
 
   setTarget(voltage) {
     this._targetVoltage = voltage;
     if (this.targetEl) this.targetEl.textContent = voltage;
+  }
+
+  initLevel(level) {
+    this._level = level;
+    this.setTarget(level.targetVoltage);
+
+    const tracker = document.getElementById('modifier-tracker');
+    if (tracker) {
+      tracker.innerHTML = '';
+      const modifiers = level.fixedTiles.filter(t => t.kind === 'modifier');
+      modifiers.forEach((mod, i) => {
+        const span = document.createElement('span');
+        span.className = 'mod-pip' + (mod.value < 0 ? ' neg' : ' pos');
+        span.id = `mod-${i}`;
+        span.textContent = (mod.value > 0 ? '+' : '') + mod.value;
+        span.title = `Modifier: ${mod.value > 0 ? '+' : ''}${mod.value}V`;
+        tracker.appendChild(span);
+      });
+    }
   }
 
   update(actualVoltage, connected, modifiersHit = [], endNodeReached = false) {
@@ -36,11 +56,17 @@ export class UI {
     if (this.actualEl) this.actualEl.textContent = displayVoltage;
 
     // Update modifier pip indicators
-    const pips = document.querySelectorAll('.mod-pip');
-    pips.forEach((pip, i) => {
-      const wasHit = modifiersHit.length > i;
-      pip.classList.toggle('hit', wasHit);
-    });
+    if (this._level) {
+      const modifiers = this._level.fixedTiles.filter(t => t.kind === 'modifier');
+      const pips = document.querySelectorAll('.mod-pip');
+      pips.forEach((pip, i) => {
+        const mod = modifiers[i];
+        if (mod) {
+          const wasHit = modifiersHit.some(h => h.row === mod.row && h.col === mod.col);
+          pip.classList.toggle('hit', wasHit);
+        }
+      });
+    }
 
     // Update voltage bar segments
     const ratio   = Math.min(Math.max(displayVoltage / target, 0), 1.33);
@@ -74,7 +100,7 @@ export class UI {
       }
     }
 
-    // Status message — now considers end node too
+    // Status message
     const newStatus = !connected                               ? 'hidden'
                     : displayVoltage === target && endNodeReached ? 'won'
                     : displayVoltage === target                   ? 'need-end'
@@ -109,10 +135,13 @@ export class UI {
     }
   }
 
-  showWin(voltage) {
+  showWin(voltage, hasNextLevel = false) {
     if (this.winOverlay) {
       this.winOverlay.classList.remove('hidden');
       if (this.winVoltage) this.winVoltage.textContent = `${voltage}V`;
+      if (this.playAgainBtn) {
+        this.playAgainBtn.textContent = hasNextLevel ? 'NEXT LEVEL ➜' : 'PLAY AGAIN';
+      }
       this._spawnWinParticles();
     }
   }

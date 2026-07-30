@@ -7,27 +7,27 @@
   <meta name="description" content="A Spider-Man Spider-Verse circuit puzzle game. Place and rotate circuit tiles to match the target voltage." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
 
   <!-- ═══════════════════════════════════════════ -->
-  <!-- LAYER 0: Spider-Man Background (chroma key) -->
+  <!-- LAYER 0: Spider-Man WebGL 3D Background     -->
   <!-- ═══════════════════════════════════════════ -->
   <canvas id="bg-canvas"></canvas>
 
-  <!-- Hidden video sources -->
+  <!-- Hidden video source -->
   <video id="bg-video" src="/background.mp4" autoplay loop muted playsinline crossorigin="anonymous" style="display:none"></video>
 
   <!-- ═══════════════════════════════════════════ -->
-  <!-- LAYER 1: Scanline + atmosphere overlay      -->
+  <!-- LAYER 1: Atmos Scanlines & vignette         -->
   <!-- ═══════════════════════════════════════════ -->
   <div id="scanline-overlay"></div>
   <div id="vignette-overlay"></div>
 
   <!-- ═══════════════════════════════════════════ -->
-  <!-- LAYER 2: Logo — Top Right Corner            -->
+  <!-- LAYER 2: Inverted Chromatic Glitch Logo      -->
   <!-- ═══════════════════════════════════════════ -->
   <div id="logo-container">
     <video id="logo-video" src="/logo.mp4" autoplay loop muted playsinline></video>
@@ -35,7 +35,7 @@
   </div>
 
   <!-- ═══════════════════════════════════════════ -->
-  <!-- LAYER 3: Full Game UI                       -->
+  <!-- LAYER 3: Interactive Hacking Game UI         -->
   <!-- ═══════════════════════════════════════════ -->
   <div id="game-wrapper">
 
@@ -43,7 +43,9 @@
     <header id="hud-bar">
       <div id="hud-puzzle-name">
         <span class="hud-label-small">PUZZLE</span>
-        <span id="puzzle-name-text">Overload Prevention</span>
+        <div id="level-select-container">
+          <select id="level-select" class="level-dropdown"></select>
+        </div>
       </div>
 
       <div id="hud-voltage-section">
@@ -61,12 +63,7 @@
           <div id="voltage-status" class="status-hidden">
             <span id="voltage-status-text"></span>
           </div>
-          <div id="modifier-tracker">
-            <span class="mod-pip" id="mod-0" title="-1 reached">●</span>
-            <span class="mod-pip" id="mod-1" title="-2 reached">●</span>
-            <span class="mod-pip" id="mod-2" title="-1 reached">●</span>
-            <span class="mod-pip" id="mod-3" title="-1 reached">●</span>
-          </div>
+          <div id="modifier-tracker"></div>
         </div>
 
         <div id="hud-target">
@@ -88,7 +85,6 @@
       <!-- Board Canvas -->
       <div id="board-container">
         <canvas id="board-canvas"></canvas>
-        <!-- Touch/mouse interaction layer -->
         <div id="board-hit-layer"></div>
       </div>
 
