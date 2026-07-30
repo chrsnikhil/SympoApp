@@ -1,26 +1,379 @@
 @import "tailwindcss";
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * SPIDER-PUNK DESIGN SYSTEM
+ * Inspired by Hobie Brown (Spider-Punk) from Spider-Verse.
+ * Punk rock aesthetic: halftone dots, chromatic aberration, neon accents,
+ * ripped edges, and bold comic typography against deep blacks.
+ * ────────────────────────────────────────────────────────────────────────── */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ── Core Ink ─────────────────────────────────────────── */
+  --ink-black: #0A0A0A;
+  --ink-deep: #111111;
+  --paper-white: #F2EFE9;
+
+  /* ── Punk Accents ─────────────────────────────────────── */
+  --spider-red: #E63946;
+  --glitch-cyan: #00F5D4;
+  --punk-magenta: #FF006E;
+  --punk-hot-pink: #F72585;
+  --web-blue-light: #4CC9F0;
+  --web-blue-dark: #1B1464;
+  --punk-yellow: #FFD60A;
+  --punk-orange: #FF9E00;
+
+  /* ── Feedback ─────────────────────────────────────────── */
+  --signal-wrong: #F72585;
+  --signal-correct: #00F5D4;
+
+  /* ── Surfaces ─────────────────────────────────────────── */
+  --panel-bg: rgba(17, 17, 17, 0.85);
+  --panel-border: rgba(242, 239, 233, 0.12);
+
+  /* Legacy compat */
+  --background: var(--ink-black);
+  --foreground: var(--paper-white);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-ink-black: var(--ink-black);
+  --color-paper-white: var(--paper-white);
+  --color-spider-red: var(--spider-red);
+  --color-glitch-cyan: var(--glitch-cyan);
+  --color-punk-magenta: var(--punk-magenta);
+  --color-punk-hot-pink: var(--punk-hot-pink);
+  --color-web-blue-light: var(--web-blue-light);
+  --color-web-blue-dark: var(--web-blue-dark);
+  --color-signal-wrong: var(--signal-wrong);
+  --color-signal-correct: var(--signal-correct);
+  --font-sans: var(--font-outfit);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-bangers);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ──────────────────────────────────────────────────────────────────────────
+ * BASE
+ * ────────────────────────────────────────────────────────────────────────── */
+body {
+  background: var(--ink-black);
+  color: var(--paper-white);
+  font-family: var(--font-outfit), 'Outfit', system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--punk-magenta);
+  color: var(--paper-white);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * PANEL — Dark glassmorphic container
+ * ────────────────────────────────────────────────────────────────────────── */
+.panel {
+  background: var(--panel-bg);
+  border: 2px solid var(--panel-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 2px;
+  position: relative;
+}
+
+.panel::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 1px solid transparent;
+  border-image: linear-gradient(
+    135deg,
+    var(--glitch-cyan) 0%,
+    transparent 30%,
+    transparent 70%,
+    var(--punk-magenta) 100%
+  ) 1;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * HALFTONE — Dotted texture overlay
+ * ────────────────────────────────────────────────────────────────────────── */
+.halftone::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  background-image: radial-gradient(circle, var(--paper-white) 1px, transparent 1px);
+  background-size: 6px 6px;
+  border-radius: inherit;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * DISPLAY TITLE — Bangers comic font
+ * ────────────────────────────────────────────────────────────────────────── */
+.display-title {
+  font-family: var(--font-bangers), 'Bangers', Impact, sans-serif;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * CHROMATIC — RGB-split text effect
+ * ────────────────────────────────────────────────────────────────────────── */
+.chromatic {
+  text-shadow:
+    -2px 0 var(--punk-magenta),
+     2px 0 var(--glitch-cyan);
+  animation: chromatic-flicker 4s ease-in-out infinite alternate;
+}
+
+@keyframes chromatic-flicker {
+  0%, 100% {
+    text-shadow:
+      -2px 0 var(--punk-magenta),
+       2px 0 var(--glitch-cyan);
+  }
+  33% {
+    text-shadow:
+      -3px 1px var(--punk-magenta),
+       2px -1px var(--glitch-cyan);
+  }
+  66% {
+    text-shadow:
+      -1px -1px var(--punk-magenta),
+       3px 1px var(--glitch-cyan);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ──────────────────────────────────────────────────────────────────────────
+ * BUTTONS — Punk-styled action buttons
+ * ────────────────────────────────────────────────────────────────────────── */
+.comic-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1.5rem;
+  font-family: var(--font-bangers), 'Bangers', Impact, sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--paper-white);
+  background: var(--spider-red);
+  border: 2px solid var(--paper-white);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.comic-btn:hover:not(:disabled) {
+  transform: translateY(-2px) rotate(-1deg);
+  box-shadow:
+    4px 4px 0 var(--punk-magenta),
+    0 0 20px rgba(255, 0, 110, 0.3);
+}
+
+.comic-btn:active:not(:disabled) {
+  transform: translateY(0) rotate(0);
+  box-shadow: none;
+}
+
+.comic-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+}
+
+.comic-btn-cyan {
+  background: transparent;
+  border-color: var(--glitch-cyan);
+  color: var(--glitch-cyan);
+}
+
+.comic-btn-cyan:hover:not(:disabled) {
+  background: rgba(0, 245, 212, 0.1);
+  box-shadow:
+    4px 4px 0 var(--glitch-cyan),
+    0 0 20px rgba(0, 245, 212, 0.3);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * ANIMATIONS
+ * ────────────────────────────────────────────────────────────────────────── */
+.anim-pop {
+  animation: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.anim-glitch {
+  animation: glitch-shift 0.15s ease-in-out;
+}
+
+@keyframes glitch-shift {
+  0% { transform: translate(0); }
+  20% { transform: translate(-3px, 2px); }
+  40% { transform: translate(3px, -2px); }
+  60% { transform: translate(-1px, -1px); }
+  80% { transform: translate(2px, 1px); }
+  100% { transform: translate(0); }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * SPIDER-WEB BACKGROUND PATTERN
+ * ────────────────────────────────────────────────────────────────────────── */
+.web-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.web-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 0%, var(--web-blue-dark) 0%, transparent 55%),
+    radial-gradient(ellipse at 0% 100%, rgba(230, 57, 70, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 100% 80%, rgba(114, 9, 183, 0.06) 0%, transparent 40%);
+}
+
+.web-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.035;
+  background-image:
+    repeating-conic-gradient(
+      from 0deg at 50% 50%,
+      transparent 0deg 9deg,
+      var(--paper-white) 9deg 10deg
+    );
+  background-size: 100% 100%;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * RANGE INPUT — Spider-themed slider
+ * ────────────────────────────────────────────────────────────────────────── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: linear-gradient(90deg, var(--punk-magenta), var(--glitch-cyan));
+  border-radius: 3px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: var(--spider-red);
+  border: 2px solid var(--paper-white);
+  border-radius: 0;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2) rotate(45deg);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--spider-red);
+  border: 2px solid var(--paper-white);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * SCROLLBAR — Punk-styled
+ * ────────────────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--ink-black);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--punk-magenta);
+  border: 1px solid var(--ink-black);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--glitch-cyan);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * PUNK DECORATIVE ELEMENTS
+ * ────────────────────────────────────────────────────────────────────────── */
+.punk-divider {
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--punk-magenta) 20%,
+    var(--glitch-cyan) 80%,
+    transparent
+  );
+  border: none;
+  margin: 1.5rem 0;
+}
+
+.punk-glow {
+  box-shadow:
+    0 0 15px rgba(0, 245, 212, 0.15),
+    0 0 30px rgba(255, 0, 110, 0.08);
+}
+
+/* Sticker-style labels */
+.punk-sticker {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  font-family: var(--font-bangers), 'Bangers', Impact, sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: var(--punk-magenta);
+  color: var(--paper-white);
+  transform: rotate(-2deg);
+  border: 1px solid var(--paper-white);
+}
+
+/* Grid cell hover ripple */
+.grid-cell {
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+}
+
+.grid-cell:hover {
+  transform: scale(1.08);
+  z-index: 2;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * FONT BODY CLASS — for Outfit
+ * ────────────────────────────────────────────────────────────────────────── */
+.font-body {
+  font-family: var(--font-outfit), 'Outfit', system-ui, sans-serif;
 }
