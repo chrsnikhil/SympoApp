@@ -75,16 +75,24 @@ export async function GET(request: Request) {
 
       const judgeQueue: Array<{ teamId: string; teamName: string; submittedAt: string; imageId: string | null }> = [];
       if (imageGame) {
+        const latestByTeam = new Map<string, (typeof allSubs)[number]>();
         for (const s of allSubs) {
-          // "running", not "queued" — see the note in lib/quiz/judge.ts.
           if (String(s.challengeId) !== String(imageGame._id) || s.status !== "running") continue;
+          const key = String(s.teamId);
+          const existing = latestByTeam.get(key);
+          if (!existing || s.receivedAt.getTime() > existing.receivedAt.getTime()) {
+            latestByTeam.set(key, s);
+          }
+        }
+        for (const [teamId, s] of latestByTeam) {
           judgeQueue.push({
-            teamId: String(s.teamId),
-            teamName: teamById.get(String(s.teamId))?.name ?? "Unknown",
+            teamId,
+            teamName: teamById.get(teamId)?.name ?? "Unknown",
             submittedAt: s.receivedAt.toISOString(),
             imageId: s.payload ?? null,
           });
         }
+        judgeQueue.sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
       }
 
       // Solved-count per puzzle, for the coordinator's reveal panel — how many
@@ -200,6 +208,7 @@ export async function GET(request: Request) {
           coin: formatCoin(c._id),
           character: avatarForCoin(c._id)?.name ?? "?",
           team: teamById.get(String(c.teamId))?.name ?? "?",
+          isLocked: !!c.redeemedAt,
         })),
     };
 

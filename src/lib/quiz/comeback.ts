@@ -59,7 +59,7 @@ async function getOrInit(teamId: ObjectId, round: QuizRound): Promise<ComebackSt
 export async function getComebackStatus(teamId: ObjectId, round: QuizRound) {
   const s = await getOrInit(teamId, round);
   return {
-    bottomStreak: s.bottomStreak,
+    bottomStreak: s.ability && !s.usedAt ? STREAK_THRESHOLD : s.bottomStreak,
     ability: s.ability,
     info: s.ability ? ABILITY_INFO[s.ability] : null,
     usableOnSlug: s.usableOnSlug,
@@ -93,13 +93,13 @@ export async function closeQuestionForComeback(teamId: ObjectId, round: QuizRoun
 
   const fresh = await states.findOne({ teamId, round });
   const currentStreak = fresh?.bottomStreak ?? 0;
-  const newStreak = inBottomTier ? currentStreak + 1 : 0;
+  const newStreak = inBottomTier ? Math.min(STREAK_THRESHOLD, currentStreak + 1) : 0;
 
   if (newStreak >= STREAK_THRESHOLD && !fresh?.ability) {
     const ability = ABILITIES[randomInt(ABILITIES.length)];
     await states.updateOne(
       { teamId, round },
-      { $set: { bottomStreak: 0, ability, grantedAt: new Date(), usableOnSlug: null, usedAt: null, usedOnSlug: null } }
+      { $set: { bottomStreak: STREAK_THRESHOLD, ability, grantedAt: new Date(), usableOnSlug: null, usedAt: null, usedOnSlug: null } }
     );
   } else {
     await states.updateOne({ teamId, round }, { $set: { bottomStreak: newStreak } });

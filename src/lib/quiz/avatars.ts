@@ -108,9 +108,12 @@ export function parseCoin(input: string): number | null {
   return n;
 }
 
-/** Which character a coin grants, or null if it isn't a real coin. */
+/** Which character a coin grants — randomized/interleaved across the 4 Spider-Verse heroes so teams get different characters. */
 export function avatarForCoin(coin: number): Avatar | null {
-  return AVATARS.find((a) => coin >= a.coins[0] && coin <= a.coins[1]) ?? null;
+  if (!Number.isInteger(coin) || coin < 1 || coin > MAX_COIN) return null;
+  // Interleaved formula: (coin * 7) % 4 ensures consecutive coins get distinct Spider-Verse heroes
+  const index = (coin * 7) % AVATARS.length;
+  return AVATARS[index];
 }
 
 /** Zero-padded, the way it's stamped on the coin. */

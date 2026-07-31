@@ -41,6 +41,8 @@ export interface ServedQuestion {
   hint: string | null;
   index: number;
   total: number;
+  serverNow: string;
+  image?: string | null;
 }
 
 export type ServeResult =
@@ -48,7 +50,7 @@ export type ServeResult =
   | { ok: true; done: true }
   | { ok: false; reason: "no-questions" };
 
-function toPublic(challenge: Challenge, serve: QuizServe, index: number, total: number): ServedQuestion {
+function toPublic(challenge: Challenge, serve: QuizServe | import("mongodb").WithId<QuizServe>, index: number, total: number): ServedQuestion {
   const cfg = challenge.config;
   const hintPaidFor = serve.abilitiesUsed.includes("hint");
   return {
@@ -63,6 +65,8 @@ function toPublic(challenge: Challenge, serve: QuizServe, index: number, total: 
     hint: hintPaidFor ? (cfg.hint ?? null) : null,
     index,
     total,
+    serverNow: new Date().toISOString(),
+    image: cfg.image ?? null,
   };
 }
 
@@ -85,51 +89,65 @@ export async function serveNext(teamId: ObjectId, round: QuizRound): Promise<Ser
   const questions = await questionsInRound(round);
   if (questions.length === 0) return { ok: false, reason: "no-questions" };
 
-  const serves = await collections.quizServes();
-  const existing = await serves.find({ teamId, round }).toArray();
-  const bySlug = new Map(existing.map((s) => [s.challengeSlug, s]));
+  const stateCol = await collections.quizState();
+  let state = await stateCol.findOne({ _id: "quiz" });
+
+  const roundKey = `round${round}StartedAt`;
+  let roundStart: Date | null = state && state[roundKey] ? new Date(state[roundKey] as Date) : null;
 
   const now = Date.now();
 
-  for (let i = 0; i < questions.length; i++) {
-    const q = questions[i];
-    const serve = bySlug.get(q.slug);
+  // If no round start timestamp exists in quizState yet, set it now to synchronize all teams
+  if (!roundStart) {
+    roundStart = new Date();
+    await stateCol.updateOne({ _id: "quiz" }, { $set: { [roundKey]: roundStart } }, { upsert: true });
+  }
 
-    if (serve && (serve.answeredAt || serve.skipped)) continue;
+  // 16s question time (6s read + 10s select) per question step
+  const QUESTION_STEP_MS = 16_000;
+  const elapsedMs = Math.max(0, now - roundStart.getTime());
+  const activeIndex = Math.floor(elapsedMs / QUESTION_STEP_MS);
 
-    // Served, never answered, clock long gone. Move past it rather than
-    // handing back a dead question forever — a team that lost one to a flat
-    // battery is otherwise stuck for the rest of the round. It still costs
-    // them: standings charge an unanswered question its full window.
-    if (serve && serve.answerableUntil.getTime() + LATE_GRACE_MS < now) continue;
+  if (activeIndex >= questions.length) {
+    return { ok: true, done: true };
+  }
 
-    if (serve) return { ok: true, question: toPublic(q, serve, i + 1, questions.length) };
+  const q = questions[activeIndex];
+  const serves = await collections.quizServes();
+  let serve = await serves.findOne({ teamId, challengeSlug: q.slug });
 
-    const servedAt = new Date();
+  const questionServedAt = new Date(roundStart.getTime() + activeIndex * QUESTION_STEP_MS);
+  const readUntil = new Date(questionServedAt.getTime() + READ_SECONDS * 1000);
+  const answerableUntil = new Date(questionServedAt.getTime() + (READ_SECONDS + SELECT_SECONDS) * 1000);
+
+  if (!serve) {
     const fresh: QuizServe = {
       teamId,
       challengeSlug: q.slug,
       round,
-      servedAt,
-      readUntil: new Date(servedAt.getTime() + READ_SECONDS * 1000),
-      answerableUntil: new Date(servedAt.getTime() + (READ_SECONDS + SELECT_SECONDS) * 1000),
+      servedAt: questionServedAt,
+      readUntil,
+      answerableUntil,
       answeredAt: null,
       abilitiesUsed: [],
     };
-
     try {
       await serves.insertOne(fresh);
-      return { ok: true, question: toPublic(q, fresh, i + 1, questions.length) };
+      serve = (await serves.findOne({ teamId, challengeSlug: q.slug })) ?? (fresh as import("mongodb").WithId<QuizServe>);
     } catch {
-      // Two tabs asked at once and the unique index rejected the second.
-      // The winner's serve is authoritative — read it back rather than retry.
-      const won = await serves.findOne({ teamId, challengeSlug: q.slug });
-      if (won) return { ok: true, question: toPublic(q, won, i + 1, questions.length) };
-      throw new Error(`Could not serve ${q.slug}`);
+      serve = (await serves.findOne({ teamId, challengeSlug: q.slug })) ?? (fresh as import("mongodb").WithId<QuizServe>);
+    }
+  } else if (serve.readUntil.getTime() !== readUntil.getTime() || serve.answerableUntil.getTime() !== answerableUntil.getTime()) {
+    // Keep in-flight serve timestamps synced with the global clock (unless extra-time ability was used)
+    if (!serve.abilitiesUsed.includes("extra-time")) {
+      serve.readUntil = readUntil;
+      serve.answerableUntil = answerableUntil;
+      await serves.updateOne({ _id: serve._id }, { $set: { readUntil, answerableUntil } });
     }
   }
 
-  return { ok: true, done: true };
+  if (!serve) throw new Error(`Could not find serve for ${q.slug}`);
+  return { ok: true, question: toPublic(q, serve, activeIndex + 1, questions.length) };
 }
 
 /** The serve record backing a submission. The grader's source of truth for time. */

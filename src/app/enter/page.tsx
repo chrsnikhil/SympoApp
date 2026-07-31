@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { avatarForCoin, parseCoin } from "@/lib/quiz/avatars";
 import { eventHostFor } from "@/lib/config";
 import WebShooter, { WebNet } from "@/app/quiz/WebShooter";
@@ -13,6 +13,27 @@ export default function EnterPage() {
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    // If user already has a valid session cookie, bypass token form and go straight to quiz
+    fetch("/api/quiz/round1", { cache: "no-store" })
+      .then((res) => {
+        if (res.ok) {
+          const rt = new URLSearchParams(window.location.search).get("rt");
+          if (rt && !rt.includes("/enter")) {
+            window.location.href = rt;
+          } else {
+            const quizHost = eventHostFor(window.location.host, "quiz");
+            if (window.location.host === quizHost || window.location.host.startsWith("quiz.")) {
+              window.location.href = "/";
+            } else {
+              window.location.href = `${window.location.protocol}//${quizHost}/`;
+            }
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const looksLikeCode = value.includes("-") || value.trim() === "1684" || (value.trim().length >= 4 && parseCoin(value) === null);
   const parsedCoin = looksLikeCode ? null : parseCoin(value);
@@ -29,7 +50,13 @@ export default function EnterPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data: { error?: string; role?: string } = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { error: "Unexpected response from server" };
+      }
 
       if (!res.ok) {
         setError(data.error ?? "That didn't work");
@@ -47,10 +74,15 @@ export default function EnterPage() {
         window.location.href = "/admin/quiz";
       } else {
         const quizHost = eventHostFor(window.location.host, "quiz");
-        window.location.href = `${window.location.protocol}//${quizHost}/`;
+        if (window.location.host === quizHost || window.location.host.startsWith("quiz.")) {
+          window.location.href = "/";
+        } else {
+          window.location.href = `${window.location.protocol}//${quizHost}/`;
+        }
       }
-    } catch {
-      setError("Network error — try again");
+    } catch (err) {
+      console.error("[enter] onSubmit error:", err);
+      setError(err instanceof Error ? err.message : "Network error — try again");
     } finally {
       setBusy(false);
     }

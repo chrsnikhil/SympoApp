@@ -54,7 +54,14 @@ async function connectionsCleared(teamId: ObjectId, challenge: Challenge, now: D
     status: "done",
     "verdict.correct": true,
   });
-  return !!solved;
+  if (solved) return true;
+
+  const timedOut = await subs.findOne({
+    challengeId: challenge._id,
+    teamId,
+    payload: "__timeout__",
+  });
+  return !!timedOut;
 }
 
 /** The specific puzzle a team is currently on, or null once every puzzle in
@@ -71,14 +78,23 @@ export async function round1Phase(teamId: ObjectId, games: Challenge[], now: Dat
   const memoryGame = games.find((g) => g.config.format === "memory");
   const puzzles = connectionsPuzzles(games);
 
+  const stateCol = await collections.quizState();
+  const quizState = await stateCol.findOne({ _id: "quiz" });
+  const round1Start = quizState?.round1StartedAt ?? quizState?.startedAt;
+
   if (imageGame) {
-    // The window stays open for the coordinator's full allotted time —
-    // submitting doesn't move a team on early. That's deliberate: it's what
-    // lets a team delete a bad attempt and try a different generation while
-    // there's still time left (see the image route's DELETE handler),
-    // instead of the first upload being a one-shot commit. Once the window
-    // actually closes, everyone moves on together, submitted or not.
-    if (!imageGame.closesAt || now <= imageGame.closesAt) return "image";
+    const isClosedGlobal = imageGame.closesAt ? now > imageGame.closesAt : false;
+    const startMs = imageGame.opensAt
+      ? new Date(imageGame.opensAt).getTime()
+      : round1Start
+        ? new Date(round1Start).getTime()
+        : 0;
+    const DEFAULT_IMAGE_DURATION_MS = 270_000; // 4.5 minutes
+    const isTimedOut = startMs > 0 ? now.getTime() - startMs >= DEFAULT_IMAGE_DURATION_MS : false;
+
+    if (!isClosedGlobal && !isTimedOut) {
+      return "image";
+    }
   }
 
   if (puzzles.length > 0) {

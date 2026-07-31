@@ -53,25 +53,15 @@ export interface Standing {
   answered: number;
 }
 
-/** The quiz challenge slugs that belong to a round, in display order. */
-export async function slugsInRound(round: QuizRound): Promise<string[]> {
+/** All quiz challenge slugs up to and including the current round, for cumulative scoring. */
+export async function slugsUpToRound(round: QuizRound): Promise<string[]> {
   const challenges = await collections.challenges();
-  const list = await challenges.find({ type: "quiz", "config.round": round }).toArray();
-  return list.sort((a, b) => (a.config.order ?? 0) - (b.config.order ?? 0)).map((c) => c.slug);
+  const list = await challenges.find({ type: "quiz", "config.round": { $lte: round } }).toArray();
+  return list.map((c) => c.slug);
 }
 
 /**
- * Standings within a round, ranked by combined points then by the tie-break.
- *
- * Round 1: the tie-break is when a team finished its LAST of the three
- * mini-games (earliest wins) — the rules doc doesn't specify a Round 1
- * tiebreak, so this follows the platform's general "server clock decides
- * ties" principle rather than leaving it undefined.
- *
- * Rounds 2/3: the tie-break is total answer time across every question
- * actually answered (servedAt → answeredAt, summed; an unanswered question
- * charges its full 16s window) — same reasoning, and it's what the Round 3
- * "handle a tie at the top" question in the build guide defaults to.
+ * Standings within a round, ranked by cumulative points from Round 1 up to current round then by tie-break.
  */
 export async function standings(round: QuizRound): Promise<Standing[]> {
   const [teamsCol, scores, subs] = await Promise.all([
@@ -80,18 +70,19 @@ export async function standings(round: QuizRound): Promise<Standing[]> {
     collections.submissions(),
   ]);
 
-  const roundSlugs = new Set(await slugsInRound(round));
+  const cumulativeSlugs = new Set(await slugsUpToRound(round));
   const teamDocs = await teamsCol.find({}).toArray();
   const teamById = new Map(teamDocs.map((t) => [String(t._id), t]));
 
-  // Points come from the ledger, sliced to this round's slugs. The pipeline
-  // writes reasons as `quiz:<slug>` and knows nothing about rounds.
+  // Points come from the ledger, accumulating cumulatively across all rounds played so far.
   const ledger = await scores.find({ event: "quiz" }).toArray();
   const points = new Map<string, number>();
   for (const row of ledger) {
-    if (!roundSlugs.has(row.reason.replace(/^quiz:/, ""))) continue;
-    const key = String(row.teamId);
-    points.set(key, (points.get(key) ?? 0) + row.points);
+    const slug = row.reason.replace(/^quiz:/, "");
+    if (cumulativeSlugs.has(slug)) {
+      const key = String(row.teamId);
+      points.set(key, (points.get(key) ?? 0) + row.points);
+    }
   }
 
   const tiebreak = new Map<string, number>();
@@ -130,10 +121,23 @@ export async function standings(round: QuizRound): Promise<Standing[]> {
   // Everyone who qualified for this round belongs in its table, even on zero
   // — otherwise a team that qualified but hasn't answered anything yet simply
   // vanishes, and "top N" comes up short.
-  const involved = new Set<string>([...points.keys(), ...tiebreak.keys()]);
-  if (round > 1) {
+  const rawInvolved = new Set<string>([...points.keys(), ...tiebreak.keys()]);
+  const involved = new Set<string>();
+  for (const id of rawInvolved) {
+    if (teamById.has(id) && teamById.get(id)?.name !== "Quiz Control") {
+      involved.add(id);
+    }
+  }
+  const isEnded = await isQuizEnded();
+  if (round === 3 || isEnded) {
+    for (const t of teamDocs) {
+      if (t.name !== "Quiz Control") involved.add(String(t._id));
+    }
+  } else if (round > 1) {
     const quals = await collections.roundQualifications();
-    for (const q of await quals.find({ round }).toArray()) involved.add(String(q.teamId));
+    for (const q of await quals.find({ round }).toArray()) {
+      if (teamById.has(String(q.teamId))) involved.add(String(q.teamId));
+    }
   } else {
     for (const t of teamDocs) {
       if (t.name !== "Quiz Control") involved.add(String(t._id));

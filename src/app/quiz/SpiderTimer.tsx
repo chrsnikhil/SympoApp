@@ -40,9 +40,8 @@ export default function SpiderTimer({
 
   const safeTotal = Math.max(1, totalSeconds);
   const clampedLeft = Math.max(0, Math.min(safeTotal, secondsLeft));
-  // Progress ratio: 1.0 (start, full) -> 0.0 (time up)
+  // Remaining progress ratio: 1.0 (start, 100% full) -> 0.0 (time up, 0%)
   const progress = clampedLeft / safeTotal;
-  const elapsedRatio = 1 - progress;
 
   // Format time display
   const minutes = Math.floor(clampedLeft / 60);
@@ -58,11 +57,12 @@ export default function SpiderTimer({
   const radius = 54;
   const strokeWidth = 8;
   const circumference = 2 * Math.PI * radius;
-  // Progress ring stroke offset so arc grows clockwise from 12 o'clock to elapsedRatio
-  const strokeDashoffset = circumference * (1 - elapsedRatio);
 
-  // Angle for Spider Crawler (0° at 12 o'clock, moving clockwise)
-  const angleDeg = elapsedRatio * 360;
+  // Arc length for remaining time extending clockwise from 12 o'clock to Spider-Man's position
+  const activeArcLength = progress * circumference;
+
+  // Angle for Spider Crawler (360° at start, depleting clockwise to 0° at time up)
+  const angleDeg = progress * 360;
   const angleRad = (angleDeg - 90) * (Math.PI / 180);
   const spiderX = center + radius * Math.cos(angleRad);
   const spiderY = center + radius * Math.sin(angleRad);
@@ -119,7 +119,7 @@ export default function SpiderTimer({
           strokeWidth={strokeWidth}
         />
 
-        {/* Clockwise depleting/filling progress ring */}
+        {/* Clockwise progress ring trailing behind Spider-Man */}
         <circle
           cx={center}
           cy={center}
@@ -127,12 +127,12 @@ export default function SpiderTimer({
           fill="none"
           stroke={progressColor}
           strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
+          strokeDasharray={`${activeArcLength} ${circumference}`}
+          strokeDashoffset={0}
           strokeLinecap="round"
           transform={`rotate(-90 ${center} ${center})`}
           filter={urgent ? "url(#timer-glow)" : undefined}
-          style={{ transition: "stroke-dashoffset 200ms linear" }}
+          style={{ transition: "stroke-dasharray 200ms linear" }}
         />
 
         {/* SPIDER-MAN CHARACTER CRAWLER ON BORDER */}

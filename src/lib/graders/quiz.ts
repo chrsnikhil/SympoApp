@@ -63,9 +63,7 @@ export async function gradeQuiz(input: GradeInput): Promise<GradeResult> {
 
     if (format === "estimate") return acceptEstimate(payload);
 
-    const result = await acceptPromptImage(payload, teamId, challenge.slug);
-    if (result.pending) scheduleImageJudging(challenge, teamId, input.submissionId);
-    return result;
+    return acceptPromptImage(payload, teamId, challenge.slug);
   }
 
   // Connections allows retries — a wrong guess shouldn't cost a team the rest

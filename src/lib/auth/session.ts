@@ -68,13 +68,14 @@ export async function verifySession(token: string | undefined | null): Promise<S
  * event still sends the cookie.
  */
 export function sessionCookieOptions() {
+  const domain = COOKIE_DOMAIN ?? undefined;
   return {
     name: SESSION_COOKIE,
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax" as const,
     path: "/",
-    domain: COOKIE_DOMAIN,
+    domain,
     maxAge: SESSION_TTL_SECONDS,
   };
 }

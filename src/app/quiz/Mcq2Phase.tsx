@@ -18,6 +18,7 @@ interface Question {
   hint: string | null;
   index: number;
   total: number;
+  image?: string | null;
 }
 
 interface Verdict {
@@ -55,6 +56,7 @@ export default function Mcq2Phase({
 
   const inFlight = useRef(false);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clockSkewMs = useRef(0);
 
   const loadQuestion = useCallback(async () => {
     setLoading(true);
@@ -62,6 +64,7 @@ export default function Mcq2Phase({
     setChoice(null);
     setVerdict(null);
     try {
+      const fetchStart = Date.now();
       const res = await fetch(`/api/quiz/serve?round=${round}`, { cache: "no-store" });
       const body = await res.json();
       if (!res.ok) {
@@ -71,6 +74,9 @@ export default function Mcq2Phase({
         setDone(true);
         setQuestion(null);
       } else {
+        if (body.serverNow) {
+          clockSkewMs.current = fetchStart - new Date(body.serverNow).getTime();
+        }
         setQuestion(body);
       }
     } catch {
@@ -108,27 +114,27 @@ export default function Mcq2Phase({
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
   }, []);
 
+  const syncedNow = (now > 0 ? now : Date.now()) - clockSkewMs.current;
   const readUntilMs = question ? new Date(question.readUntil).getTime() : 0;
   const answerableUntilMs = question ? new Date(question.answerableUntil).getTime() : 0;
   const phase: "read" | "select" | "closed" = !question
     ? "closed"
-    : now < readUntilMs
+    : syncedNow < readUntilMs
       ? "read"
-      : now < answerableUntilMs
+      : syncedNow < answerableUntilMs
         ? "select"
         : "closed";
 
   useEffect(() => {
     if (!question) return;
-    if (verdict || phase === "closed") {
-      if (advanceTimer.current) return;
-      advanceTimer.current = setTimeout(() => {
-        advanceTimer.current = null;
+    if (phase === "closed") {
+      const timer = setInterval(() => {
         void loadQuestion();
         void loadComeback();
-      }, AUTO_ADVANCE_DELAY_MS);
+      }, 500);
+      return () => clearInterval(timer);
     }
-  }, [verdict, phase, question, loadQuestion, loadComeback]);
+  }, [phase, question, loadQuestion, loadComeback]);
 
   async function submit() {
     if (!question || inFlight.current || choice === null) return;
@@ -172,8 +178,8 @@ export default function Mcq2Phase({
     }
   }
 
-  const readSecondsLeft = Math.max(0, Math.ceil((readUntilMs - now) / 1000));
-  const selectSecondsLeft = Math.max(0, Math.ceil((answerableUntilMs - now) / 1000));
+  const readSecondsLeft = Math.max(0, Math.ceil((readUntilMs - syncedNow) / 1000));
+  const selectSecondsLeft = Math.max(0, Math.ceil((answerableUntilMs - syncedNow) / 1000));
   const urgent = phase === "select" && selectSecondsLeft <= 3;
   const letters = ["A", "B", "C", "D"];
   const tilts = ["comic-tilt-left", "", "comic-tilt-right", "-rotate-1"];
@@ -234,8 +240,8 @@ export default function Mcq2Phase({
                     Math.min(
                       100,
                       phase === "read"
-                        ? ((readUntilMs - now) / 6000) * 100
-                        : ((answerableUntilMs - now) / 10000) * 100
+                        ? ((readUntilMs - syncedNow) / 6000) * 100
+                        : ((answerableUntilMs - syncedNow) / 10000) * 100
                     )
                   )}%`,
                 }}
@@ -254,9 +260,18 @@ export default function Mcq2Phase({
             <p className="font-label-sm text-primary uppercase tracking-[0.2em] mb-3 relative z-10">
               Question {question.index} / {question.total}
             </p>
-            <h2 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface leading-tight relative z-10">
+            <h2 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface leading-tight relative z-10 whitespace-pre-line mb-4">
               {question.title}
             </h2>
+            {question.image && (
+              <div className="relative z-10 my-4 flex justify-center">
+                <img
+                  src={question.image}
+                  alt="Question Image"
+                  className="max-h-72 w-auto object-contain comic-border bg-surface p-2 shadow-md"
+                />
+              </div>
+            )}
           </div>
 
           {question.hint && (
@@ -282,7 +297,7 @@ export default function Mcq2Phase({
                     {question.options.map((opt, i) => {
                       const struck = question.eliminated.includes(i);
                       const picked = choice === i;
-                      const disabled = struck || phase !== "select";
+                      const disabled = struck || phase !== "select" || verdict !== null;
                       return (
                         <button
                           key={i}
@@ -309,11 +324,11 @@ export default function Mcq2Phase({
                     <button
                       type="button"
                       onClick={submit}
-                      disabled={submitting || phase !== "select" || choice === null}
+                      disabled={submitting || phase !== "select" || choice === null || verdict !== null}
                       className="relative bg-primary px-10 py-5 comic-border comic-tilt-right transition-all duration-100 hover:translate-x-1 hover:translate-y-1 hover:shadow-none shadow-[8px_8px_0px_0px_rgba(27,27,28,1)] active:scale-95 disabled:opacity-40"
                     >
                       <span className="font-display-xl text-headline-lg-mobile text-on-primary uppercase tracking-widest">
-                        {submitting ? "Locking in…" : "Lock it in"}
+                        {verdict ? "🔒 LOCKED IN" : submitting ? "Locking in…" : "Lock it in"}
                       </span>
                     </button>
                   </div>
@@ -369,7 +384,7 @@ export default function Mcq2Phase({
             </div>
           </div>
 
-          {comeback?.ability && !comeback.used && comeback.usableOnSlug === question?.slug && !verdict && (
+          {comeback?.ability && !comeback.used && (!comeback.usableOnSlug || comeback.usableOnSlug === question?.slug) && !verdict && (
             <div className="mt-4 pt-4 border-t-2 border-dashed border-on-surface/20 flex flex-wrap items-center justify-between gap-4">
               <div>
                 <div className="font-display-xl text-headline-lg-mobile text-primary">
@@ -381,7 +396,7 @@ export default function Mcq2Phase({
                 type="button"
                 onClick={useAbility}
                 disabled={phase !== "select"}
-                className="bg-primary text-on-primary font-display-xl text-caption-bold px-6 py-3 comic-border comic-tilt-right"
+                className="bg-primary text-on-primary font-display-xl text-caption-bold px-6 py-3 comic-border comic-tilt-right hover:scale-105 transition-transform"
               >
                 Use Ability
               </button>

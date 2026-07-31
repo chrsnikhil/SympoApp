@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
+import { collections } from "@/lib/db/client";
 import { ROUNDS, isQualified, getActiveQuizRound, isTeamEliminated, isQuizEnded, isQuizStarted } from "@/lib/quiz/rounds";
 import type { QuizRound } from "@/lib/db/types";
 
@@ -20,12 +21,27 @@ export async function GET() {
     const ended = await isQuizEnded();
     const started = await isQuizStarted();
 
+    const stateCol = await collections.quizState();
+    const quizState = await stateCol.findOne({ _id: "quiz" });
+
     let round: QuizRound = 1;
     if (await isQualified(teamId, 2)) round = 2;
     if (await isQualified(teamId, 3)) round = 3;
 
     return NextResponse.json(
-      { round, activeRound, eliminated, ended, started, title: ROUNDS[round].title },
+      {
+        serverTime: new Date().toISOString(),
+        round,
+        activeRound,
+        eliminated,
+        ended,
+        started,
+        startedAt: quizState?.startedAt ? quizState.startedAt.toISOString() : null,
+        round1StartedAt: quizState?.round1StartedAt ? quizState.round1StartedAt.toISOString() : null,
+        round2StartedAt: quizState?.round2StartedAt ? quizState.round2StartedAt.toISOString() : null,
+        round3StartedAt: quizState?.round3StartedAt ? quizState.round3StartedAt.toISOString() : null,
+        title: ROUNDS[round].title,
+      },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (err) {

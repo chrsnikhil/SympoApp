@@ -48,7 +48,7 @@ interface Overview {
   connectionsPuzzles?: ConnectionsPuzzleInfo[];
   comeback?: Array<{ teamId: string; teamName: string; bottomStreak: number; ability: string | null; usableOnSlug: string | null; used: boolean }>;
   flags?: Array<{ teamId: string; teamName: string; tabSwitch: number; windowBlur: number; fullscreenExit: number; lastAt: string }>;
-  coins: { claimed: number; total: number; rows: Array<{ coin: string; character: string; team: string }> };
+  coins: { claimed: number; total: number; rows: Array<{ coin: string; character: string; team: string; isLocked?: boolean }> };
 }
 
 const POLL_MS = 3000;
@@ -61,6 +61,7 @@ export default function AdminDashboard() {
   const [resetTarget, setResetTarget] = useState("");
   const [advanceConfirm, setAdvanceConfirm] = useState(false);
   const [endConfirm, setEndConfirm] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState(false);
   const [showStageLeaderboard, setShowStageLeaderboard] = useState(false);
   const [assignCoin, setAssignCoin] = useState("");
   const [assignTeamName, setAssignTeamName] = useState("");
@@ -83,6 +84,12 @@ export default function AdminDashboard() {
       clearInterval(id);
     };
   }, [load]);
+
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(null), 5000);
+    return () => clearTimeout(timer);
+  }, [message]);
 
   async function callAdvance(body: Record<string, unknown>) {
     setBusy(true);
@@ -145,10 +152,21 @@ export default function AdminDashboard() {
         </header>
 
         {message && (
-          <div className="comic-caption-yellow flex items-center justify-between px-3 py-2 text-xs">
-            <span>💬 {message}</span>
-            <button onClick={() => setMessage(null)} className="font-bold underline">
-              Dismiss
+          <div className="fixed bottom-6 right-6 z-[99999] flex max-w-md items-center justify-between gap-4 border-2 border-glitch-cyan bg-[#0d0e12] p-4 text-paper-white shadow-[6px_6px_0px_0px_rgba(0,229,255,1)] anim-pop rounded-none">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-glitch-cyan bg-glitch-cyan/20 text-lg font-bold">
+                ⚡
+              </span>
+              <div>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-glitch-cyan">SYSTEM NOTICE</p>
+                <p className="font-mono text-xs font-bold text-paper-white leading-tight">{message}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setMessage(null)}
+              className="shrink-0 border border-spider-red bg-spider-red/20 px-3 py-1.5 text-xs font-bold text-spider-red hover:bg-spider-red hover:text-paper-white transition-colors"
+            >
+              DISMISS
             </button>
           </div>
         )}
@@ -213,13 +231,6 @@ export default function AdminDashboard() {
                   <div className="inline-flex items-center gap-2 border-2 border-signal-good bg-signal-good/10 px-4 py-2 text-signal-good text-xs font-bold uppercase tracking-widest rounded">
                     🏁 QUIZ CONCLUDED — CHAMPIONS VICTORY SCREEN IS LIVE
                   </div>
-                  <button
-                    disabled={busy}
-                    onClick={() => callAdvance({ action: "restart-quiz" })}
-                    className="comic-btn comic-btn-yellow px-4 py-2 text-xs font-bold"
-                  >
-                    🔄 Restart Quiz (Reset to Lobby)
-                  </button>
                 </div>
               ) : !endConfirm ? (
                 <button onClick={() => setEndConfirm(true)} className="comic-btn comic-btn-pink px-4 py-2 text-xs">
@@ -243,6 +254,36 @@ export default function AdminDashboard() {
                   </button>
                 </div>
               ))}
+
+            {/* RESET / RESTART QUIZ BUTTON (Always accessible) */}
+            {!resetConfirm ? (
+              <button
+                onClick={() => setResetConfirm(true)}
+                className="comic-btn comic-btn-yellow px-4 py-2 text-xs font-bold"
+              >
+                🔄 Reset Quiz (Scores to Zero)
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 border border-comic-yellow bg-ink-black p-2">
+                <span className="text-xs font-bold text-comic-yellow">
+                  RESET GAMEPLAY? (Sets all scores to 0 & returns to start. Teams & coins remain assigned).
+                </span>
+                <button
+                  disabled={busy}
+                  onClick={async () => {
+                    await callAdvance({ action: "restart-quiz" });
+                    setResetConfirm(false);
+                    setRound(1);
+                  }}
+                  className="comic-btn comic-btn-yellow px-3 py-1 text-xs font-bold"
+                >
+                  YES, RESET SCORES TO 0
+                </button>
+                <button onClick={() => setResetConfirm(false)} className="comic-btn bg-ink-black px-3 py-1 text-xs">
+                  CANCEL
+                </button>
+              </div>
+            )}
           </div>
         </section>
 
@@ -307,47 +348,9 @@ export default function AdminDashboard() {
           </div>
         </section>
 
-        {/* ROUND 1 — three-game monitor, judge queue, connections pacing */}
+        {/* ROUND 1 — judge queue, connections pacing */}
         {round === 1 && data.round1 && (
           <>
-            <section className="panel p-5">
-              <h2 className="display-title mb-3 text-xl text-glitch-cyan">Round 1 — three-game monitor</h2>
-              <div className="overflow-x-auto">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Team</th>
-                      <th>Image Replication</th>
-                      <th>Connections</th>
-                      <th>Memory</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.round1.perTeam.map((t) => (
-                      <tr key={t.teamId}>
-                        <td>{t.teamName}</td>
-                        <td>{t.image ? `${t.image.status}${t.image.points !== null ? ` · ${t.image.points}pt` : ""}` : "—"}</td>
-                        <td>
-                          {t.connections
-                            ? t.connections.doneWithAll
-                              ? `all ${t.connections.totalPuzzles} solved`
-                              : `puzzle ${t.connections.puzzleIndex}/${t.connections.totalPuzzles} · ${t.connections.solvedPuzzles} solved`
-                            : "—"}
-                        </td>
-                        <td>
-                          {t.memory
-                            ? `${t.memory.matchedPairs}/${t.memory.totalPairs} pairs · ${t.memory.flipsUsed}/${t.memory.flipCap} flips${
-                                t.memory.completed ? ` · ${t.memory.points}pt` : ""
-                              }`
-                            : "not started"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
             {data.judgeQueue && (
               <section className="panel p-5">
                 <div className="mb-3 flex items-center justify-between">
@@ -361,9 +364,8 @@ export default function AdminDashboard() {
                   </button>
                 </div>
                 <p className="mb-3 text-xs text-paper-white/45">
-                  Each upload is sent to the vision judge automatically the moment it&apos;s submitted — this list is
-                  whoever&apos;s still waiting (a slow model response, no GROQ_API_KEY, or a judging error that
-                  released them for retry).
+                  Submissions remain queued while the event is active so teams can freely re-upload and refine their creations.
+                  Click &quot;Judge remaining now&quot; (or wait for the round to end) to send the latest submission from each team to the vision model.
                 </p>
                 {data.judgeQueue.length > 0 && (
                   <div className="overflow-x-auto">
@@ -412,26 +414,27 @@ export default function AdminDashboard() {
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {notOpen ? (
-                            <button disabled={busy} onClick={() => callAdvance({ action: "open", slug: p.slug, minutes: 30 })} className="comic-btn comic-btn-cyan px-3 py-1.5 text-xs">
-                              Open puzzle
+                            <button
+                              disabled={busy}
+                              onClick={() => callAdvance({ action: "open", slug: p.slug, minutes: 30 })}
+                              className="comic-btn comic-btn-cyan px-3 py-1.5 text-xs font-bold"
+                            >
+                              ▶ Start Puzzle & Reveal Tile 1
                             </button>
                           ) : (
-                            <>
-                              <button
-                                disabled={busy || closed || p.revealedCount >= p.totalImages}
-                                onClick={() => callAdvance({ action: "reveal-next-image", slug: p.slug })}
-                                className="comic-btn comic-btn-cyan px-3 py-1.5 text-xs"
-                              >
-                                Reveal next image
-                              </button>
-                              <button
-                                disabled={busy || closed}
-                                onClick={() => callAdvance({ action: "close-puzzle", slug: p.slug })}
-                                className="border border-paper-white/20 px-3 py-1.5 text-xs text-paper-white/70 hover:border-paper-white/50"
-                              >
-                                Close & move everyone on
-                              </button>
-                            </>
+                            <button
+                              disabled={busy || closed || p.revealedCount >= p.totalImages}
+                              onClick={() => callAdvance({ action: "reveal-next-image", slug: p.slug })}
+                              className={`comic-btn px-3 py-1.5 text-xs font-bold ${
+                                p.revealedCount >= p.totalImages
+                                  ? "bg-paper-white/10 text-paper-white/40 cursor-not-allowed border border-paper-white/10"
+                                  : "comic-btn-cyan"
+                              }`}
+                            >
+                              {p.revealedCount >= p.totalImages
+                                ? "✓ All 4 Tiles Revealed (10s Timer Active)"
+                                : `Reveal Next Tile (Tile ${p.revealedCount + 1} of ${p.totalImages})`}
+                            </button>
                           )}
                         </div>
                       </div>
@@ -532,7 +535,8 @@ export default function AdminDashboard() {
                   <th>Coin</th>
                   <th>Hero</th>
                   <th>Team</th>
-                  <th>Revoke</th>
+                  <th>Status</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -542,12 +546,18 @@ export default function AdminDashboard() {
                     <td>{c.character}</td>
                     <td>{c.team}</td>
                     <td>
+                      <span className={`text-[0.65rem] font-bold px-2 py-0.5 border ${c.isLocked ? "border-spider-red bg-spider-red/20 text-spider-red" : "border-signal-good bg-signal-good/20 text-signal-good"}`}>
+                        {c.isLocked ? "🔒 IN USE" : "🔓 ACTIVE"}
+                      </span>
+                    </td>
+                    <td>
                       <button
                         disabled={busy}
-                        onClick={() => callAdvance({ action: "revoke-coin", coin: c.coin })}
-                        className="border border-signal-wrong px-2 py-0.5 text-[0.65rem] font-bold text-signal-wrong hover:bg-signal-wrong/20"
+                        onClick={() => callAdvance({ action: "unlock-coin", coin: c.coin })}
+                        className="border border-glitch-cyan px-3 py-1 text-xs font-bold text-glitch-cyan hover:bg-glitch-cyan/20 transition-colors flex items-center gap-1"
+                        title="Unlock token login so team can re-enter token on any device without losing team data"
                       >
-                        REVOKE
+                        🔓 UNLOCK
                       </button>
                     </td>
                   </tr>

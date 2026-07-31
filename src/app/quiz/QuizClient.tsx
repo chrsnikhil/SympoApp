@@ -56,6 +56,7 @@ export default function QuizClient({
 }) {
   const persona = avatar ?? DEFAULT_PERSONA;
   const router = useRouter();
+  const [activeRoundState, setActiveRoundState] = useState<QuizRound>(round);
   const [incoming, setIncoming] = useState<QuizRound | null>(null);
   const [eliminatedState, setEliminatedState] = useState(isEliminated);
   const [endedState, setEndedState] = useState(ended);
@@ -65,13 +66,19 @@ export default function QuizClient({
   const knownRound = useRef(round);
   const prevStarted = useRef(started);
 
+  const [serverOffsetMs, setServerOffsetMs] = useState(0);
+  const [startedAtState, setStartedAtState] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(0);
+
   if (round !== seenRound) {
     setSeenRound(round);
+    setActiveRoundState(round);
     setIncoming(null);
   }
 
   useEffect(() => {
     knownRound.current = round;
+    setActiveRoundState(round);
   }, [round]);
 
   useEffect(() => {
@@ -87,20 +94,52 @@ export default function QuizClient({
       try {
         const res = await fetch("/api/quiz/status", { cache: "no-store" });
         if (!res.ok || cancelled) return;
-        const body: { round: QuizRound; eliminated?: boolean; ended?: boolean; started?: boolean } = await res.json();
+        const body: {
+          round: QuizRound;
+          eliminated?: boolean;
+          ended?: boolean;
+          started?: boolean;
+          serverTime?: string;
+          startedAt?: string | null;
+          round1StartedAt?: string | null;
+          round2StartedAt?: string | null;
+          round3StartedAt?: string | null;
+        } = await res.json();
+
+        if (body.serverTime) {
+          const serverMs = new Date(body.serverTime).getTime();
+          setServerOffsetMs(Date.now() - serverMs);
+        }
+
+        const roundTimestamp =
+          body.round === 1
+            ? body.round1StartedAt ?? body.startedAt
+            : body.round === 2
+              ? body.round2StartedAt ?? body.startedAt
+              : body.round3StartedAt ?? body.startedAt;
+        if (roundTimestamp) setStartedAtState(roundTimestamp);
+
         if (body.eliminated !== undefined) setEliminatedState(body.eliminated);
         if (body.ended !== undefined) setEndedState(body.ended);
         if (body.started !== undefined) {
           setStartedState((prev) => {
             if (!prev && body.started) {
-              setShowCountdown(true);
+              const startTimestamp = roundTimestamp ? new Date(roundTimestamp).getTime() : Date.now();
+              if (Date.now() - startTimestamp < 15_000) {
+                setShowCountdown(true);
+              }
             }
             return Boolean(body.started);
           });
         }
         if (body.round !== undefined && body.round !== knownRound.current) {
+          knownRound.current = body.round;
           setIncoming(body.round);
-          setShowCountdown(true);
+          setActiveRoundState(body.round);
+          const startTimestamp = roundTimestamp ? new Date(roundTimestamp).getTime() : Date.now();
+          if (Date.now() - startTimestamp < 15_000) {
+            setShowCountdown(true);
+          }
         }
       } catch {
         // Retry next poll
@@ -112,21 +151,35 @@ export default function QuizClient({
     };
   }, []);
 
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now() - serverOffsetMs), 1000);
+    return () => clearInterval(id);
+  }, [serverOffsetMs]);
+
   if (endedState) {
-    return <QuizEndedScreen round={round} teamName={teamName} avatar={avatar} />;
+    return <QuizEndedScreen round={activeRoundState} teamName={teamName} avatar={avatar} />;
   }
 
   /* PRE-QUIZ LOBBY & RULES SCREEN — SHOWS TEAM DETAILS AND RULES BEFORE START */
   if (!startedState && !isAdmin) {
-    return <QuizRulesLobby teamName={teamName} avatar={avatar} round={round} />;
+    return <QuizRulesLobby teamName={teamName} avatar={avatar} round={activeRoundState} />;
   }
 
-  /* 15-SECOND COUNTDOWN INTERLUDE ON START & ROUND ADVANCE */
-  if (showCountdown || incoming) {
+  const isTransitionActive =
+    (showCountdown || incoming !== null) &&
+    (!startedAtState || Date.now() - new Date(startedAtState).getTime() < 15_000);
+
+  /* 15-SECOND COUNTDOWN INTERLUDE ON START & ROUND ADVANCE — SYNCHRONIZED ACROSS SCREENS */
+  if (isTransitionActive) {
     return (
       <RoundTransition
-        round={incoming ?? round}
+        round={incoming ?? activeRoundState}
+        serverNow={nowMs}
+        startedAt={startedAtState}
         onDone={() => {
+          if (incoming !== null) {
+            setActiveRoundState(incoming);
+          }
           setShowCountdown(false);
           setIncoming(null);
           router.refresh();
@@ -163,7 +216,7 @@ export default function QuizClient({
 
           {/* LEADERBOARD ALONE */}
           <div className="max-w-md mx-auto">
-            <Standings round={round} />
+            <Standings round={activeRoundState} />
           </div>
         </div>
       </main>
@@ -201,7 +254,7 @@ export default function QuizClient({
             </div>
 
             <div id="status-stamp" className="bg-tertiary-fixed text-on-tertiary-fixed px-4 py-2 comic-border rotate-1 font-label-sm uppercase text-[12px]">
-              Issue: Round {round}
+              Issue: Round {activeRoundState}
             </div>
           </div>
         </div>
@@ -209,22 +262,22 @@ export default function QuizClient({
 
       <div className="relative mx-auto max-w-5xl px-5">
         <div className="text-center mb-8">
-          <p className="font-label-sm text-primary uppercase tracking-[0.3em] mb-2">Round {round}</p>
+          <p className="font-label-sm text-primary uppercase tracking-[0.3em] mb-2">Round {activeRoundState}</p>
           <h1 className="font-display-xl text-[40px] md:text-[56px] leading-none uppercase italic text-on-background tracking-tighter">
-            {ROUND_TITLES[round]}
+            {ROUND_TITLES[activeRoundState]}
           </h1>
-          <p className="font-label-sm text-on-surface-variant uppercase text-xs mt-2">{ROUND_SUBTITLES[round]}</p>
+          <p className="font-label-sm text-on-surface-variant uppercase text-xs mt-2">{ROUND_SUBTITLES[activeRoundState]}</p>
         </div>
 
         <div className="grid gap-8 md:grid-cols-[18rem_1fr]">
-          <Standings round={round} />
+          <Standings round={activeRoundState} />
 
           <section className="min-w-0">
-            {round === 1 ? (
+            {activeRoundState === 1 ? (
               <Round1Games />
             ) : (
-              <ProctorGate round={round}>
-                <Mcq2Phase round={round} persona={persona} />
+              <ProctorGate round={activeRoundState}>
+                <Mcq2Phase round={activeRoundState} persona={persona} />
               </ProctorGate>
             )}
 
@@ -240,23 +293,37 @@ export default function QuizClient({
   );
 }
 
-/** Full screen Round Transition interlude with 15-second countdown & round rules */
-function RoundTransition({ round, onDone }: { round: QuizRound; onDone: () => void }) {
-  const [secondsLeft, setSecondsLeft] = useState(15);
+/** Full screen Round Transition interlude with server-synchronized 15-second countdown & round rules */
+function RoundTransition({
+  round,
+  serverNow,
+  startedAt,
+  onDone,
+}: {
+  round: QuizRound;
+  serverNow: number;
+  startedAt?: string | null;
+  onDone: () => void;
+}) {
+  const currentNow = serverNow > 0 ? serverNow : Date.now();
+  const fallbackStartRef = useRef(currentNow);
+  const startMs = startedAt ? new Date(startedAt).getTime() : fallbackStartRef.current;
+  const TRANSITION_DURATION_MS = 15_000;
+  const endsAt = startMs + TRANSITION_DURATION_MS;
+  const secondsLeft = Math.max(0, Math.ceil((endsAt - currentNow) / 1000));
+
+  const hasFiredRef = useRef(false);
+  const onDoneRef = useRef(onDone);
+  useEffect(() => {
+    onDoneRef.current = onDone;
+  }, [onDone]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setSecondsLeft((s) => {
-        if (s <= 1) {
-          clearInterval(interval);
-          onDone();
-          return 0;
-        }
-        return s - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [onDone]);
+    if (secondsLeft === 0 && !hasFiredRef.current) {
+      hasFiredRef.current = true;
+      onDoneRef.current();
+    }
+  }, [secondsLeft]);
 
   const roundRules: Record<QuizRound, { title: string; desc: string; points: string[] }> = {
     1: {

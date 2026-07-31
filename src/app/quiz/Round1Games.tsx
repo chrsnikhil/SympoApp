@@ -33,6 +33,7 @@ interface Round1Response {
   phase: Phase;
   completedPhases: string[];
   game: Round1Game | null;
+  serverTime?: string;
 }
 
 const PHASE_LABEL: Record<Phase, string> = {
@@ -54,6 +55,7 @@ const STEPS: Array<Exclude<Phase, "done">> = ["image", "connections", "memory"];
  */
 export default function Round1Games() {
   const [data, setData] = useState<Round1Response | null>(null);
+  const [serverOffsetMs, setServerOffsetMs] = useState(0);
   const [nowMs, setNowMs] = useState(0);
   const [transition, setTransition] = useState<string | null>(null);
   const prevPhase = useRef<Phase | null>(null);
@@ -63,6 +65,11 @@ export default function Round1Games() {
     const res = await fetch("/api/quiz/round1", { cache: "no-store" });
     if (!res.ok) return;
     const json: Round1Response = await res.json();
+
+    if (json.serverTime) {
+      const serverMs = new Date(json.serverTime).getTime();
+      setServerOffsetMs(Date.now() - serverMs);
+    }
 
     if (prevPhase.current && prevPhase.current !== json.phase) {
       setTransition(
@@ -83,7 +90,7 @@ export default function Round1Games() {
       if (!cancelled) await load();
     }
     void run();
-    const id = setInterval(load, 4000);
+    const id = setInterval(load, 2000);
     return () => {
       cancelled = true;
       clearInterval(id);
@@ -91,12 +98,11 @@ export default function Round1Games() {
     };
   }, [load]);
 
-  // Drives open/close gates and the reveal countdown — a ticking effect,
-  // never a Date.now() read during render.
+  // Drives open/close gates and the reveal countdown using server-synchronized time offset
   useEffect(() => {
-    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    const id = setInterval(() => setNowMs(Date.now() - serverOffsetMs), 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [serverOffsetMs]);
 
   if (!data) return <p className="font-comic text-2xl text-paper-white/40">Loading…</p>;
 
@@ -159,42 +165,58 @@ function PhaseTracker({ phase }: { phase: Phase }) {
 
 function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number; onChanged: () => void }) {
   const { game, phase } = data;
-  const [rulesAccepted, setRulesAccepted] = useState<Record<string, boolean>>({});
-  const [gameStartTimes, setGameStartTimes] = useState<Record<string, number>>({});
 
   if (!game) return null;
 
-  const handleRulesDone = (p: string) => {
-    setRulesAccepted((prev) => ({ ...prev, [p]: true }));
-    setGameStartTimes((prev) => ({ ...prev, [p]: Date.now() }));
-  };
+  const currentNow = now > 0 ? now : Date.now();
 
-  const isRulesShowing = phase !== "done" && !rulesAccepted[phase];
-  const notOpenYet = game.opensAt && now > 0 && now < new Date(game.opensAt).getTime();
-  const closed = !!(game.closesAt && now > new Date(game.closesAt).getTime());
+  const fallbackOpenRef = useRef<Record<string, number>>({});
+  if (!fallbackOpenRef.current[phase]) {
+    fallbackOpenRef.current[phase] = currentNow;
+  }
+  const fallbackOpenMs = fallbackOpenRef.current[phase];
 
   const DEFAULT_GAME_SECONDS = 270; // 4 min 30 sec
-  const gameStartMs = gameStartTimes[phase] ?? Date.now();
-  const closeMs = game.closesAt ? new Date(game.closesAt).getTime() : gameStartMs + DEFAULT_GAME_SECONDS * 1000;
-  const openMs = game.opensAt ? new Date(game.opensAt).getTime() : gameStartMs;
+  const openMs = game.opensAt ? new Date(game.opensAt).getTime() : fallbackOpenMs;
+  const closeMs = game.closesAt ? new Date(game.closesAt).getTime() : openMs + DEFAULT_GAME_SECONDS * 1000;
+
+  // 10-second pre-game rules gate synchronized across all screens via server timestamp opensAt
+  const RULES_GATE_MS = 10_000;
+  const rulesGateEndsAt = openMs + RULES_GATE_MS;
+  const rulesSecondsLeft = Math.max(0, Math.ceil((rulesGateEndsAt - currentNow) / 1000));
+  const isRulesShowing = phase !== "done" && rulesSecondsLeft > 0 && (phase !== "connections" || (game.puzzleIndex ?? 1) === 1);
+
+  const notOpenYet = game.opensAt && currentNow < new Date(game.opensAt).getTime();
+  const closed = !!(game.closesAt && currentNow > new Date(game.closesAt).getTime());
+
   const totalSeconds = Math.max(1, Math.round((closeMs - openMs) / 1000));
-  const currentNow = isRulesShowing ? gameStartMs : (now > 0 ? now : Date.now());
   const secondsLeft = Math.max(0, Math.ceil((closeMs - currentNow) / 1000));
   const timerActive = !notOpenYet && !closed && secondsLeft > 0;
 
-  useEffect(() => {
-    if (!isRulesShowing && secondsLeft === 0 && !closed) {
-      onChanged();
-    }
-  }, [isRulesShowing, secondsLeft, closed, onChanged]);
+  const hasTriggeredTimeoutRef = useRef<string | null>(null);
 
-  /* DEDICATED PRE-GAME RULES GATE — SHOWN FOR 10 SECONDS BEFORE GAME STARTS */
+  useEffect(() => {
+    if (!isRulesShowing && secondsLeft === 0 && !closed && hasTriggeredTimeoutRef.current !== game.slug) {
+      hasTriggeredTimeoutRef.current = game.slug;
+      if (phase === "image" && (game.status === "not-started" || !game.status) && !game.uploadedImage) {
+        fetch("/api/submit", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ event: "quiz", challengeSlug: game.slug, payload: "__timeout__" }),
+        }).finally(() => onChanged());
+      } else {
+        onChanged();
+      }
+    }
+  }, [isRulesShowing, secondsLeft, closed, phase, game.status, game.uploadedImage, game.slug, onChanged]);
+
+  /* DEDICATED PRE-GAME RULES GATE — SYNCHRONIZED SERVER-WIDE COUNTDOWN */
   if (isRulesShowing) {
     return (
       <PreGameRulesGate
         phase={phase}
         points={game.points}
-        onDone={() => handleRulesDone(phase)}
+        secondsLeft={rulesSecondsLeft}
       />
     );
   }
@@ -210,7 +232,7 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
             </span>
           </div>
 
-          {timerActive && (
+          {phase === "image" && timerActive && (
             <div className="shrink-0 flex items-center">
               <SpiderTimer
                 secondsLeft={secondsLeft}
@@ -239,27 +261,12 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
 function PreGameRulesGate({
   phase,
   points,
-  onDone,
+  secondsLeft,
 }: {
   phase: Exclude<Phase, "done">;
   points: number;
-  onDone: () => void;
+  secondsLeft: number;
 }) {
-  const [secondsLeft, setSecondsLeft] = useState(10);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSecondsLeft((s) => {
-        if (s <= 1) {
-          clearInterval(timer);
-          onDone();
-          return 0;
-        }
-        return s - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [onDone]);
 
   const rulesConfig: Record<string, { title: string; color: string; bgBorder: string; icon: string; points: string[] }> = {
     image: {
@@ -300,37 +307,50 @@ function PreGameRulesGate({
   const cfg = rulesConfig[phase];
 
   return (
-    <article className="halftone panel anim-pop p-8 text-center space-y-6">
-      <div className="text-5xl animate-bounce">{cfg.icon}</div>
+    <article className="halftone panel anim-pop p-8 text-center space-y-6 relative overflow-hidden border-2 border-spider-red/80 shadow-[0_0_25px_rgba(229,34,59,0.3)]">
+      {/* Spider Web Corner Badges */}
+      <div className="absolute top-2 left-3 text-spider-red text-lg opacity-60">🕸️</div>
+      <div className="absolute top-2 right-3 text-spider-red text-lg opacity-60">🕸️</div>
+
+      {/* Spider-Sense Header */}
+      <div className="inline-flex items-center gap-2 border-2 border-spider-red/80 bg-spider-red/15 px-4 py-1 text-spider-red text-xs font-display tracking-widest uppercase rounded shadow animate-pulse">
+        ⚡ SPIDER-SENSE BRIEFING ⚡
+      </div>
+
+      <div className="text-5xl animate-bounce my-1">{cfg.icon}</div>
+
       <div className="space-y-3">
         <div className="flex justify-center my-2">
           <SpiderTimer
             secondsLeft={secondsLeft}
             totalSeconds={10}
             urgent={secondsLeft <= 3}
-            size={85}
+            size={95}
             format="seconds"
             phaseLabel="RULES"
           />
         </div>
-        <h2 className={`font-display-xl text-3xl uppercase italic ${cfg.color}`}>{cfg.title}</h2>
-        <span className="inline-block text-xs font-semibold px-3 py-1 border border-paper-white/20 bg-ink-black/60 text-paper-white rounded">
-          Worth {points} Points
+        <h2 className={`font-display-xl text-3xl uppercase italic tracking-wide ${cfg.color}`}>{cfg.title}</h2>
+        <span className="inline-block text-xs font-bold px-3 py-1 border border-paper-white/20 bg-ink-black/80 text-comic-yellow rounded shadow">
+          ★ Worth {points} Points ★
         </span>
       </div>
 
-      <div className={`text-left border-2 p-5 space-y-2.5 rounded ${cfg.bgBorder}`}>
-        <p className="font-display text-sm uppercase tracking-wide text-paper-white mb-1">RULES & DIRECTIVES:</p>
+      <div className={`text-left border-2 p-5 space-y-2.5 rounded backdrop-blur-sm ${cfg.bgBorder}`}>
+        <p className="font-display text-sm uppercase tracking-wider text-paper-white mb-2 flex items-center gap-2">
+          <span>🕸️</span> RULES & DIRECTIVES:
+        </p>
         {cfg.points.map((pt, i) => (
-          <div key={i} className="font-mono text-xs text-paper-white/90 flex items-start gap-2">
-            <span className="font-bold text-glitch-cyan">0{i + 1}.</span>
-            <span>{pt}</span>
+          <div key={i} className="font-mono text-xs text-paper-white/90 flex items-start gap-2.5">
+            <span className="font-bold text-glitch-cyan text-sm">0{i + 1}.</span>
+            <span className="leading-relaxed">{pt}</span>
           </div>
         ))}
       </div>
 
-      <div className="border border-paper-white/20 bg-ink-black/80 p-3 text-center text-xs font-mono text-paper-white/70">
-        ⌛ Auto-directing to game screen when timer reaches 0s…
+      <div className="border border-paper-white/20 bg-ink-black/90 p-3 text-center text-xs font-mono text-paper-white/80 flex items-center justify-center gap-2">
+        <span className="text-glitch-cyan font-bold">🕸️ THWIP!</span>
+        <span>Auto-directing to game screen when timer reaches 0s…</span>
       </div>
     </article>
   );
@@ -439,19 +459,10 @@ function ImageReplication({ game, disabled, onChanged }: { game: Round1Game; dis
         <div className="halftone panel border-2 border-glitch-cyan/60 p-4 relative space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-paper-white/10 pb-3">
             <div>
-              {game.status === "running" ? (
-                <span className="font-comic text-base text-glitch-cyan flex items-center gap-1.5">
-                  🔒 Locked In
-                  <span className="text-xs font-sans text-paper-white/60">(Pending Vision Judge Scoring)</span>
-                </span>
-              ) : (
-                <span className={`font-comic text-base ${(points ?? 0) > 0 ? "text-glitch-cyan" : "text-signal-wrong"}`}>
-                  {(points ?? 0) > 0 ? `+${points} pts Scored` : "No points awarded"}
-                </span>
-              )}
+              <span className="font-comic text-base text-glitch-cyan flex items-center gap-1.5">
+                ✓ Image Saved & Uploaded
+              </span>
             </div>
-
-
           </div>
 
           <div className="flex justify-center p-2 bg-ink-black/60 border border-paper-white/15">
@@ -514,9 +525,16 @@ function ImageReplication({ game, disabled, onChanged }: { game: Round1Game; dis
 function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disabled: boolean; onSolved: () => void }) {
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
+  const [lockedAnswer, setLockedAnswer] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pop, setPop] = useState(false);
   const prevCount = useRef(game.images?.length ?? 0);
+
+  useEffect(() => {
+    setLockedAnswer(null);
+    setValue("");
+    setError(null);
+  }, [game.slug, game.puzzleIndex]);
 
   useEffect(() => {
     const count = game.images?.length ?? 0;
@@ -530,26 +548,27 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
   }, [game.images?.length]);
 
   async function submit() {
-    if (!value.trim()) return;
+    if (!value.trim() || busy || lockedAnswer) return;
+    const submittedVal = value.trim();
     setBusy(true);
     setError(null);
+    setLockedAnswer(submittedVal);
     try {
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ event: "quiz", challengeSlug: game.slug, payload: value }),
+        body: JSON.stringify({ event: "quiz", challengeSlug: game.slug, payload: submittedVal }),
       });
-      const body = await res.json();
       if (!res.ok) {
+        const body = await res.json();
         setError(body.error ?? "Submission failed");
+        setLockedAnswer(null);
         return;
       }
-      if (body.correct) {
-        onSolved();
-      } else {
-        setError("Not it — the next tile is still coming, if you need it.");
-        setValue("");
-      }
+      onSolved();
+    } catch {
+      setError("Submission failed");
+      setLockedAnswer(null);
     } finally {
       setBusy(false);
     }
@@ -557,17 +576,75 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
 
   const images = game.images ?? [];
   const total = game.totalImages ?? 4;
+  const allTilesRevealed = images.length >= total;
+
+  const [finalSecondsLeft, setFinalSecondsLeft] = useState(10);
+  const hasTimedOut = useRef(false);
+
+  const handleTimeout = useCallback(async () => {
+    try {
+      await fetch("/api/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ event: "quiz", challengeSlug: game.slug, payload: "__timeout__" }),
+      });
+    } finally {
+      onSolved();
+    }
+  }, [game.slug, onSolved]);
+
+  useEffect(() => {
+    setFinalSecondsLeft(10);
+    hasTimedOut.current = false;
+  }, [game.slug, game.puzzleIndex, images.length]);
+
+  useEffect(() => {
+    if (!allTilesRevealed || disabled) return;
+    const timer = setInterval(() => {
+      setFinalSecondsLeft((s) => {
+        if (s <= 1) {
+          clearInterval(timer);
+          if (!hasTimedOut.current) {
+            hasTimedOut.current = true;
+            void handleTimeout();
+          }
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [allTilesRevealed, disabled, handleTimeout]);
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-xs text-paper-white/50">
-          A handful of pictures, one shared technical term. The coordinator reveals a new tile live — type it the
-          moment you&apos;re sure.
-        </p>
-        <span className="shrink-0 pl-3 text-[0.65rem] uppercase tracking-widest text-paper-white/40">
-          Puzzle {game.puzzleIndex ?? 1} of {game.totalPuzzles ?? 5}
-        </span>
+      <div className="mb-3 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-xs text-paper-white/50">
+            A handful of pictures, one shared technical term. The coordinator reveals a new tile live — type it the
+            moment you&apos;re sure.
+          </p>
+          {allTilesRevealed && (
+            <p className="mt-1 font-comic text-xs text-spider-red animate-pulse">
+              ⚡ All tiles revealed! Final 10-second countdown to answer!
+            </p>
+          )}
+        </div>
+        <div className="shrink-0 flex items-center gap-3 pl-3">
+          {allTilesRevealed && (
+            <SpiderTimer
+              secondsLeft={finalSecondsLeft}
+              totalSeconds={10}
+              urgent={finalSecondsLeft <= 4}
+              size={70}
+              format="seconds"
+              phaseLabel="10S LEFT"
+            />
+          )}
+          <span className="text-[0.65rem] uppercase tracking-widest text-paper-white/40">
+            Puzzle {game.puzzleIndex ?? 1} of {game.totalPuzzles ?? 5}
+          </span>
+        </div>
       </div>
 
       {game.clue && (
@@ -577,7 +654,11 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className={`grid gap-3 ${
+        total === 2 ? "grid-cols-2 max-w-xl mx-auto" :
+        total === 3 ? "grid-cols-1 sm:grid-cols-3" :
+        "grid-cols-2 sm:grid-cols-4"
+      }`}>
         {Array.from({ length: total }).map((_, i) => {
           const revealed = i < images.length;
           return (
@@ -604,29 +685,37 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
         {images.length >= total ? "All tiles are up." : `${images.length} of ${total} tiles revealed so far.`}
       </p>
 
-      <div className="mt-4 flex gap-2">
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="The shared technical term"
-          disabled={disabled || game.solved}
-          onKeyDown={(e) => e.key === "Enter" && submit()}
-          data-web-target=""
-          className="w-full border-2 border-paper-white/20 bg-ink-black/60 px-4 py-3 text-base text-paper-white outline-none placeholder:text-paper-white/30 focus:border-glitch-cyan disabled:opacity-40"
-        />
-        <button
-          type="button"
-          data-web-target=""
-          onClick={submit}
-          disabled={busy || disabled || !value.trim() || game.solved}
-          className="comic-btn comic-btn-cyan shrink-0"
-        >
-          {busy ? "…" : "Lock it in"}
-        </button>
-      </div>
+      {lockedAnswer ? (
+        <div className="mt-4 border-2 border-glitch-cyan/60 bg-glitch-cyan/10 p-4 text-center">
+          <p className="font-comic text-sm text-glitch-cyan">🔒 Answer Submitted & Locked</p>
+          <p className="mt-1 font-mono text-base font-bold text-paper-white">&quot;{lockedAnswer}&quot;</p>
+        </div>
+      ) : (
+        <div className="mt-4 flex gap-2">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="The shared technical term"
+            disabled={disabled || busy || !!lockedAnswer || game.solved}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            data-web-target=""
+            className="w-full border-2 border-paper-white/20 bg-ink-black/60 px-4 py-3 text-base text-paper-white outline-none placeholder:text-paper-white/30 focus:border-glitch-cyan disabled:opacity-40"
+          />
+          <button
+            type="button"
+            data-web-target=""
+            onClick={submit}
+            disabled={busy || disabled || !value.trim() || !!lockedAnswer || game.solved}
+            className="comic-btn comic-btn-cyan shrink-0"
+          >
+            {busy ? "…" : "Lock it in"}
+          </button>
+        </div>
+      )}
+
       {error && <p className="anim-shake mt-2 text-xs text-signal-wrong">{error}</p>}
-      {game.solved && <p className="mt-3 font-comic text-lg text-glitch-cyan">Solved! Unlocking the Memory Game…</p>}
+      {game.solved && <p className="mt-3 font-comic text-lg text-glitch-cyan">Solved! Unlocking next puzzle…</p>}
     </div>
   );
 }

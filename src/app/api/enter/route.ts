@@ -114,11 +114,22 @@ export async function POST(request: Request) {
     );
   }
 
+  // Block login if the token is locked / already in use on another device until coordinator unlocks it
+  if (disc.redeemedAt) {
+    return NextResponse.json(
+      { error: `Token #${formatCoin(parsed)} is locked (already in use on another device). Contact event coordinator to unlock it!` },
+      { status: 403 }
+    );
+  }
+
   const team = await teams.findOne({ _id: disc.teamId });
   const participant = await participants.findOne({ teamId: disc.teamId });
   if (!team || !participant?._id) {
     return NextResponse.json({ error: "That coin's team is missing — tell a coordinator" }, { status: 409 });
   }
+
+  // Stamp token as redeemed/active on entry
+  await coins.updateOne({ _id: parsed }, { $set: { redeemedAt: new Date() } });
 
   const token = await sessionFor(team._id!, participant._id, participant.role);
   const res = NextResponse.json({

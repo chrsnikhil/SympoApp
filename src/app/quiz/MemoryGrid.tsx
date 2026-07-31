@@ -4,15 +4,15 @@ import { useCallback, useEffect, useState } from "react";
 
 /** Cosmetic-only lookup — the arrangement of which token sits where is never
  *  known client-side until a cell is actually flipped by the server. */
-const VARIANT_LOOK: Record<string, { label: string; colour: string }> = {
-  "spider-man": { label: "PETER", colour: "#3a86ff" },
-  miles: { label: "MILES", colour: "#e5223b" },
-  gwen: { label: "GWEN", colour: "#ff6ec7" },
-  miguel: { label: "MIGUEL", colour: "#00e5ff" },
-  hobie: { label: "HOBIE", colour: "#facc15" },
-  noir: { label: "NOIR", colour: "#9ca3af" },
-  pavitr: { label: "PAVITR", colour: "#fb923c" },
-  peni: { label: "PENI", colour: "#a78bfa" },
+const VARIANT_LOOK: Record<string, { label: string; colour: string; image?: string }> = {
+  "spider-man": { label: "PETER", colour: "#3a86ff", image: "/quiz/card-1.jpeg" },
+  miles: { label: "MILES", colour: "#e5223b", image: "/quiz/card-2.jpeg" },
+  gwen: { label: "GWEN", colour: "#ff6ec7", image: "/quiz/card-3.jpeg" },
+  miguel: { label: "MIGUEL", colour: "#00e5ff", image: "/quiz/card-4.jpeg" },
+  hobie: { label: "HOBIE", colour: "#facc15", image: "/quiz/card-5.jpeg" },
+  noir: { label: "NOIR", colour: "#9ca3af", image: "/quiz/card-6.jpeg" },
+  pavitr: { label: "PAVITR", colour: "#fb923c", image: "/quiz/card-7.jpeg" },
+  peni: { label: "PENI", colour: "#a78bfa", image: "/quiz/card-8.jpeg" },
 };
 
 interface MemoryPublicState {
@@ -117,12 +117,17 @@ export default function MemoryGrid({ slug, onDone }: { slug: string; onDone: (po
                   <span className="font-display text-lg text-paper-white/25">?</span>
                 </div>
                 <div
-                  className="card-face card-face-back grid place-items-center border-2 px-1 text-center"
+                  className="card-face card-face-back grid place-items-center overflow-hidden border-2 text-center relative"
                   style={{ borderColor: look?.colour ?? "#666", background: `${look?.colour ?? "#666"}22` }}
                 >
-                  <span className="font-comic text-xs leading-tight sm:text-sm" style={{ color: look?.colour ?? "#fff" }}>
-                    {look?.label ?? ""}
-                  </span>
+                  {look?.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={look.image} alt={look.label} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="font-comic text-xs leading-tight sm:text-sm" style={{ color: look?.colour ?? "#fff" }}>
+                      {look?.label ?? ""}
+                    </span>
+                  )}
                 </div>
               </div>
             </button>

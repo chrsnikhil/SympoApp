@@ -40,40 +40,257 @@ function makeCode(): string {
 // of the file), so it must never be `import`-ed by another script — that
 // would re-run the seed as a side effect. scripts/verify-quiz.ts duplicates
 // these literals for that reason; keep them in sync by hand.
+type ConnectionsPuzzle = { title: string; clue: string; answer: string; images?: string[] };
+
 const CONNECTIONS_IMAGES = ["/quiz/connect-1-a.svg", "/quiz/connect-1-b.svg", "/quiz/connect-1-c.svg", "/quiz/connect-1-d.svg"];
-const CONNECTIONS_PUZZLES = [
-  { title: "Puzzle 1: Four pictures. One shared technical term.", clue: "It's what a function does to itself.", answer: "recursion" },
-  { title: "Puzzle 2: Four pictures. One shared technical term.", clue: "The 'S' in SOLID.", answer: "single responsibility" },
-  { title: "Puzzle 3: Four pictures. One shared technical term.", clue: "What a cache miss forces you to do.", answer: "fetch" },
-  { title: "Puzzle 4: Four pictures. One shared technical term.", clue: "Two threads, one variable, no lock.", answer: "race condition" },
-  { title: "Puzzle 5: Four pictures. One shared technical term.", clue: "The tree structure behind every directory.", answer: "hierarchy" },
+const CONNECTIONS_PUZZLES: ConnectionsPuzzle[] = [
+  {
+    title: "Puzzle 1: Four pictures. One shared technical term.",
+    clue: "It's what a function does to itself.",
+    answer: "recursion",
+    images: ["/quiz/p1-a.png", "/quiz/p1-b.png", "/quiz/p1-c.png", "/quiz/p1-d.png"],
+  },
+  {
+    title: "Puzzle 2: Three pictures. One shared technical term.",
+    clue: "The 'S' in SOLID.",
+    answer: "single responsibility",
+    images: ["/quiz/p2-a.png", "/quiz/p2-b.png", "/quiz/p2-c.png"],
+  },
+  {
+    title: "Puzzle 3: Three pictures. One shared technical term.",
+    clue: "What a cache miss forces you to do.",
+    answer: "fetch",
+    images: ["/quiz/p3-a.png", "/quiz/p3-b.png", "/quiz/p3-c.png"],
+  },
+  {
+    title: "Puzzle 4: Three pictures. One shared technical term.",
+    clue: "Two threads, one variable, no lock.",
+    answer: "race condition",
+    images: ["/quiz/p4-a.png", "/quiz/p4-b.png", "/quiz/p4-c.png"],
+  },
+  {
+    title: "Puzzle 5: Three pictures. One shared technical term.",
+    clue: "The tree structure behind every directory.",
+    answer: "hierarchy",
+    images: ["/quiz/p5-a.png", "/quiz/p5-b.png", "/quiz/p5-c.png"],
+  },
 ];
 
 // ── Round 2 — Warm-up MCQs (8 questions, flat scoring, no reveal) ───────────
-type Mcq = { q: string; options: string[]; correct: number; hint?: string };
+type Mcq = { q: string; options: string[]; correct: number; hint?: string; image?: string };
 
 const ROUND_2: Mcq[] = [
-  { q: "What does HTTP stand for?", options: ["HyperText Transfer Protocol", "High Throughput Transfer Protocol", "Hyperlink Text Transmission Process", "Host Transfer Type Protocol"], correct: 0 },
-  { q: "Which port does HTTPS use by default?", options: ["21", "80", "443", "8080"], correct: 2 },
-  { q: "What is the average time complexity of binary search?", options: ["O(1)", "O(log n)", "O(n)", "O(n log n)"], correct: 1 },
-  { q: "Which data structure follows First-In-First-Out order?", options: ["Stack", "Queue", "Tree", "Heap"], correct: 1 },
-  { q: "What does GPT stand for?", options: ["General Purpose Transformer", "Generative Pre-trained Transformer", "Gradient Propagation Technique", "Guided Predictive Training"], correct: 1 },
-  { q: "What year does Miguel O'Hara come from?", options: ["2029", "2099", "3099", "1999"], correct: 1 },
-  { q: "Which company originally developed the Rust programming language?", options: ["Google", "Mozilla", "Microsoft", "Oracle"], correct: 1 },
-  { q: "Which instrument does Gwen Stacy play in her band?", options: ["Bass", "Guitar", "Drums", "Keyboard"], correct: 2 },
+  { q: "Who created Python?", options: ["Dennis Ritchie", "Guido van Rossum", "James Gosling", "Bjarne Stroustrup"], correct: 1 },
+  { q: "What is Java's official mascot?", options: ["Duke", "Tux", "Gopher", "Red Hat Guy"], correct: 0 },
+  { q: "A dark monochrome silhouette of a half-cat, half-octopus mascot (\"Octocat\") represents which platform?", options: ["GitLab", "GitHub", "Bitbucket", "SourceForge"], correct: 1 },
+  { q: "The blue-and-white infinity loop logo belongs to which JavaScript library?", options: ["Vue.js", "React", "Angular", "Svelte"], correct: 1 },
+  { q: "Which company released the GPT-5.6 model family in 2026?", options: ["Google", "Anthropic", "OpenAI", "Meta"], correct: 2 },
+  { q: "A model trained on labeled spam/not-spam emails uses which type of learning?", options: ["Unsupervised Learning", "Supervised Learning", "Reinforcement Learning", "Semi-supervised Learning"], correct: 1 },
+  { q: "Grouping customers into similar categories without predefined labels is an example of:", options: ["Classification", "Clustering (Unsupervised Learning)", "Regression", "Reinforcement Learning"], correct: 1 },
+  { q: "Predicting the exact price of a house is an example of:", options: ["Classification", "Regression", "Clustering", "Dimensionality Reduction"], correct: 1 },
+  { q: "Which component introduces non-linearity into a neural network?", options: ["Loss Function", "Activation Function", "Optimizer", "Regularizer"], correct: 1 },
+  { q: "A model performs very well on training data but poorly on unseen data. This is called:", options: ["Underfitting", "Overfitting", "Regularization", "Backpropagation"], correct: 1 },
+  { q: "Which type of learning allows an agent to learn through rewards and penalties without labeled data?", options: ["Supervised Learning", "Reinforcement Learning", "Unsupervised Learning", "Transfer Learning"], correct: 1 },
+  { q: "What is the process called when a deployed AI model generates predictions or responses without updating its weights?", options: ["Training", "Backpropagation", "Inference", "Fine-tuning"], correct: 2 },
+  { q: "Retrieval-Augmented Generation (RAG) primarily improves an LLM by:", options: ["Increasing the number of model parameters", "Fetching relevant external documents to ground the answer", "Replacing the neural network with a database", "Removing the context window"], correct: 1 },
+  {
+    q: `What is the output of this C++ snippet?
+
+#include <iostream>
+using namespace std;
+
+int f(int &x, int y) {
+    static int count = 0;
+    count++;
+    if (y == 0) return count;
+    x += y;
+    return f(x, y - 1) + x;
+}
+
+int main() {
+    int a = 0;
+    cout << f(a, 3);
+}`,
+    options: ["15", "10", "22", "28"],
+    correct: 2,
+  },
+  { q: "Java: int a = 5; int b = a++ + ++a; What is the value of b?", options: ["10", "11", "12", "13"], correct: 2 },
+  { q: "In C++, overriding a virtual function enables:", options: ["No further inheritance", "Runtime polymorphism via vtable", "Forces static binding", "Disables overloading"], correct: 1 },
+  { q: "In C++, what happens if an exception has no matching catch block anywhere?", options: ["Silently ignored", "std::terminate() is called", "Compile-time error", "Automatically logged and suppressed"], correct: 1 },
+  { q: "Which Tamil movie features a masked vigilante, similar to Spider-Man?", options: ["Hero", "Ethir Neechal", "Thiruchitrambalam", "Velaikkaran"], correct: 0 },
+  { q: "Which Tamil actor dubbed Spider-Man (Peter Parker) in the Tamil version of Spider-Man: Homecoming?", options: ["Sivakarthikeyan", "Mirchi Vijay", "Rio Raj", "M. M. Manasi"], correct: 1 },
+  { q: "Which Kollywood movie best matches the Spider-Verse concept of alternate realities?", options: ["Maanaadu", "VIP", "Thani Oruvan", "Beast"], correct: 0 },
 ];
 
-// ── Round 3 — Multiverse Abilities (8 questions, each carries a hint the ────
+// ── Round 3 — Multiverse Abilities (21 questions, each carries a hint the ───
 // ── comeback meter's "Goblin Intel" ability can unlock) ─────────────────────
 const ROUND_3: Mcq[] = [
-  { q: "What is the worst-case time complexity of quicksort?", options: ["O(n log n)", "O(n²)", "O(log n)", "O(n)"], correct: 1, hint: "Think about an already-sorted array with a bad pivot choice." },
-  { q: "In the OSI model, which layer does TCP operate at?", options: ["Network (3)", "Transport (4)", "Session (5)", "Data link (2)"], correct: 1, hint: "It's the layer whose whole job is end-to-end delivery." },
-  { q: "What problem does dropout address in neural networks?", options: ["Vanishing gradients", "Overfitting", "Slow convergence", "Exploding weights"], correct: 1, hint: "It works by randomly ignoring neurons during training." },
-  { q: "What does a CDN primarily reduce?", options: ["Server CPU usage", "Latency by serving from closer edges", "Database size", "Bandwidth cost only"], correct: 1, hint: "Its advantage is geographic, not computational." },
-  { q: "Who leads the Spider-Society in Across the Spider-Verse?", options: ["Peter B. Parker", "Miguel O'Hara", "Jessica Drew", "Hobie Brown"], correct: 1, hint: "He's the one from 2099." },
-  { q: "What does a 'race condition' require to occur?", options: ["A single thread with recursion", "Concurrent access where ordering affects the result", "Insufficient memory", "A blocking I/O call"], correct: 1, hint: "The bug only appears depending on who gets there first." },
-  { q: "What is the main purpose of a hash function in a password store?", options: ["Compress the password", "Make the stored value irreversible", "Encrypt it for later decryption", "Validate its length"], correct: 1, hint: "The key property is that you cannot go backwards." },
-  { q: "Which Spider-Person is a self-described anarchist with a guitar?", options: ["Hobie Brown", "Pavitr Prabhakar", "Miles Morales", "Ben Reilly"], correct: 0, hint: "Spider-Punk." },
+  {
+    q: "What is the main purpose of the Banker's Algorithm in operating systems?",
+    options: [
+      "A) To speed up CPU scheduling",
+      "B) To avoid deadlock by only granting requests that leave the system in a safe state",
+      "C) To manage file storage",
+      "D) To assign process priorities",
+    ],
+    correct: 1,
+    hint: "Focus on preventing resource deadlocks by checking for safe states.",
+  },
+  {
+    q: "In paging, what does the \"offset\" part of a virtual address represent?",
+    options: [
+      "A) The page number",
+      "B) The frame number",
+      "C) The exact location of the data within a page/frame",
+      "D) The process ID",
+    ],
+    correct: 2,
+    hint: "It specifies the exact byte location within a page or frame.",
+  },
+  {
+    q: "What is a \"cascading rollback\" in database concurrency control?",
+    options: [
+      "A) When one transaction's failure forces other dependent transactions to also roll back",
+      "B) When a transaction commits early",
+      "C) When two transactions run in parallel successfully",
+      "D) When a database backup fails",
+    ],
+    correct: 0,
+    hint: "A domino effect of transaction rollbacks when uncommitted data was read.",
+  },
+  {
+    q: "A B+ tree index has all data pointers in leaf nodes. What advantage does this give over a B-tree?",
+    options: [
+      "A) Faster random access",
+      "B) Efficient range queries via linked leaf nodes",
+      "C) Smaller tree height always",
+      "D) No advantage",
+    ],
+    correct: 1,
+    hint: "Leaf nodes form a doubly-linked list allowing linear range scans.",
+  },
+  {
+    q: "What is the primary purpose of CSMA/CD in Ethernet networks?",
+    options: [
+      "A) Encryption of frames",
+      "B) Detecting and handling collisions on a shared medium",
+      "C) Routing packets between networks",
+      "D) Error correction of corrupted frames",
+    ],
+    correct: 1,
+    hint: "Carrier Sense Multiple Access with Collision Detection.",
+  },
+  {
+    q: "How many subnets are created if a /24 network is divided using a /27 mask?",
+    options: ["A) 4", "B) 8", "C) 16", "D) 32"],
+    correct: 1,
+    hint: "2^(27 - 24) = 2^3 subnets.",
+  },
+  {
+    q: "What is the time complexity of the standard 0/1 Knapsack DP solution for n items and capacity W?",
+    options: ["A) O(n)", "B) O(nW)", "C) O(2ⁿ)", "D) O(n log W)"],
+    correct: 1,
+    hint: "Pseudo-polynomial time complexity based on items and total capacity.",
+  },
+  {
+    q: "To detect a cycle in a linked list in O(n) time and O(1) space, which technique is used?",
+    options: [
+      "A) Hash set of visited nodes",
+      "B) Floyd's cycle detection (slow/fast pointers)",
+      "C) Reversing the list",
+      "D) Recursive traversal",
+    ],
+    correct: 1,
+    hint: "Tortoise and Hare algorithm.",
+  },
+  {
+    q: `What's the issue with this C++ code?\n\nclass A {\npublic:\n  ~A() { cout << "A destroyed"; }\n};\nclass B : public A {\npublic:\n  ~B() { cout << "B destroyed"; }\n};\nA *obj = new B();\ndelete obj;`,
+    options: [
+      "A) Compilation error",
+      "B) Undefined behavior — non-virtual base destructor causes only \"A destroyed\" to print, leaking B's resources",
+      "C) Both destructors called correctly",
+      "D) Memory leak only, no other issue",
+    ],
+    correct: 1,
+    hint: "Base class destructor is missing the virtual keyword.",
+  },
+  {
+    q: `What prints in Python?\n\nclass Node:\n    def __init__(self, val, children=[]):\n        self.val = val\n        self.children = children\n\nn1 = Node(1)\nn2 = Node(2)\nn1.children.append("x")\nprint(n2.children)`,
+    options: ["A) []", "B) ['x']", "C) Error", "D) [None]"],
+    correct: 1,
+    hint: "Default list parameters in Python functions/methods are mutable and shared across instances.",
+  },
+  {
+    q: `What is the output of this C snippet?\n\n#define SQUARE(x) x*x\nint result = 100 / SQUARE(5);\nprintf("%d", result);`,
+    options: ["A) 4", "B) 100", "C) 500", "D) 200"],
+    correct: 1,
+    hint: "Macro expansion replaces it as 100 / 5 * 5 without parenthesis.",
+  },
+  {
+    q: `What is the output of this Java snippet?\n\npublic class Test {\n    public static void main(String[] args) {\n        int[] arr = new int[3];\n        System.out.println(arr[0]);\n        String[] sArr = new String[3];\n        System.out.println(sArr[0]);\n    }\n}`,
+    options: ["A) 0, null", "B) null, 0", "C) Error, Error", "D) 0, 0"],
+    correct: 0,
+    hint: "Primitive int arrays default to 0, Object reference arrays default to null in Java.",
+  },
+  {
+    q: `What prints in Python?\n\nx = 10\ndef outer():\n    x = 20\n    def inner():\n        nonlocal x\n        x = 30\n    inner()\n    print(x)\nouter()\nprint(x)`,
+    options: ["A) 30, 10", "B) 20, 10", "C) 30, 30", "D) 20, 20"],
+    correct: 0,
+    hint: "nonlocal binds x to outer's scope, while global x remains 10.",
+  },
+  {
+    q: "Which sorting algorithm has the best average-case performance but worst-case O(n²)?",
+    options: ["A) MergeSort", "B) HeapSort", "C) QuickSort", "D) BubbleSort"],
+    correct: 2,
+    hint: "It uses partitioning around a pivot, which degrades to O(n²) on sorted arrays with bad pivot choices.",
+  },
+  {
+    q: "A client sends multiple HTTP requests over a single TCP connection without waiting for each response before sending the next. This technique is called:",
+    options: ["A) Multiplexing", "B) HTTP pipelining", "C) Load balancing", "D) Connection pooling"],
+    correct: 1,
+    hint: "Introduced in HTTP/1.1 to send requests sequentially on one TCP socket.",
+  },
+  {
+    q: "What will this JavaScript snippet print?",
+    image: "/quiz/r3-code-q16.png",
+    options: ["A) true, true", "B) false, true", "C) false, false", "D) true, false"],
+    correct: 1,
+    hint: "Floating point precision issues in JS (0.1 + 0.2 === 0.30000000000000004) and array coercion ([1,2,3] == '1,2,3').",
+  },
+  {
+    q: "Which isolation level prevents dirty reads but still allows non-repeatable reads?",
+    options: ["A) Read Uncommitted", "B) Read Committed", "C) Repeatable Read", "D) Serializable"],
+    correct: 1,
+    hint: "Standard ANSI SQL isolation level that only reads committed rows.",
+  },
+  {
+    q: "Guess the Celebrity:",
+    image: "/quiz/r3-garfield.png",
+    options: ["A) Logan Lerman", "B) Andrew Garfield", "C) Jamie Bell", "D) Nicholas Hoult"],
+    correct: 1,
+    hint: "He played Spider-Man in The Amazing Spider-Man!",
+  },
+  {
+    q: "Guess the series by its pixelated title:",
+    image: "/quiz/r3-strangerthings.png",
+    options: ["A) Twin Peaks", "B) Dark", "C) Castle Rock", "D) Stranger Things"],
+    correct: 3,
+    hint: "Popular Netflix sci-fi series set in Hawkins, Indiana.",
+  },
+  {
+    q: "This 1938 logo, resembling a postage stamp with three stars and Korean lettering, was the original logo of a company that started out trading dried fish, noodles, and groceries. Which tech giant is it?",
+    image: "/quiz/r3-samsung.png",
+    options: ["A) LG", "B) Samsung", "C) Hyundai", "D) Sony"],
+    correct: 1,
+    hint: "'Samsung' translates to 'three stars' in Korean.",
+  },
+  {
+    q: "This spinning top is a \"totem\" used by the protagonist to distinguish dreams from reality in which movie?",
+    image: "/quiz/r3-inception.png",
+    options: ["A) The Matrix", "B) Inception", "C) Interstellar", "D) Shutter Island"],
+    correct: 1,
+    hint: "Directed by Christopher Nolan, starring Leonardo DiCaprio.",
+  },
 ];
 
 async function main() {
@@ -95,13 +312,9 @@ async function main() {
   const proctorFlags = await collections.proctorFlags();
 
   console.log("Clearing previous quiz state…");
-  const previous = await teams.find({ $or: [{ name: "Quiz Control" }, { coin: { $exists: true } }] }).toArray();
-  const previousIds = previous.map((t) => t._id!).filter(Boolean);
-  if (previousIds.length > 0) {
-    await withThrottleRetry(() => participants.deleteMany({ teamId: { $in: previousIds } }));
-    await withThrottleRetry(() => codes.deleteMany({ teamId: { $in: previousIds } }));
-    await withThrottleRetry(() => teams.deleteMany({ _id: { $in: previousIds } }));
-  }
+  await withThrottleRetry(() => participants.deleteMany({}));
+  await withThrottleRetry(() => codes.deleteMany({}));
+  await withThrottleRetry(() => teams.deleteMany({}));
 
   await withThrottleRetry(() => coins.deleteMany({}));
   await withThrottleRetry(() =>
@@ -137,7 +350,7 @@ async function main() {
     points: 10,
     opensAt: null,
     closesAt: null,
-    config: { round: 1, format: "prompt-image", order: 1, referenceImage: "/quiz/reference-1.svg" },
+    config: { round: 1, format: "prompt-image", order: 1, referenceImage: "/quiz/reference-1.jpg" },
   });
 
   // Round 1, Game 2 — Connections: 5 puzzles in sequence, played after Image
@@ -155,7 +368,7 @@ async function main() {
         round: 1,
         format: "connections",
         order: 2,
-        connectionsImages: CONNECTIONS_IMAGES,
+        connectionsImages: p.images ?? CONNECTIONS_IMAGES,
         connectionsPuzzleIndex: i + 1,
         connectionsClue: p.clue,
         connectionsRevealedCount: 0,
@@ -199,7 +412,7 @@ async function main() {
       points: 100,
       opensAt: null,
       closesAt: null,
-      config: { round: 3, format: "mcq", order: i + 1, options: m.options, correctIndex: m.correct, hint: m.hint },
+      config: { round: 3, format: "mcq", order: i + 1, options: m.options, correctIndex: m.correct, hint: m.hint, image: m.image },
     });
   });
 

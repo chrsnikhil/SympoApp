@@ -56,11 +56,14 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: "Can only advance from round 1 or 2" }, { status: 400 });
         }
         const qualified = await advanceFrom(round, body.count);
+        const stateCol = await collections.quizState();
+        const nextRound = (round + 1) as QuizRound;
+        await stateCol.updateOne({ _id: "quiz" }, { $set: { [`round${nextRound}StartedAt`]: new Date() } }, { upsert: true });
         return NextResponse.json({
           ok: true,
           from: round,
-          into: round + 1,
-          intoTitle: ROUNDS[(round + 1) as QuizRound].title,
+          into: nextRound,
+          intoTitle: ROUNDS[nextRound].title,
           qualified,
         });
       }
@@ -122,15 +125,15 @@ export async function POST(request: Request) {
           return NextResponse.json({ ok: true, slug: body.slug, judged: [], failed: [], note: "Nothing outstanding." });
         }
 
-        const firstByTeam = new Map<string, (typeof pending)[number]>();
-        for (const s of [...pending].sort((a, b) => a.receivedAt.getTime() - b.receivedAt.getTime())) {
+        const latestByTeam = new Map<string, (typeof pending)[number]>();
+        for (const s of [...pending].sort((a, b) => b.receivedAt.getTime() - a.receivedAt.getTime())) {
           const key = String(s.teamId);
-          if (!firstByTeam.has(key)) firstByTeam.set(key, s);
+          if (!latestByTeam.has(key)) latestByTeam.set(key, s);
         }
 
         const entries: Array<{ teamId: string; image: string }> = [];
         const missing: Array<{ teamId: string; reason: string }> = [];
-        for (const [teamId, sub] of firstByTeam) {
+        for (const [teamId, sub] of latestByTeam) {
           const image = sub.payload ? await images.findOne({ _id: new ObjectId(sub.payload) }) : null;
           if (!image) missing.push({ teamId, reason: "No uploaded image found" });
           else entries.push({ teamId, image: image.dataUrl });
@@ -150,17 +153,15 @@ export async function POST(request: Request) {
       }
 
       case "open": {
-        // Opens a shared-window Round 1 game (Image Replication's upload
-        // window, Connections' reveal-and-guess window) for `minutes` starting
-        // now — sets the SAME opensAt/closesAt the submission pipeline already
-        // enforces, so this needs no new gate. Connections' reveal schedule is
-        // timed from this same opensAt (see `lib/quiz/connections.ts`).
         if (!body.slug) return NextResponse.json({ error: "Missing slug" }, { status: 400 });
-        const minutes = body.minutes ?? 5;
+        const minutes = body.minutes ?? 30;
         const challenges = await collections.challenges();
         const opensAt = new Date();
         const closesAt = new Date(opensAt.getTime() + minutes * 60_000);
-        const result = await challenges.updateOne({ type: "quiz", slug: body.slug }, { $set: { opensAt, closesAt } });
+        const result = await challenges.updateOne(
+          { type: "quiz", slug: body.slug },
+          { $set: { opensAt, closesAt, "config.connectionsRevealedCount": 1 } }
+        );
         if (result.matchedCount === 0) return NextResponse.json({ error: "No such quiz challenge" }, { status: 404 });
         return NextResponse.json({ ok: true, slug: body.slug, opensAt, closesAt });
       }
@@ -317,14 +318,33 @@ export async function POST(request: Request) {
         const disc = await coins.findOne({ _id: parsed });
         if (!disc?.teamId) return NextResponse.json({ ok: true, coin: formatCoin(parsed), note: "That coin wasn't assigned to anyone" });
 
-        await coins.updateOne({ _id: parsed }, { $set: { teamId: null, claimedAt: null } });
+        await coins.updateOne({ _id: parsed }, { $set: { teamId: null, claimedAt: null, redeemedAt: null } });
         await teams.updateOne({ _id: disc.teamId }, { $unset: { avatar: "", coin: "" } });
-        return NextResponse.json({ ok: true, coin: formatCoin(parsed) });
+        return NextResponse.json({ ok: true, coin: formatCoin(parsed), note: "Token revoked and unlocked!" });
+      }
+
+      case "unlock-coin": {
+        if (body.coin === undefined || body.coin === null || body.coin === "") {
+          return NextResponse.json({ error: "Missing coin" }, { status: 400 });
+        }
+        const parsed = parseCoin(String(body.coin));
+        if (parsed === null) return NextResponse.json({ error: "Coins are numbered 01 to 60" }, { status: 400 });
+
+        const coins = await collections.coins();
+        await coins.updateOne({ _id: parsed }, { $set: { redeemedAt: null } });
+        return NextResponse.json({ ok: true, coin: formatCoin(parsed), note: "Token unlocked! Team can re-enter token now." });
       }
 
       case "start-quiz": {
         const state = await collections.quizState();
-        await state.updateOne({ _id: "quiz" }, { $set: { started: true, startedAt: new Date() } }, { upsert: true });
+        const now = new Date();
+        await state.updateOne({ _id: "quiz" }, { $set: { started: true, startedAt: now, round1StartedAt: now } }, { upsert: true });
+
+        const challenges = await collections.challenges();
+        await challenges.updateOne(
+          { type: "quiz", slug: "image-1" },
+          { $set: { opensAt: now, closesAt: null } }
+        );
         return NextResponse.json({ ok: true, started: true, note: "Quiz started!" });
       }
 
@@ -336,7 +356,7 @@ export async function POST(request: Request) {
 
       case "restart-quiz": {
         const state = await collections.quizState();
-        await state.updateOne({ _id: "quiz" }, { $set: { ended: false, endedAt: null, started: false, startedAt: null } }, { upsert: true });
+        await state.updateOne({ _id: "quiz" }, { $set: { ended: false, endedAt: null, started: false, startedAt: null, round1StartedAt: null, round2StartedAt: null, round3StartedAt: null } }, { upsert: true });
 
         const quals = await collections.roundQualifications();
         await quals.deleteMany({});
@@ -365,22 +385,13 @@ export async function POST(request: Request) {
         const proctorFlags = await collections.proctorFlags();
         await proctorFlags.deleteMany({});
 
-        const teams = await collections.teams();
-        await teams.deleteMany({});
-
-        const participants = await collections.participants();
-        await participants.deleteMany({});
-
-        const coins = await collections.coins();
-        await coins.updateMany({}, { $set: { teamId: null, claimedAt: null } });
-
         const challenges = await collections.challenges();
         await challenges.updateMany(
           { type: "quiz" },
-          { $set: { "config.connectionsRevealedCount": 0, closesAt: null } }
+          { $set: { "config.connectionsRevealedCount": 0, opensAt: null, closesAt: null } }
         );
 
-        return NextResponse.json({ ok: true, restarted: true, note: "Quiz completely reset to clean state!" });
+        return NextResponse.json({ ok: true, restarted: true, note: "Quiz gameplay reset! All teams and assigned tokens preserved." });
       }
 
       case "resume-quiz": {

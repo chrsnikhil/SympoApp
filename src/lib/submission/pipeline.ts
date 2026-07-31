@@ -64,6 +64,10 @@ export async function submit(args: SubmitArgs): Promise<SubmitOutcome> {
     return { ok: false, status: 403, error: "Closed" };
   }
 
+  if (challenge.config?.format === "prompt-image") {
+    await withThrottleRetry(() => subs.deleteMany({ challengeId: challenge._id, teamId, status: "running" }));
+  }
+
   // 4 ── Record the attempt before grading, so even a crash mid-grade leaves a
   //      trail and the receipt time is already committed.
   const insert = await withThrottleRetry(() =>

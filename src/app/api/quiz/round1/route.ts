@@ -28,13 +28,15 @@ export async function GET() {
     if (phase === "memory" || phase === "done") completedPhases.push("connections");
     if (phase === "done") completedPhases.push("memory");
 
+    const serverTime = now.toISOString();
+
     if (phase === "connections") {
       const puzzles = connectionsPuzzles(games);
       const challenge = await currentConnectionsPuzzle(teamId, games, now);
       if (!challenge) {
         // Cleared between the phase check and here (a concurrent guess) — the
         // next poll will pick up "memory". Nothing to render this instant.
-        return NextResponse.json({ phase, completedPhases, game: null }, { headers: { "Cache-Control": "no-store" } });
+        return NextResponse.json({ serverTime, phase, completedPhases, game: null }, { headers: { "Cache-Control": "no-store" } });
       }
 
       const subs = await collections.submissions();
@@ -42,6 +44,7 @@ export async function GET() {
       const attempts = await subs.countDocuments({ challengeId: challenge._id, teamId });
       return NextResponse.json(
         {
+          serverTime,
           phase,
           completedPhases,
           game: {
@@ -65,21 +68,28 @@ export async function GET() {
     }
 
     if (phase === "done") {
-      return NextResponse.json({ phase, completedPhases, game: null }, { headers: { "Cache-Control": "no-store" } });
+      return NextResponse.json({ serverTime, phase, completedPhases, game: null }, { headers: { "Cache-Control": "no-store" } });
     }
 
     const challenge = gameForPhase(games, phase);
     if (!challenge) {
-      return NextResponse.json({ phase, completedPhases, game: null }, { headers: { "Cache-Control": "no-store" } });
+      return NextResponse.json({ serverTime, phase, completedPhases, game: null }, { headers: { "Cache-Control": "no-store" } });
     }
+
+    const stateCol = await collections.quizState();
+    const quizState = await stateCol.findOne({ _id: "quiz" });
+    const round1Start = quizState?.round1StartedAt ?? quizState?.startedAt ?? now;
+
+    const baseOpensAt = challenge.opensAt ?? round1Start;
+    const baseClosesAt = challenge.closesAt ?? new Date(baseOpensAt.getTime() + 270_000);
 
     const base = {
       slug: challenge.slug,
       title: challenge.title,
       format: challenge.config.format,
       points: challenge.points,
-      opensAt: challenge.opensAt ? challenge.opensAt.toISOString() : null,
-      closesAt: challenge.closesAt ? challenge.closesAt.toISOString() : null,
+      opensAt: baseOpensAt.toISOString(),
+      closesAt: baseClosesAt.toISOString(),
     };
 
     if (phase === "image") {
@@ -90,6 +100,7 @@ export async function GET() {
       ]);
       return NextResponse.json(
         {
+          serverTime,
           phase,
           completedPhases,
           game: {
@@ -105,7 +116,7 @@ export async function GET() {
     }
 
     // phase === "memory" — MemoryGrid fetches its own state via /api/quiz/memory.
-    return NextResponse.json({ phase, completedPhases, game: base }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ serverTime, phase, completedPhases, game: base }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });

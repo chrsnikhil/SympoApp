@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { collections } from "@/lib/db/client";
 import { LEADERBOARD_REFRESH_MS } from "@/lib/config";
 import { ROUNDS, standings } from "@/lib/quiz/rounds";
 import { avatarById } from "@/lib/quiz/avatars";
@@ -21,6 +22,14 @@ export async function GET(request: Request) {
   const table = await standings(round);
   const spec = ROUNDS[round];
 
+  const elimsCol = await collections.roundEliminations();
+  const elimDocs = await elimsCol.find({}).toArray();
+  const eliminatedIds = new Set(elimDocs.map((e) => String(e.teamId)));
+
+  const qualsCol = await collections.roundQualifications();
+  const nextRound = (round + 1) as QuizRound;
+  const hasCutForNextRound = round < 3 ? (await qualsCol.countDocuments({ round: nextRound })) > 0 : false;
+
   return NextResponse.json(
     {
       round,
@@ -29,12 +38,14 @@ export async function GET(request: Request) {
       generatedAt: new Date().toISOString(),
       rows: table.map((row, i) => {
         const avatar = avatarById(row.avatar as AvatarId | null);
+        const isEliminated = eliminatedIds.has(row.teamId);
+        const isBelowCut = hasCutForNextRound && spec.defaultAdvances !== null && i >= spec.defaultAdvances;
         return {
           rank: i + 1,
           ...row,
           avatarName: avatar?.name ?? null,
           avatarColour: avatar?.colour ?? null,
-          qualifying: spec.defaultAdvances === null ? null : i < spec.defaultAdvances,
+          qualifying: isEliminated || isBelowCut ? false : true,
         };
       }),
     },

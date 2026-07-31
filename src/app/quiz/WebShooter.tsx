@@ -486,17 +486,13 @@ export default function WebShooter({
       {/* Fired strands: nozzle → point of impact, verlet-simulated. */}
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 
-      {/* The shooter itself — a gloved forearm that pivots at the wrist. */}
+      {/* Gloved forearm & web-shooter anchored at bottom center, aiming towards pointer */}
       <div
-        className="absolute bottom-0 left-1/2"
+        className="absolute -bottom-10 left-1/2"
         style={{
-          // Sits partly below the fold, like an FPV weapon — enough of it is
-          // visible to read as a web-shooter without it covering an answer.
-          // translateY runs along the rotated axis, so recoil kicks back down
-          // the arm rather than straight down the screen.
-          transform: `translateX(-50%) rotate(${armAngle}deg) translateY(${recoil ? 32 : 22}px)`,
+          transform: `translateX(-50%) rotate(${armAngle}deg) translateY(${recoil ? 20 : 0}px)`,
           transformOrigin: "50% 100%",
-          transition: reducedMotion ? "none" : "transform 120ms cubic-bezier(.2,.8,.3,1)",
+          transition: reducedMotion ? "none" : "transform 100ms cubic-bezier(0.2, 0.9, 0.3, 1.3)",
         }}
       >
         <ShooterArm colour={colour} webColour={webColour} gloveColour={gloveColour} firing={recoil} />
@@ -601,7 +597,7 @@ function ShooterArm({
   const metal = "#1b1b1b";
 
   return (
-    <svg width={124} height={178} viewBox="0 0 160 230" style={{ display: "block" }}>
+    <svg width={140} height={220} viewBox="0 0 160 280" style={{ display: "block" }}>
       <defs>
         <linearGradient id="sleeve-grad" x1="0" y1="1" x2="0" y2="0">
           <stop offset="0%" stopColor={sleeve} stopOpacity="0.4" />
@@ -616,7 +612,7 @@ function ShooterArm({
       </defs>
 
       {/* Sleeve / Forearm (Remains anchored) */}
-      <path d="M48 230 L44 138 Q44 118 60 112 L90 112 Q106 118 106 138 L102 230 Z" fill="url(#sleeve-grad)" stroke={INK} strokeWidth="5" strokeLinejoin="round" />
+      <path d="M48 280 L44 138 Q44 118 60 112 L90 112 Q106 118 106 138 L102 280 Z" fill="url(#sleeve-grad)" stroke={INK} strokeWidth="5" strokeLinejoin="round" />
 
       {/* Hand & Web-Shooter Assembly — Bends & cocks at the wrist joint (75px, 145px) when shooting webs */}
       <g
@@ -742,12 +738,12 @@ function ShooterArm({
       <g stroke={INK} strokeWidth="1.5" fill="none" opacity="0.4" strokeLinecap="round">
         <path d="M48 112 Q74 104 102 112" />
         <path d="M50 124 Q74 116 102 124" />
-        <path d="M52 230 Q75 222 100 230 M50 200 Q75 192 102 200 M48 168 Q75 160 104 168" />
-        <path d="M60 230 L62 116 M75 230 L75 112 M90 230 L88 116" />
+        <path d="M52 280 Q75 272 100 280 M52 245 Q75 237 100 245 M50 200 Q75 192 102 200 M48 168 Q75 160 104 168" />
+        <path d="M60 280 L62 116 M75 280 L75 112 M90 280 L88 116" />
       </g>
 
       {/* Form shading across the whole limb. */}
-      <path d="M42 132 Q38 96 46 80 Q52 68 72 66 Q94 66 102 80 Q110 96 106 132 L102 230 L48 230 Z" fill="url(#shade)" stroke="none" pointerEvents="none" />
+      <path d="M42 132 Q38 96 46 80 Q52 68 72 66 Q94 66 102 80 Q110 96 106 132 L102 280 L48 280 Z" fill="url(#shade)" stroke="none" pointerEvents="none" />
     </svg>
   );
 }

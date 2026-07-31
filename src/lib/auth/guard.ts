@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
+import { ObjectId } from "mongodb";
 import { SESSION_COOKIE } from "@/lib/config";
+import { collections } from "@/lib/db/client";
 import { verifySession, type SessionClaims } from "./session";
 
 /**
@@ -12,7 +14,18 @@ import { verifySession, type SessionClaims } from "./session";
  */
 export async function getSession(): Promise<SessionClaims | null> {
   const store = await cookies();
-  return verifySession(store.get(SESSION_COOKIE)?.value);
+  const session = await verifySession(store.get(SESSION_COOKIE)?.value);
+  if (!session) return null;
+
+  try {
+    const teams = await collections.teams();
+    const team = await teams.findOne({ _id: new ObjectId(session.teamId) });
+    if (!team) return null;
+  } catch {
+    return null;
+  }
+
+  return session;
 }
 
 export class UnauthorizedError extends Error {

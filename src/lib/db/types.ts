@@ -80,6 +80,8 @@ export interface Challenge {
     format?: QuizFormat;
     /** quiz mcq: visible options, fixed order — fifty-fifty indexes into it. */
     options?: string[];
+    /** quiz mcq: optional image associated with the question. */
+    image?: string;
     /** quiz mcq: revealed only when a team spends a fifty-fifty/hint-shaped comeback ability. */
     hint?: string;
     /** quiz estimate: the true value. Closest guess takes the points. */
@@ -215,6 +217,7 @@ export interface Coin {
   _id: number;
   teamId: ObjectId | null;
   claimedAt: Date | null;
+  redeemedAt?: Date | null;
 }
 
 /**
@@ -372,4 +375,8 @@ export interface QuizState {
   endedAt: Date | null;
   started?: boolean;
   startedAt?: Date | null;
+  round1StartedAt?: Date | null;
+  round2StartedAt?: Date | null;
+  round3StartedAt?: Date | null;
+  [key: string]: unknown;
 }
