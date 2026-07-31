@@ -37,6 +37,44 @@ interface ComebackStatus {
 
 const AUTO_ADVANCE_DELAY_MS = 3400;
 
+function parseQuestionTitle(title: string) {
+  if (!title) return { prompt: "", code: null };
+  const lines = title.split("\n");
+
+  const isCodeLine = (line: string) => {
+    const t = line.trim();
+    return (
+      t.startsWith("#include") ||
+      t.startsWith("using namespace") ||
+      t.startsWith("def ") ||
+      t.startsWith("class ") ||
+      t.startsWith("import ") ||
+      t.startsWith("int main") ||
+      t.startsWith("int f(") ||
+      t.startsWith("int ") ||
+      t.startsWith("void ") ||
+      t.startsWith("struct ") ||
+      t.startsWith("public static") ||
+      t.startsWith("x = ") ||
+      t.startsWith("print(") ||
+      t.startsWith("cout") ||
+      t.startsWith("return ") ||
+      t.includes("nonlocal ") ||
+      (t.includes("{") && !t.toLowerCase().startsWith("what")) ||
+      (t.includes("}") && t.length < 5)
+    );
+  };
+
+  const firstCodeIdx = lines.findIndex(isCodeLine);
+  if (firstCodeIdx !== -1) {
+    const prompt = lines.slice(0, firstCodeIdx).join("\n").trim();
+    const code = lines.slice(firstCodeIdx).join("\n").trim();
+    return { prompt: prompt || title, code };
+  }
+
+  return { prompt: title, code: null };
+}
+
 export default function Mcq2Phase({
   round,
   persona,
@@ -255,24 +293,49 @@ export default function Mcq2Phase({
           </div>
 
           {/* Question Box */}
-          <div className="bg-surface-container-lowest comic-border p-8 md:p-12 relative overflow-hidden">
-            <div className="absolute inset-0 ben-day pointer-events-none opacity-10"></div>
-            <p className="font-label-sm text-primary uppercase tracking-[0.2em] mb-3 relative z-10">
-              Question {question.index} / {question.total}
-            </p>
-            <h2 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface leading-tight relative z-10 whitespace-pre-line mb-4">
-              {question.title}
-            </h2>
-            {question.image && (
-              <div className="relative z-10 my-4 flex justify-center">
-                <img
-                  src={question.image}
-                  alt="Question Image"
-                  className="max-h-72 w-auto object-contain comic-border bg-surface p-2 shadow-md"
-                />
+          {(() => {
+            const parsed = parseQuestionTitle(question.title);
+            return (
+              <div className="bg-surface-container-lowest comic-border p-6 md:p-10 relative overflow-hidden">
+                <div className="absolute inset-0 ben-day pointer-events-none opacity-10"></div>
+                <p className="font-label-sm text-primary uppercase tracking-[0.2em] mb-3 relative z-10">
+                  Question {question.index} / {question.total}
+                </p>
+                
+                <h2 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface leading-tight relative z-10 whitespace-pre-line mb-3">
+                  {parsed.prompt}
+                </h2>
+
+                {parsed.code && (
+                  <div className="relative z-10 my-4 comic-border rounded-lg overflow-hidden bg-[#0a0b0e] shadow-xl">
+                    <div className="bg-[#16171d] border-b-2 border-ink-black px-4 py-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-spider-red inline-block border border-ink-black" />
+                        <span className="w-3 h-3 rounded-full bg-comic-yellow inline-block border border-ink-black" />
+                        <span className="w-3 h-3 rounded-full bg-signal-good inline-block border border-ink-black" />
+                      </div>
+                      <span className="font-mono text-[11px] font-bold text-glitch-cyan uppercase tracking-widest flex items-center gap-1.5">
+                        <span>💻</span> CODE SNIPPET
+                      </span>
+                    </div>
+                    <pre className="p-4 sm:p-6 font-mono text-sm md:text-base text-glitch-cyan leading-relaxed overflow-x-auto whitespace-pre bg-[#0a0b0e] border-t border-paper-white/10">
+                      <code>{parsed.code}</code>
+                    </pre>
+                  </div>
+                )}
+
+                {question.image && (
+                  <div className="relative z-10 my-4 flex justify-center">
+                    <img
+                      src={question.image}
+                      alt="Question Image"
+                      className="max-h-72 w-auto object-contain comic-border bg-surface p-2 shadow-md"
+                    />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
 
           {question.hint && (
             <div className="bg-tertiary-fixed p-4 comic-border comic-tilt-left">
