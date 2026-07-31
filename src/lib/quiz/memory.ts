@@ -120,14 +120,13 @@ export async function getOrCreateMemoryState(teamId: ObjectId, challenge: Challe
 }
 
 export type FlipResult =
-  | { ok: true; state: MemoryPublicState; matched: boolean | null }
+  | { ok: true; state: MemoryPublicState; matched: boolean | null; mismatchInfo?: Array<{ index: number; token: string }> }
   | { ok: false; reason: "not-started" | "completed" | "cap-reached" | "already-face-up" | "bad-index" };
 
 /**
- * Flip one cell. Turn logic: the first flip of a turn just reveals; the
- * second flip resolves the pair (match → locked face-up, no match → both
- * flip back down on the NEXT flip request, mirroring how a physical memory
- * game works — the mismatch is shown once, then cleared).
+ * Flip one cell. Turn logic: the first flip of a turn reveals; the second flip
+ * resolves the pair (match -> locked face-up, mismatch -> returns mismatchInfo
+ * and clears DB revealed so client auto-flips back down after a brief delay).
  */
 export async function flipCell(teamId: ObjectId, challenge: Challenge, cellIndex: number): Promise<FlipResult> {
   const states = await collections.memoryStates();
@@ -137,8 +136,6 @@ export async function flipCell(teamId: ObjectId, challenge: Challenge, cellIndex
   if (cellIndex < 0 || cellIndex >= state.grid.length) return { ok: false, reason: "bad-index" };
   if (state.matched.includes(cellIndex)) return { ok: false, reason: "already-face-up" };
 
-  // A pending mismatch from the previous turn clears on this flip, before
-  // anything else is evaluated.
   let revealed = state.revealed.length === 2 ? [] : state.revealed;
   if (revealed.includes(cellIndex)) return { ok: false, reason: "already-face-up" };
 
@@ -148,15 +145,21 @@ export async function flipCell(teamId: ObjectId, challenge: Challenge, cellIndex
   const flipsUsed = state.flipsUsed + 1;
   let matched = state.matched;
   let matchedThisTurn: boolean | null = null;
+  let mismatchInfo: Array<{ index: number; token: string }> | undefined;
 
   if (revealed.length === 2) {
     const [a, b] = revealed;
     if (state.grid[a] === state.grid[b]) {
       matched = [...matched, a, b];
       matchedThisTurn = true;
-      revealed = []; // a matched pair locks immediately, nothing left pending
+      revealed = []; // a matched pair locks immediately
     } else {
-      matchedThisTurn = false; // stays revealed until the NEXT flip clears it
+      matchedThisTurn = false;
+      mismatchInfo = [
+        { index: a, token: state.grid[a] },
+        { index: b, token: state.grid[b] },
+      ];
+      revealed = []; // clear DB revealed state so cards flip back down automatically
     }
   }
 
@@ -194,7 +197,7 @@ export async function flipCell(teamId: ObjectId, challenge: Challenge, cellIndex
   );
 
   const updated = await states.findOne({ _id: state._id });
-  return { ok: true, state: toPublic(updated!), matched: matchedThisTurn };
+  return { ok: true, state: toPublic(updated!), matched: matchedThisTurn, mismatchInfo };
 }
 
 /** See the module doc comment for the falloff rationale. */

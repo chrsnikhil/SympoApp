@@ -282,8 +282,11 @@ export default function QuizClient({
             )}
 
             {isAdmin && (
-              <div className="mt-8 bg-surface-container comic-border-sm p-4 text-xs font-label-sm text-on-surface-variant uppercase">
-                Signed in as coordinator. Access admin control at <code className="font-mono text-primary">/admin/quiz</code>.
+              <div className="mt-8 bg-surface-container comic-border-sm p-4 text-xs font-label-sm text-on-surface-variant uppercase flex flex-wrap items-center justify-between gap-3">
+                <span>Signed in as coordinator.</span>
+                <a href="/admin/quiz" className="inline-block bg-primary text-on-primary px-3 py-1.5 comic-border text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity">
+                  Open Coordinator Dashboard (/admin/quiz) →
+                </a>
               </div>
             )}
           </section>

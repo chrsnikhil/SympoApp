@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: r.message }, { status: r.status });
     }
 
-    return NextResponse.json({ ok: true, state: result.state, matched: result.matched });
+    return NextResponse.json({ ok: true, state: result.state, matched: result.matched, mismatchInfo: result.mismatchInfo });
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });

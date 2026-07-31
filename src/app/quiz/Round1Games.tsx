@@ -170,19 +170,20 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
 
   const currentNow = now > 0 ? now : Date.now();
 
-  const fallbackOpenRef = useRef<Record<string, number>>({});
-  if (!fallbackOpenRef.current[phase]) {
-    fallbackOpenRef.current[phase] = currentNow;
+  const phaseStartRef = useRef<Record<string, number>>({});
+  if (!phaseStartRef.current[phase]) {
+    phaseStartRef.current[phase] = currentNow;
   }
-  const fallbackOpenMs = fallbackOpenRef.current[phase];
+  const phaseStartMs = phaseStartRef.current[phase];
 
   const DEFAULT_GAME_SECONDS = 270; // 4 min 30 sec
-  const openMs = game.opensAt ? new Date(game.opensAt).getTime() : fallbackOpenMs;
+  const openMs = game.opensAt ? new Date(game.opensAt).getTime() : phaseStartMs;
   const closeMs = game.closesAt ? new Date(game.closesAt).getTime() : openMs + DEFAULT_GAME_SECONDS * 1000;
 
-  // 10-second pre-game rules gate synchronized across all screens via server timestamp opensAt
+  // 10-second pre-game rules gate shown ONCE per phase
   const RULES_GATE_MS = 10_000;
-  const rulesGateEndsAt = openMs + RULES_GATE_MS;
+  const rulesGateStartMs = phase === "connections" ? phaseStartMs : openMs;
+  const rulesGateEndsAt = rulesGateStartMs + RULES_GATE_MS;
   const rulesSecondsLeft = Math.max(0, Math.ceil((rulesGateEndsAt - currentNow) / 1000));
   const isRulesShowing = phase !== "done" && rulesSecondsLeft > 0 && (phase !== "connections" || (game.puzzleIndex ?? 1) === 1);
 
@@ -670,7 +671,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
             >
               {revealed ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={images[i]} alt="" className="h-full w-full object-cover" />
+                <img src={images[i]} alt="" className="h-full w-full object-contain bg-ink-black/80 p-1" />
               ) : (
                 <div className="grid h-full place-items-center bg-ink-black/40 text-[0.65rem] uppercase tracking-widest text-paper-white/25">
                   Locked

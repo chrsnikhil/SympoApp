@@ -17,7 +17,7 @@ export async function GET() {
     const teamId = new ObjectId(session.teamId);
 
     const activeRound = await getActiveQuizRound();
-    const eliminated = await isTeamEliminated(teamId);
+    const eliminated = session.role !== "admin" && (await isTeamEliminated(teamId));
     const ended = await isQuizEnded();
     const started = await isQuizStarted();
 
@@ -36,6 +36,7 @@ export async function GET() {
         eliminated,
         ended,
         started,
+        role: session.role,
         startedAt: quizState?.startedAt ? quizState.startedAt.toISOString() : null,
         round1StartedAt: quizState?.round1StartedAt ? quizState.round1StartedAt.toISOString() : null,
         round2StartedAt: quizState?.round2StartedAt ? quizState.round2StartedAt.toISOString() : null,

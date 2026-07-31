@@ -305,15 +305,59 @@ export default function Mcq2Phase({
                           data-web-target
                           disabled={disabled}
                           onClick={() => setChoice(i)}
-                          className={`quiz-answer group relative bg-surface comic-border p-6 ${tilts[i % 4]} hover:rotate-0 hover:scale-105 transition-all duration-200 text-left overflow-hidden min-h-[120px] ${
-                            picked ? "answer-selected pop-in border-4 border-primary" : ""
+                          className={`quiz-answer group relative comic-border p-6 ${tilts[i % 4]} hover:rotate-0 hover:scale-105 transition-all duration-200 text-left overflow-hidden min-h-[125px] ${
+                            picked
+                              ? "bg-primary/20 border-4 border-primary shadow-[8px_8px_0px_rgba(27,27,28,1)] scale-[1.02]"
+                              : "bg-surface"
                           } ${disabled ? "opacity-35 cursor-not-allowed" : ""}`}
                         >
-                          <span className="absolute top-2 left-2 font-display-xl text-surface-container-highest opacity-70 text-2xl">
+                          {/* Full Spider Web Overlay covering 100% of the selected option card */}
+                          {picked && (
+                            <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+                              {/* Web texture mask covering full container */}
+                              <div
+                                className="absolute inset-0 opacity-45 animate-pulse"
+                                style={{
+                                  backgroundColor: persona.colour ?? "#e5223b",
+                                  WebkitMaskImage: "url(/quiz/web.svg)",
+                                  maskImage: "url(/quiz/web.svg)",
+                                  WebkitMaskSize: "cover",
+                                  maskSize: "cover",
+                                  WebkitMaskRepeat: "no-repeat",
+                                  maskRepeat: "no-repeat",
+                                  WebkitMaskPosition: "center",
+                                  maskPosition: "center",
+                                }}
+                              />
+                              {/* Radial web strands reaching all 4 corners and edges */}
+                              <svg className="w-full h-full absolute inset-0 opacity-60" viewBox="0 0 400 150" preserveAspectRatio="none" fill="none" stroke={persona.colour ?? "#e5223b"}>
+                                <path d="M 0,0 L 400,150 M 400,0 L 0,150 M 200,0 L 200,150 M 0,75 L 400,75" strokeWidth="2.5" opacity="0.6" />
+                                <polygon points="200,25 300,75 200,125 100,75" strokeWidth="2" opacity="0.5" fill={`${persona.colour ?? "#e5223b"}22`} />
+                                <polygon points="200,8 375,75 200,142 25,75" strokeWidth="1.5" opacity="0.4" />
+                                <path d="M 0 0 Q 70 30 100 0 M 0 0 Q 30 70 0 100" strokeWidth="2.5" />
+                                <path d="M 400 0 Q 330 30 300 0 M 400 0 Q 370 70 400 100" strokeWidth="2.5" />
+                                <path d="M 0 150 Q 70 120 100 150 M 0 150 Q 30 80 0 50" strokeWidth="2.5" />
+                                <path d="M 400 150 Q 330 120 300 150 M 400 150 Q 370 80 400 50" strokeWidth="2.5" />
+                              </svg>
+                              {/* Top-right "WEB LOCKED" badge */}
+                              <div className="absolute top-2 right-2 bg-primary text-on-primary px-2.5 py-0.5 comic-border text-[10px] font-headline-lg uppercase tracking-wider shadow">
+                                🕸️ WEB LOCKED
+                              </div>
+                            </div>
+                          )}
+
+                          <span className={`absolute top-2 left-2 font-display-xl text-2xl transition-colors ${
+                            picked ? "text-primary font-black opacity-100 scale-110" : "text-surface-container-highest opacity-70"
+                          }`}>
                             {letters[i]}
                           </span>
-                          <div className="relative z-10 h-full flex flex-col justify-end">
-                            <span className="font-headline-lg text-headline-lg-mobile text-on-surface">{opt}</span>
+
+                          <div className="relative z-10 h-full flex flex-col justify-end pt-5">
+                            <span className={`font-headline-lg text-headline-lg-mobile transition-all ${
+                              picked ? "text-primary font-black text-lg sm:text-xl drop-shadow" : "text-on-surface"
+                            }`}>
+                              {opt}
+                            </span>
                           </div>
                         </button>
                       );

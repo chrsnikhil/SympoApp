@@ -23,7 +23,7 @@ export default async function QuizPage() {
   if (await isQualified(teamId, 2)) round = 2;
   if (await isQualified(teamId, 3)) round = 3;
 
-  const isEliminated = activeRound > 1 && !(await isQualified(teamId, activeRound));
+  const isEliminated = session.role !== "admin" && activeRound > 1 && !(await isQualified(teamId, activeRound));
   const avatar = avatarById(team.avatar ?? null) ?? (team.coin !== undefined ? avatarForCoin(team.coin) : null);
 
   return (

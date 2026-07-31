@@ -15,13 +15,16 @@ export default function EnterPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    // If user already has a valid session cookie, bypass token form and go straight to quiz
-    fetch("/api/quiz/round1", { cache: "no-store" })
-      .then((res) => {
+    // If user already has a valid session cookie, bypass token form and go straight to quiz or admin page
+    fetch("/api/quiz/status", { cache: "no-store" })
+      .then(async (res) => {
         if (res.ok) {
+          const data = await res.json();
           const rt = new URLSearchParams(window.location.search).get("rt");
           if (rt && !rt.includes("/enter")) {
             window.location.href = rt;
+          } else if (data.role === "admin") {
+            window.location.href = "/admin/quiz";
           } else {
             const quizHost = eventHostFor(window.location.host, "quiz");
             if (window.location.host === quizHost || window.location.host.startsWith("quiz.")) {

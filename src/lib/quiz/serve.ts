@@ -103,9 +103,11 @@ export async function serveNext(teamId: ObjectId, round: QuizRound): Promise<Ser
     await stateCol.updateOne({ _id: "quiz" }, { $set: { [roundKey]: roundStart } }, { upsert: true });
   }
 
+  // 15s pre-round rules interlude gate (matches RoundTransition countdown in QuizClient)
+  const RULES_INTERLUDE_MS = 15_000;
   // 16s question time (6s read + 10s select) per question step
   const QUESTION_STEP_MS = 16_000;
-  const elapsedMs = Math.max(0, now - roundStart.getTime());
+  const elapsedMs = Math.max(0, now - (roundStart.getTime() + RULES_INTERLUDE_MS));
   const activeIndex = Math.floor(elapsedMs / QUESTION_STEP_MS);
 
   if (activeIndex >= questions.length) {
@@ -116,7 +118,7 @@ export async function serveNext(teamId: ObjectId, round: QuizRound): Promise<Ser
   const serves = await collections.quizServes();
   let serve = await serves.findOne({ teamId, challengeSlug: q.slug });
 
-  const questionServedAt = new Date(roundStart.getTime() + activeIndex * QUESTION_STEP_MS);
+  const questionServedAt = new Date(roundStart.getTime() + RULES_INTERLUDE_MS + activeIndex * QUESTION_STEP_MS);
   const readUntil = new Date(questionServedAt.getTime() + READ_SECONDS * 1000);
   const answerableUntil = new Date(questionServedAt.getTime() + (READ_SECONDS + SELECT_SECONDS) * 1000);
 
