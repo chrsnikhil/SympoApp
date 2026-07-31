@@ -32,7 +32,6 @@ export async function GET(request: Request) {
       challengeTitle: challengeMap.get(s.challengeId.toString()) ?? "Unknown",
       correct: s.verdict?.correct ? "YES" : "NO",
       points: s.verdict?.points ?? 0,
-      firstBlood: s.verdict?.meta?.firstBlood ? "YES" : "NO",
     }));
 
     if (format === "json") {
@@ -45,7 +44,7 @@ export async function GET(request: Request) {
     }
 
     // CSV Format
-    const headers = ["Submission ID", "Timestamp", "Team ID", "Team Name", "Challenge ID", "Challenge Title", "Correct", "Points", "First Blood"];
+    const headers = ["Submission ID", "Timestamp", "Team ID", "Team Name", "Challenge ID", "Challenge Title", "Correct", "Points"];
     const rows = records.map((r) => [
       r.submissionId,
       r.receivedAt,
@@ -55,7 +54,6 @@ export async function GET(request: Request) {
       `"${r.challengeTitle.replace(/"/g, '""')}"`,
       r.correct,
       r.points,
-      r.firstBlood,
     ]);
 
     const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");

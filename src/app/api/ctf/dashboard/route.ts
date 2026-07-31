@@ -45,15 +45,11 @@ export async function GET() {
       .toArray();
 
     const teamSolvedSet = new Set<string>();
-    const teamFirstBloodSet = new Set<string>();
 
     for (const sub of teamSubs) {
       if (sub.verdict?.correct) {
         const cId = sub.challengeId.toString();
         teamSolvedSet.add(cId);
-        if (sub.verdict.meta?.firstBlood) {
-          teamFirstBloodSet.add(cId);
-        }
       }
     }
 
@@ -69,7 +65,6 @@ export async function GET() {
         const currentPoints = calculateChallengeValue(initialPts, minPts, decayAfter, solveCount);
 
         const isSolved = teamSolvedSet.has(cId);
-        const isFirstBlood = teamFirstBloodSet.has(cId) || (ch.config.firstBloodTeamId && ch.config.firstBloodTeamId.toString() === teamIdStr);
 
         return {
           id: cId,
@@ -82,7 +77,6 @@ export async function GET() {
           points: currentPoints,
           solveCount,
           isSolved,
-          isFirstBlood,
           attachments: ch.config.attachments ?? [],
           status: ch.config.status ?? "open",
         };
@@ -110,7 +104,7 @@ export async function GET() {
       },
       score,
       rank,
-      leaderboard: snapshot.rows,
+      leaderboard: snapshot.rows.filter((r) => r.teamName.toLowerCase() !== "admin team"),
       challenges: challengesList,
       submissions: historyList,
     });

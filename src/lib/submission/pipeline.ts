@@ -3,6 +3,7 @@ import { LIMITS, type EventKey } from "@/lib/config";
 import { collections } from "@/lib/db/client";
 import { graderFor } from "@/lib/graders";
 import { appendScore } from "@/lib/score/ledger";
+import { materialize } from "@/lib/leaderboard/materialize";
 import type { SessionClaims } from "@/lib/auth/session";
 
 /**
@@ -38,9 +39,11 @@ export async function submit(args: SubmitArgs): Promise<SubmitOutcome> {
   const teamId = new ObjectId(session.teamId);
   const participantId = new ObjectId(session.sub);
 
-  // 2 ── Cheap guards first.
-  if (Buffer.byteLength(payload, "utf8") > LIMITS.maxPayloadBytes) {
-    return { ok: false, status: 400, error: "Submission too large" };
+  // Check if team is banned
+  const teamsColl = await collections.teams();
+  const teamDoc = await teamsColl.findOne({ _id: teamId });
+  if (teamDoc?.banned) {
+    return { ok: false, status: 403, error: `Your team has been banned: ${teamDoc.bannedReason || "Rule violation"}` };
   }
 
   const subs = await collections.submissions();
@@ -107,6 +110,12 @@ export async function submit(args: SubmitArgs): Promise<SubmitOutcome> {
       submissionId,
       at: receivedAt,
     });
+    // Immediately re-materialize the leaderboard so score updates live for the team
+    try {
+      await materialize(event);
+    } catch (e) {
+      console.error("[pipeline] materialize error:", e);
+    }
   }
 
   return {

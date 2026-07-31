@@ -13,8 +13,9 @@ import { calculateChallengeValue } from "@/lib/ctf/scoring";
  */
 export async function materialize(event: EventKey | "overall"): Promise<LeaderboardSnapshot> {
   const teams = await collections.teams();
-  const teamDocs = await teams.find({}).project<{ _id: unknown; name: string }>({ name: 1 }).toArray();
+  const teamDocs = await teams.find({}).project<{ _id: unknown; name: string; banned?: boolean; penaltyPoints?: number }>({ name: 1, banned: 1, penaltyPoints: 1 }).toArray();
   const names = new Map(teamDocs.map((t) => [String(t._id), t.name]));
+  const bannedTeamIds = new Set(teamDocs.filter((t) => t.banned || t.name === "Admin Team").map((t) => String(t._id)));
 
   if (event === "ctf") {
     const subsCollection = await collections.submissions();
@@ -29,6 +30,7 @@ export async function materialize(event: EventKey | "overall"): Promise<Leaderbo
     // Count solves per challenge
     const solveCountMap = new Map<string, number>();
     for (const sub of correctSubmissions) {
+      if (bannedTeamIds.has(String(sub.teamId))) continue;
       const cId = String(sub.challengeId);
       solveCountMap.set(cId, (solveCountMap.get(cId) ?? 0) + 1);
     }
@@ -53,7 +55,6 @@ export async function materialize(event: EventKey | "overall"): Promise<Leaderbo
       teamId: string;
       points: number;
       solvedCount: number;
-      firstBloodCount: number;
       lastScoreAt: Date | null;
       solvesByCategory: Map<string, Array<{ challengeId: string; receivedAt: Date }>>;
       solvedChallengeIds: Set<string>;
@@ -61,14 +62,14 @@ export async function materialize(event: EventKey | "overall"): Promise<Leaderbo
 
     const teamStats = new Map<string, TeamCtfStats>();
 
-    // Initialize all teams
+    // Initialize non-banned teams (excluding Admin Team) with initial penalty deductions if any
     for (const t of teamDocs) {
       const tid = String(t._id);
+      if (bannedTeamIds.has(tid)) continue;
       teamStats.set(tid, {
         teamId: tid,
-        points: 0,
+        points: -(t.penaltyPoints ?? 0),
         solvedCount: 0,
-        firstBloodCount: 0,
         lastScoreAt: null,
         solvesByCategory: new Map(),
         solvedChallengeIds: new Set(),
@@ -77,6 +78,7 @@ export async function materialize(event: EventKey | "overall"): Promise<Leaderbo
 
     for (const sub of correctSubmissions) {
       const tid = String(sub.teamId);
+      if (bannedTeamIds.has(tid)) continue;
       const cId = String(sub.challengeId);
       let stats = teamStats.get(tid);
 
@@ -85,7 +87,6 @@ export async function materialize(event: EventKey | "overall"): Promise<Leaderbo
           teamId: tid,
           points: 0,
           solvedCount: 0,
-          firstBloodCount: 0,
           lastScoreAt: null,
           solvesByCategory: new Map(),
           solvedChallengeIds: new Set(),
@@ -99,15 +100,9 @@ export async function materialize(event: EventKey | "overall"): Promise<Leaderbo
 
       const ch = challengeMap.get(cId);
       const baseVal = challengeValueMap.get(cId) ?? (ch?.points ?? 0);
-      const isFirstBlood =
-        sub.verdict?.meta?.firstBlood === true ||
-        (ch?.config.firstBloodTeamId && String(ch.config.firstBloodTeamId) === tid);
 
-      const fbBonus = isFirstBlood ? (ch?.config.firstBloodBonus ?? 0) : 0;
-
-      stats.points += baseVal + fbBonus;
+      stats.points += baseVal;
       stats.solvedCount += 1;
-      if (isFirstBlood) stats.firstBloodCount += 1;
 
       if (!stats.lastScoreAt || sub.receivedAt > stats.lastScoreAt) {
         stats.lastScoreAt = sub.receivedAt;
@@ -157,15 +152,16 @@ export async function materialize(event: EventKey | "overall"): Promise<Leaderbo
       }
     }
 
-    // Convert to sorted rows
-    const rowsList = Array.from(teamStats.values()).map((s) => ({
-      teamId: s.teamId,
-      teamName: names.get(s.teamId) ?? "Unknown",
-      points: s.points,
-      lastScoreAt: s.lastScoreAt,
-      solvedCount: s.solvedCount,
-      firstBloodCount: s.firstBloodCount,
-    }));
+    // Convert to sorted rows (excluding Admin Team)
+    const rowsList = Array.from(teamStats.values())
+      .map((s) => ({
+        teamId: s.teamId,
+        teamName: names.get(s.teamId) ?? "Unknown",
+        points: s.points,
+        lastScoreAt: s.lastScoreAt,
+        solvedCount: s.solvedCount,
+      }))
+      .filter((r) => r.teamName.toLowerCase() !== "admin team");
 
     // Sort: points descending, then lastScoreAt ascending
     rowsList.sort((a, b) => {
@@ -203,12 +199,14 @@ export async function materialize(event: EventKey | "overall"): Promise<Leaderbo
   const snapshot: LeaderboardSnapshot = {
     event,
     generatedAt: new Date(),
-    rows: rows.map((r) => ({
-      teamId: String(r._id),
-      teamName: names.get(String(r._id)) ?? "Unknown",
-      points: r.points,
-      lastScoreAt: r.lastScoreAt ?? null,
-    })),
+    rows: rows
+      .filter((r) => names.get(String(r._id))?.toLowerCase() !== "admin team")
+      .map((r) => ({
+        teamId: String(r._id),
+        teamName: names.get(String(r._id)) ?? "Unknown",
+        points: r.points,
+        lastScoreAt: r.lastScoreAt ?? null,
+      })),
   };
 
   const boards = await collections.leaderboards();

@@ -16,7 +16,6 @@ interface ChallengeDetail {
   points: number;
   solveCount: number;
   isSolved: boolean;
-  isFirstBlood: boolean;
   attachments: string[];
   hints: Array<{ id: number; text: string; unlockSeconds: number }>;
 }
@@ -28,6 +27,10 @@ export default function ChallengeDetailPage() {
 
   const [challenge, setChallenge] = useState<ChallengeDetail | null>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
+  const [teamScore, setTeamScore] = useState<number>(0);
+  const [teamName, setTeamName] = useState<string>("");
+  const [prevSlug, setPrevSlug] = useState<string | null>(null);
+  const [nextSlug, setNextSlug] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [flagInput, setFlagInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -66,6 +69,24 @@ export default function ChallengeDetailPage() {
       if (res.ok && data.challenge) {
         setChallenge(data.challenge);
         if (data.teamId) setTeamId(data.teamId);
+        if (data.teamScore !== undefined) setTeamScore(data.teamScore);
+        if (data.teamName) setTeamName(data.teamName);
+        setPrevSlug(data.prevSlug ?? null);
+        setNextSlug(data.nextSlug ?? null);
+
+        // Check if admin reset board and reset local hint timer if resetAt has changed
+        if (data.resetAt) {
+          const lastReset = localStorage.getItem("ctf_last_reset");
+          if (lastReset !== data.resetAt) {
+            localStorage.setItem("ctf_last_reset", data.resetAt);
+            Object.keys(localStorage).forEach((key) => {
+              if (key.startsWith("ctf_timer_")) {
+                localStorage.removeItem(key);
+              }
+            });
+            setElapsedSeconds(0);
+          }
+        }
       }
     } catch (e) {
       console.error("Error fetching challenge:", e);
@@ -96,8 +117,7 @@ export default function ChallengeDetailPage() {
       if (!res.ok || !result.ok) {
         setFeedback({ ok: false, msg: result.error ?? "Flag submission failed" });
       } else if (result.correct) {
-        const bonusMsg = result.meta?.firstBlood ? " 🩸 FIRST BLOOD BONUS AWARDED!" : "";
-        setFeedback({ ok: true, msg: `🎉 CORRECT FLAG! +${result.points} PTS AWARDED.${bonusMsg}` });
+        setFeedback({ ok: true, msg: `🎉 CORRECT FLAG! +${result.points} PTS AWARDED.` });
         setFlagInput("");
         fetchChallenge();
       } else {
@@ -167,13 +187,13 @@ export default function ChallengeDetailPage() {
         <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[150px]" />
       </div>
 
-      {/* Top Banner & Header */}
+      {/* Top Banner & Header with Prev / Next Question & Current Team Score */}
       <header className="relative max-w-6xl mx-auto pt-8 px-6 flex flex-col md:flex-row items-center justify-between gap-6 z-10">
         <button
           onClick={() => router.push("/ctf")}
           className="flex items-center gap-2 border border-pink-500/40 bg-pink-950/30 hover:bg-pink-950/60 text-pink-300 px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-[0_0_15px_rgba(236,72,153,0.2)]"
         >
-          ← Back to Challenges
+          ← Back to Dashboard
         </button>
 
         <div className="text-center">
@@ -183,9 +203,28 @@ export default function ChallengeDetailPage() {
           <p className="text-xs font-black uppercase tracking-[0.3em] text-red-500 mt-1">MULTIVERSE BREACH</p>
         </div>
 
-        {/* Character Illustration Badge (Top Right) */}
-        <div className="hidden md:flex items-center justify-center w-16 h-16 rounded-full border border-red-500/40 bg-red-950/40 shadow-[0_0_20px_rgba(220,38,38,0.3)] text-3xl">
-          🕷️
+        {/* Question Navigation & Score Badge (Top Right) */}
+        <div className="flex flex-wrap items-center gap-3">
+          {prevSlug && (
+            <button
+              onClick={() => router.push(`/ctf/${prevSlug}`)}
+              className="flex items-center gap-1.5 border border-red-500/40 bg-red-950/40 hover:bg-red-900/60 text-red-300 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-[0_0_15px_rgba(220,38,38,0.2)]"
+            >
+              ← Prev Question
+            </button>
+          )}
+          {nextSlug && (
+            <button
+              onClick={() => router.push(`/ctf/${nextSlug}`)}
+              className="flex items-center gap-1.5 border border-red-500/40 bg-red-950/40 hover:bg-red-900/60 text-red-300 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-[0_0_15px_rgba(220,38,38,0.2)]"
+            >
+              Next Question →
+            </button>
+          )}
+          <div className="border border-red-500/50 bg-red-950/70 rounded-xl px-4 py-1.5 text-center shadow-[0_0_20px_rgba(220,38,38,0.4)]">
+            <span className="text-[9px] font-black uppercase tracking-wider text-gray-400 block">{teamName || "TEAM"} SCORE</span>
+            <span className="text-sm font-black text-red-400 drop-shadow-[0_0_10px_rgba(220,38,38,0.8)]">{teamScore} PTS</span>
+          </div>
         </div>
       </header>
 
@@ -334,7 +373,7 @@ export default function ChallengeDetailPage() {
                         </button>
                       )}
                       <span className={`text-xs font-mono font-bold ${isUnlocked ? 'text-emerald-400' : 'text-amber-400'}`}>
-                        ⏱ {formattedTime}
+                        ⏱ {isUnlocked ? "Unlocked!" : `Unlocks in ${formattedTime}`}
                       </span>
                     </div>
                   </div>

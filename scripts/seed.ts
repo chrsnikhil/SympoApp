@@ -1,108 +1,174 @@
-import { createHash } from "crypto";
-import path from "path";
-import fs from "fs";
+/**
+ * Seed a complete dev dataset: indexes, teams with access codes, admin account,
+ * hunt, quiz, code challenges, and CTF challenges.
+ *
+ * Run:  npx tsx scripts/seed.ts
+ */
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { ObjectId } from "mongodb";
 
-try {
-  const envPath = path.resolve(process.cwd(), ".env.local");
-  if (fs.existsSync(envPath)) {
-    const envConfig = fs.readFileSync(envPath, "utf8");
-    for (const line of envConfig.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const eqIdx = trimmed.indexOf("=");
-      if (eqIdx > 0) {
-        const key = trimmed.substring(0, eqIdx).trim();
-        const value = trimmed.substring(eqIdx + 1).trim();
-        if (!process.env[key]) {
-          process.env[key] = value;
-        }
+// Load .env.local into process.env
+const envPath = resolve(process.cwd(), ".env.local");
+if (existsSync(envPath)) {
+  const content = readFileSync(envPath, "utf8");
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith("#")) {
+      const idx = trimmed.indexOf("=");
+      if (idx !== -1) {
+        const key = trimmed.slice(0, idx).trim();
+        const val = trimmed.slice(idx + 1).trim();
+        if (!process.env[key]) process.env[key] = val;
       }
     }
   }
-} catch (e) {
-  console.error("Could not load .env.local", e);
 }
 
+import { createHash, randomBytes } from "node:crypto";
 import { collections, ensureIndexes } from "../src/lib/db/client";
+import { hashCode, hashAnswer, normaliseCode } from "../src/lib/auth/session";
 
-function hashCode(str: string): string {
-  return createHash("sha256").update(str.trim()).digest("hex");
+function makeCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const chunk = (n: number) =>
+    Array.from(randomBytes(n))
+      .map((b) => alphabet[b % alphabet.length])
+      .join("");
+  return `X26-${chunk(5)}-${chunk(5)}`;
 }
 
-function sha256(str: string): string {
-  return createHash("sha256").update(str).digest("hex");
+function sha256(flag: string): string {
+  return createHash("sha256").update(flag).digest("hex");
 }
 
 async function main() {
   console.log("Ensuring indexes…");
   await ensureIndexes();
 
-  const teamsColl = await collections.teams();
-  const codesColl = await collections.accessCodes();
-  const challengesColl = await collections.challenges();
-  const participantsColl = await collections.participants();
+  const teams = await collections.teams();
+  const participants = await collections.participants();
+  const codes = await collections.accessCodes();
+  const challenges = await collections.challenges();
+  const hunt = await collections.huntProgress();
 
   console.log("Seeding teams + codes…");
+  const issued: Array<{ team: string; code: string }> = [];
 
-  // Clear previous test seeds
-  await teamsColl.deleteMany({});
-  await codesColl.deleteMany({});
-  await challengesColl.deleteMany({});
-  await participantsColl.deleteMany({});
+  for (const name of ["Team Arachnid", "Team Multiverse", "Spider Society"]) {
+    const existingTeam = await teams.findOne({ name });
+    let teamId = existingTeam?._id;
+    if (!teamId) {
+      teamId = new ObjectId();
+      const nameKey = name.toLowerCase().replace(/\s+/g, "_");
+      await teams.insertOne({ _id: teamId, name, nameKey, createdAt: new Date() });
+    }
 
-  // 1. Seed Demo Team
-  const teamInsert = await teamsColl.insertOne({
-    name: "Spider Society",
-    nameKey: "spider_society",
-    createdAt: new Date(),
-  } as any);
-  const teamId = teamInsert.insertedId;
+    const existingPart = await participants.findOne({ teamId });
+    if (!existingPart) {
+      const participantId = new ObjectId();
+      await participants.insertOne({
+        _id: participantId,
+        teamId,
+        name: name === "Spider Society" ? "Miles Morales" : `${name} captain`,
+        role: "participant",
+        createdAt: new Date(),
+      });
 
-  // 2. Seed Demo Participant
-  const partInsert = await participantsColl.insertOne({
-    teamId,
-    name: "Miles Morales",
-    role: "participant",
-    createdAt: new Date(),
-  });
-  const participantId = partInsert.insertedId;
+      const code = name === "Spider Society" ? "SPIDER2026" : makeCode();
+      const cHash = hashCode(code);
+      const existingCode = await codes.findOne({ codeHash: cHash });
+      if (!existingCode) {
+        await codes.insertOne({
+          codeHash: cHash,
+          teamId,
+          participantId,
+          role: "participant",
+          redeemedAt: null,
+        });
+      }
+      issued.push({ team: name, code: normaliseCode(code) });
+    }
 
-  // 3. Seed Access Code (code = "SPIDER2026")
-  await codesColl.insertOne({
-    codeHash: hashCode("SPIDER2026"),
-    teamId,
-    participantId,
-    role: "participant",
-    redeemedAt: null,
-  });
+    await hunt.updateOne(
+      { teamId, challengeSlug: "clue-1" },
+      { $setOnInsert: { teamId, challengeSlug: "clue-1", unlockedAt: new Date(), solvedAt: null, hintsUsed: 0 } },
+      { upsert: true }
+    );
+  }
+
+  // Seed Admin Participant / Team if missing
+  let adminTeam = await teams.findOne({ name: "Admin Team" });
+  if (!adminTeam) {
+    const adminTeamId = new ObjectId();
+    await teams.insertOne({ _id: adminTeamId, name: "Admin Team", nameKey: "admin_team", createdAt: new Date() });
+    adminTeam = await teams.findOne({ _id: adminTeamId });
+  }
+  if (adminTeam?._id) {
+    const adminParticipant = await participants.findOne({ role: "admin" });
+    if (!adminParticipant) {
+      await participants.insertOne({
+        teamId: adminTeam._id,
+        name: "Admin",
+        role: "admin",
+        createdAt: new Date(),
+      });
+    }
+  }
 
   console.log("Seeding CTF and event challenges…");
+  const ctfSlugs = [
+    "easy-01",
+    "easy-02",
+    "easy-03",
+    "medium-01",
+    "medium-02",
+    "medium-03",
+    "hard-01",
+    "hard-02",
+  ];
 
-  /* =========================================================================
-   * PREVIOUS CTF CHALLENGES CONFIGS (COMMENTED OUT AS REQUESTED)
-   * =========================================================================
-  await challengesColl.insertMany([
+  await challenges.deleteMany({ slug: { $in: ["clue-1", "clue-2", "warmup", "q1", "sum-two", ...ctfSlugs] } });
+
+  await challenges.insertMany([
+    // Hunt / Quiz / Code challenges
     {
-      type: "ctf",
-      slug: "easy-01-old",
-      title: "Web of Secrets (Old)",
+      type: "hunt",
+      slug: "clue-1",
+      title: "Where it begins",
       points: 100,
       opensAt: null,
       closesAt: null,
-      config: {
-        answerHash: sha256("SPIDER{web_of_secrets_multiverse_2026}"),
-        difficulty: "Easy",
-        category: "Web",
-        description: "Old challenge config description",
-        status: "open",
-      },
+      config: { answerHash: hashAnswer("library"), nextSlug: "clue-2", hintCosts: [10, 25] },
     },
-    ...
-  ]);
-   * ========================================================================= */
+    {
+      type: "hunt",
+      slug: "clue-2",
+      title: "Second thread",
+      points: 150,
+      opensAt: null,
+      closesAt: null,
+      config: { answerHash: hashAnswer("rooftop"), hintCosts: [15] },
+    },
+    {
+      type: "quiz",
+      slug: "q1",
+      title: "Which year is Miguel from?",
+      points: 100,
+      opensAt: null,
+      closesAt: null,
+      config: { correctIndex: 2, limitSeconds: 30, speedBonus: 50 },
+    },
+    {
+      type: "code",
+      slug: "sum-two",
+      title: "Sum two numbers",
+      points: 300,
+      opensAt: null,
+      closesAt: null,
+      config: { testsRef: "tests/sum-two.json" },
+    },
 
-  // ── SEED CTF CHALLENGES FROM CTF FOLDER (.DOCX DOCUMENTS) ────────────────
-  await challengesColl.insertMany([
     // ── EASY 1: Web of Secrets ─────────────────────────────────────────────
     {
       type: "ctf",
@@ -118,9 +184,9 @@ async function main() {
         description: "Spider-Man has intercepted a secret transmission from Kingpin's henchmen. The message has been encoded using a classic cipher that dates back centuries. The Spider Society needs you to decode it and retrieve the hidden message before it falls into the wrong hands.",
         details: "Intercepted encoded cipher text: ZSLKLY{xli_vj_zljylaz_tdsapclyzl_7726}. The cipher type used is a classical Caesar cipher with a shift key of 7. Decode the text to retrieve the flag.",
         hints: [
-          { id: 1, text: "Think about classical ciphers — not all encryption requires a computer. Some of the oldest methods involve shifting or substituting letters.", unlockSeconds: 180 },
-          { id: 2, text: "Try analyzing the frequency of characters in the cipher text. The most frequent letter in English is 'E'.", unlockSeconds: 360 },
-          { id: 3, text: "If it's a Caesar cipher, there are only 25 possible shifts. Try shift 7.", unlockSeconds: 540 },
+          { id: 1, text: "Think about classical ciphers — not all encryption requires a computer. Some of the oldest methods involve shifting or substituting letters.", unlockSeconds: 300 },
+          { id: 2, text: "Try analyzing the frequency of characters in the cipher text. The most frequent letter in English is 'E'.", unlockSeconds: 600 },
+          { id: 3, text: "If it's a Caesar cipher, there are only 25 possible shifts. Try shift 7.", unlockSeconds: 900 },
         ],
         status: "open",
         attachments: [],
@@ -142,9 +208,9 @@ async function main() {
         description: "A dimensional portal created by The Spot has gone unstable, scattering fragments of encrypted data across the Spider-Verse. One of those fragments contains a critical access key, but all that remains is its raw MD5 hash.",
         details: "Encrypted MD5 hash fragment: 09bf1fb211909f9578147ec0dcecb98a. The key follows a strict structure: 1 uppercase letter, 3 lowercase letters, and 4 digits (e.g. Spot2026).",
         hints: [
-          { id: 1, text: "The password follows a strict structure: 1 uppercase + 3 lowercase + 4 digits = 8 characters total.", unlockSeconds: 180 },
-          { id: 2, text: "MD5 is deterministic. Write a Python script using hashlib to test combinations.", unlockSeconds: 360 },
-          { id: 3, text: "The word starts with 'Spot' followed by the symposium year '2026'.", unlockSeconds: 540 },
+          { id: 1, text: "The password follows a strict structure: 1 uppercase + 3 lowercase + 4 digits = 8 characters total.", unlockSeconds: 300 },
+          { id: 2, text: "MD5 is deterministic. Write a Python script using hashlib to test combinations.", unlockSeconds: 600 },
+          { id: 3, text: "The word starts with 'Spot' followed by the symposium year '2026'.", unlockSeconds: 900 },
         ],
         status: "open",
         attachments: [],
@@ -166,9 +232,9 @@ async function main() {
         description: "Miles Morales has discovered a strange QR code spray-painted on a wall in Brooklyn. But it's been partially damaged — the data modules are scrambled and it won't scan. The Spider Society believes it hides coordinates to The Spot's next dimensional rift.",
         details: "The scrambled QR code contains sub-blocks. Align the 3 corner finder patterns in top-left, top-right, and bottom-left to reconstruct the code and reveal the payload.",
         hints: [
-          { id: 1, text: "QR codes have three square finder patterns — one in each corner except bottom-right.", unlockSeconds: 180 },
-          { id: 2, text: "If the QR is split into tiles, reassemble it in an image editor using timing strips.", unlockSeconds: 360 },
-          { id: 3, text: "Once reassembled, use an online tool like zxing.org to scan the output.", unlockSeconds: 540 },
+          { id: 1, text: "QR codes have three square finder patterns — one in each corner except bottom-right.", unlockSeconds: 300 },
+          { id: 2, text: "If the QR is split into tiles, reassemble it in an image editor using timing strips.", unlockSeconds: 600 },
+          { id: 3, text: "Once reassembled, use an online tool like zxing.org to scan the output.", unlockSeconds: 900 },
         ],
         status: "open",
         attachments: [],
@@ -190,9 +256,9 @@ async function main() {
         description: "The Spot has created a multi-dimensional maze to trap Spider-Man. Each room in the maze is connected by portals, and each portal is labeled with an encoded character. Navigate from START to END, collect the portal labels in order, decode them, and the result is the hidden flag.",
         details: "The correct portal path from Room A to Room Z passes through nodes A -> C -> F -> K -> R -> Z. The concatenated Base64 portal sequence collected along this path is: c3BvdF9tYXplX3RyYXZlcnNlZF85OQ==",
         hints: [
-          { id: 1, text: "Start by mapping out all the rooms and their connections on paper.", unlockSeconds: 240 },
-          { id: 2, text: "Not every path leads to the end. Some are dead ends placed by The Spot.", unlockSeconds: 480 },
-          { id: 3, text: "Collect all encoded labels along the path, concatenate them, and decode via Base64.", unlockSeconds: 720 },
+          { id: 1, text: "Start by mapping out all the rooms and their connections on paper.", unlockSeconds: 300 },
+          { id: 2, text: "Not every path leads to the end. Some are dead ends placed by The Spot.", unlockSeconds: 600 },
+          { id: 3, text: "Collect all encoded labels along the path, concatenate them, and decode via Base64.", unlockSeconds: 900 },
         ],
         status: "open",
         attachments: [],
@@ -214,9 +280,9 @@ async function main() {
         description: "The Spider Society has intercepted a suspicious image file transmitted by Kingpin's network. On the surface it looks like an ordinary photo, but analysts believe a secret message has been embedded within it using image encryption techniques.",
         details: "Appended after the JPEG End-Of-File (EOF) marker FFD9 is a Base64-encoded comment payload: U1BJREVSe3hvcl9jaXBoZXJfcGl4ZWxfbWFzdGVyfQ==",
         hints: [
-          { id: 1, text: "Start with the basics — run 'strings' or inspect EXIF metadata.", unlockSeconds: 240 },
-          { id: 2, text: "Check if data has been appended after the image's EOF marker (FFD9 for JPEG).", unlockSeconds: 480 },
-          { id: 3, text: "Decode the trailing Base64 string to uncover the exact SPIDER{...} flag.", unlockSeconds: 720 },
+          { id: 1, text: "Start with the basics — run 'strings' or inspect EXIF metadata.", unlockSeconds: 300 },
+          { id: 2, text: "Check if data has been appended after the image's EOF marker (FFD9 for JPEG).", unlockSeconds: 600 },
+          { id: 3, text: "Decode the trailing Base64 string to uncover the exact SPIDER{...} flag.", unlockSeconds: 900 },
         ],
         status: "open",
         attachments: [],
@@ -238,9 +304,9 @@ async function main() {
         description: "A leaked chat log between Kingpin's operatives has been intercepted by Spider-Byte. The conversation is partially obfuscated. Participants reference a hidden access key encoded in Hex.",
         details: "Operative A: 'Did you transfer the vault key?' Operative B: 'Yes, it is hex-encoded in the chat payload: 6d696775656c5f636861745f6c6f67735f696e746572636570746564'",
         hints: [
-          { id: 1, text: "Look for raw hex strings inside the intercepted conversation transcript.", unlockSeconds: 240 },
-          { id: 2, text: "Convert hex string bytes to ASCII plain text.", unlockSeconds: 480 },
-          { id: 3, text: "The hex decodes to miguel_chat_logs_intercepted.", unlockSeconds: 720 },
+          { id: 1, text: "Look for raw hex strings inside the intercepted conversation transcript.", unlockSeconds: 300 },
+          { id: 2, text: "Convert hex string bytes to ASCII plain text.", unlockSeconds: 600 },
+          { id: 3, text: "The hex decodes to miguel_chat_logs_intercepted.", unlockSeconds: 900 },
         ],
         status: "open",
         attachments: [],
@@ -296,10 +362,14 @@ async function main() {
     },
   ]);
 
-  console.log("\n── SEEDED CTF CHALLENGES FROM FOLDER ─────────────────────");
-  console.log("  Easy:   easy-01, easy-02, easy-03 (100 pts each)");
-  console.log("  Medium: medium-01, medium-02, medium-03 (150 pts each)");
-  console.log("  Hard:   hard-01, hard-02 (200 pts each)");
+  console.log("\n── SEEDED ALL CHALLENGES & TEAMS ─────────────────────────────");
+  console.log("  Issued Access Codes:");
+  for (const item of issued) {
+    console.log(`    ${item.team.padEnd(20)}: ${item.code}`);
+  }
+  console.log("  CTF Easy:   easy-01, easy-02, easy-03 (100 pts each)");
+  console.log("  CTF Medium: medium-01, medium-02, medium-03 (150 pts each)");
+  console.log("  CTF Hard:   hard-01, hard-02 (200 pts each)");
   console.log("  All flags hashed with SHA-256 and structured under SPIDER{...}");
   console.log("────────────────────────────────────────────────────────\n");
 

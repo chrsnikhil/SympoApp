@@ -31,6 +31,16 @@ export default function EnterPage() {
         setError(data.error ?? "Authentication failed");
         return;
       }
+      // Wipe any leftover hint timer keys from previous logins/sessions
+      try {
+        Object.keys(localStorage).forEach((key) => {
+          if (key.startsWith("ctf_timer_")) {
+            localStorage.removeItem(key);
+          }
+        });
+      } catch (e) {
+        console.error("Failed to clear local storage", e);
+      }
       const rt = new URLSearchParams(window.location.search).get("rt");
       window.location.href = rt ?? defaultRedirect;
     } catch {

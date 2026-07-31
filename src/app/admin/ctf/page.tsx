@@ -42,13 +42,44 @@ interface LeaderboardRow {
   lastScoreAt: string | null;
 }
 
+interface AdminTeam {
+  id: string;
+  name: string;
+  createdAt: string;
+  banned: boolean;
+  bannedReason: string | null;
+  bannedAt: string | null;
+  penaltyPoints: number;
+  score: number;
+  solvedCount: number;
+  members: string[];
+}
+
 export default function AdminCtfPage() {
   const [challenges, setChallenges] = useState<AdminChallenge[]>([]);
   const [submissions, setSubmissions] = useState<AdminSubmission[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
+  const [teams, setTeams] = useState<AdminTeam[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"challenges" | "leaderboard" | "submissions" | "create">("challenges");
+  const [activeTab, setActiveTab] = useState<"challenges" | "leaderboard" | "submissions" | "create" | "teams">("challenges");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // Reset Modal state
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetConfirmInput, setResetConfirmInput] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
+
+  // Penalty Modal state
+  const [penaltyModalTeam, setPenaltyModalTeam] = useState<AdminTeam | null>(null);
+  const [penaltyPointsInput, setPenaltyPointsInput] = useState(50);
+  const [penaltyReasonInput, setPenaltyReasonInput] = useState("");
+  const [isSubmittingPenalty, setIsSubmittingPenalty] = useState(false);
+
+  // Ban Modal state
+  const [banModalTeam, setBanModalTeam] = useState<AdminTeam | null>(null);
+  const [banConfirmInput, setBanConfirmInput] = useState("");
+  const [banReasonInput, setBanReasonInput] = useState("");
+  const [isSubmittingBan, setIsSubmittingBan] = useState(false);
 
   // New Challenge Form State
   const [newSlug, setNewSlug] = useState("");
@@ -68,10 +99,11 @@ export default function AdminCtfPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [cRes, sRes, dashRes] = await Promise.all([
+      const [cRes, sRes, dashRes, tRes] = await Promise.all([
         fetch("/api/admin/ctf/challenges"),
         fetch("/api/admin/ctf/submissions"),
         fetch("/api/ctf/dashboard"),
+        fetch("/api/admin/ctf/teams"),
       ]);
 
       if (cRes.status === 401 || sRes.status === 401) {
@@ -82,10 +114,12 @@ export default function AdminCtfPage() {
       const cData = await cRes.json();
       const sData = await sRes.json();
       const dashData = await dashRes.json();
+      const tData = await tRes.json();
 
       if (cRes.ok) setChallenges(cData.challenges ?? []);
       if (sRes.ok) setSubmissions(sData.submissions ?? []);
       if (dashRes.ok && dashData.leaderboard) setLeaderboard(dashData.leaderboard ?? []);
+      if (tRes.ok) setTeams(tData.teams ?? []);
     } catch (e) {
       console.error("Admin fetch error:", e);
     } finally {
@@ -98,6 +132,127 @@ export default function AdminCtfPage() {
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  function openResetModal() {
+    setResetConfirmInput("");
+    setShowResetModal(true);
+  }
+
+  async function handleConfirmReset() {
+    if (resetConfirmInput.trim().toLowerCase() !== "reset") return;
+    setIsResetting(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/ctf/reset", { method: "POST" });
+      const json = await res.json();
+      if (res.ok) {
+        setMsg({ ok: true, text: "🎉 Leaderboard, CTF submissions, and participant teams reset successfully!" });
+        setShowResetModal(false);
+        setResetConfirmInput("");
+        fetchData();
+      } else {
+        setMsg({ ok: false, text: json.error ?? "Reset failed" });
+      }
+    } catch {
+      setMsg({ ok: false, text: "Reset error" });
+    } finally {
+      setIsResetting(false);
+    }
+  }
+
+  function openPenaltyModal(t: AdminTeam) {
+    setPenaltyModalTeam(t);
+    setPenaltyPointsInput(50);
+    setPenaltyReasonInput("");
+  }
+
+  async function handleConfirmPenalty() {
+    if (!penaltyModalTeam || penaltyPointsInput <= 0) return;
+    setIsSubmittingPenalty(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/ctf/teams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "penalty",
+          teamId: penaltyModalTeam.id,
+          penaltyPoints: penaltyPointsInput,
+          reason: penaltyReasonInput,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setMsg({ ok: true, text: json.message ?? "Penalty applied successfully!" });
+        setPenaltyModalTeam(null);
+        fetchData();
+      } else {
+        setMsg({ ok: false, text: json.error ?? "Failed to apply penalty" });
+      }
+    } catch {
+      setMsg({ ok: false, text: "Network error applying penalty" });
+    } finally {
+      setIsSubmittingPenalty(false);
+    }
+  }
+
+  function openBanModal(t: AdminTeam) {
+    setBanModalTeam(t);
+    setBanConfirmInput("");
+    setBanReasonInput("");
+  }
+
+  async function handleConfirmBan() {
+    if (!banModalTeam || banConfirmInput.trim().toUpperCase() !== "BAN") return;
+    setIsSubmittingBan(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/ctf/teams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "ban",
+          teamId: banModalTeam.id,
+          reason: banReasonInput,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setMsg({ ok: true, text: json.message ?? "Team banned successfully!" });
+        setBanModalTeam(null);
+        fetchData();
+      } else {
+        setMsg({ ok: false, text: json.error ?? "Failed to ban team" });
+      }
+    } catch {
+      setMsg({ ok: false, text: "Network error banning team" });
+    } finally {
+      setIsSubmittingBan(false);
+    }
+  }
+
+  async function handleUnbanTeam(t: AdminTeam) {
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/ctf/teams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "unban",
+          teamId: t.id,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setMsg({ ok: true, text: json.message ?? "Team unbanned successfully!" });
+        fetchData();
+      } else {
+        setMsg({ ok: false, text: json.error ?? "Failed to unban team" });
+      }
+    } catch {
+      setMsg({ ok: false, text: "Network error unbanning team" });
+    }
+  }
 
   async function handleCreateChallenge(e: React.FormEvent) {
     e.preventDefault();
@@ -186,24 +341,7 @@ export default function AdminCtfPage() {
     }
   }
 
-  async function handleResetLeaderboard() {
-    if (!confirm("⚠️ Are you sure you want to reset all CTF submissions and leaderboard stats? This cannot be undone.")) {
-      return;
-    }
-    setMsg(null);
-    try {
-      const res = await fetch("/api/admin/ctf/reset", { method: "POST" });
-      const json = await res.json();
-      if (res.ok) {
-        setMsg({ ok: true, text: "Leaderboard and CTF submissions reset successfully!" });
-        fetchData();
-      } else {
-        setMsg({ ok: false, text: json.error ?? "Reset failed" });
-      }
-    } catch {
-      setMsg({ ok: false, text: "Reset error" });
-    }
-  }
+
 
   function handleExport(format: "csv" | "json") {
     window.open(`/api/admin/ctf/export?format=${format}`, "_blank");
@@ -259,7 +397,6 @@ export default function AdminCtfPage() {
             <div>Initial Pts: <span className="text-red-400 font-bold">{ch.config.initialPoints ?? ch.points}</span></div>
             <div>Minimum Pts: <span className="text-pink-400 font-bold">{ch.config.minimumPoints ?? 50}</span></div>
             <div>Decay After: <span className="text-amber-400 font-bold">{ch.config.decayAfter ?? 3} solves</span></div>
-            <div>First Blood Bonus: <span className="text-emerald-400 font-bold">+{ch.config.firstBloodBonus ?? 30} pts</span></div>
             <div>Attachments: <span className="text-gray-400">{ch.config.attachments?.join(", ") || "None"}</span></div>
           </div>
         </div>
@@ -346,7 +483,7 @@ export default function AdminCtfPage() {
               Participant View 👁️
             </a>
             <button
-              onClick={handleResetLeaderboard}
+              onClick={openResetModal}
               className="px-4 py-2 text-xs font-bold bg-red-600/30 border border-red-500/60 text-red-200 rounded-xl hover:bg-red-600/60 transition-all uppercase tracking-wider shadow-[0_0_15px_rgba(239,68,68,0.3)]"
             >
               Reset CTF Board ⚠️
@@ -406,6 +543,15 @@ export default function AdminCtfPage() {
                 }`}
             >
               Submissions Log ({submissions.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("teams")}
+              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wider ${activeTab === "teams"
+                  ? "bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.5)]"
+                  : "text-gray-400 hover:text-white"
+                }`}
+            >
+              Teams & Moderation 🛡️ ({teams.length})
             </button>
           </div>
 
@@ -547,12 +693,11 @@ export default function AdminCtfPage() {
                     <th className="py-3.5 px-4 font-semibold">Rank</th>
                     <th className="py-3.5 px-4 font-semibold">Team Name</th>
                     <th className="py-3.5 px-4 font-semibold text-center">Solves Count</th>
-                    <th className="py-3.5 px-4 font-semibold text-center">First Bloods 🩸</th>
                     <th className="py-3.5 px-4 font-semibold text-right">Total Score</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-sm">
-                  {leaderboard.map((row, idx) => (
+                  {leaderboard.filter((row) => row.teamName.toLowerCase() !== "admin team").map((row, idx) => (
                     <tr key={row.teamId} className={`transition-colors ${idx < 3 ? 'bg-red-950/20' : 'hover:bg-white/5'}`}>
                       <td className="py-4 px-4 font-black">
                         {idx === 0 ? "🥇 #1" : idx === 1 ? "🥈 #2" : idx === 2 ? "🥉 #3" : `#${idx + 1}`}
@@ -562,9 +707,6 @@ export default function AdminCtfPage() {
                       </td>
                       <td className="py-4 px-4 text-center font-mono font-bold text-cyan-300">
                         {row.solvedCount ?? 0}
-                      </td>
-                      <td className="py-4 px-4 text-center font-mono font-bold text-red-400">
-                        {row.firstBloodCount ?? 0}
                       </td>
                       <td className="py-4 px-4 text-right font-mono font-black text-pink-400 text-base">
                         {row.points} pts
@@ -710,7 +852,7 @@ export default function AdminCtfPage() {
                       <td className="py-3.5 px-4">
                         {sub.correct ? (
                           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-950/60 text-emerald-300 border border-emerald-500/40">
-                            ✓ Correct {sub.meta?.firstBlood ? "🩸 First Blood" : ""}
+                            ✓ Correct
                           </span>
                         ) : (
                           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-950/60 text-red-300 border border-red-500/40">
@@ -735,7 +877,314 @@ export default function AdminCtfPage() {
             </div>
           </div>
         )}
+
+        {/* TAB 5: TEAMS & MODERATION */}
+        {activeTab === "teams" && (
+          <div className="bg-[#0d0716]/90 border border-red-500/30 rounded-3xl p-6 md:p-8 shadow-[0_0_50px_rgba(220,38,38,0.15)] backdrop-blur-xl">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-black uppercase tracking-tight text-white">Teams Moderation & Penalties</h2>
+                <p className="text-xs text-gray-400 font-medium">Issue point deductions, inspect participant teams, and ban rule violators</p>
+              </div>
+              <button
+                onClick={fetchData}
+                className="px-4 py-2 bg-red-950/60 border border-red-500/40 text-red-300 text-xs font-bold rounded-xl hover:bg-red-900/60 transition-all shadow-[0_0_15px_rgba(220,38,38,0.2)]"
+              >
+                Refresh Teams 🔄
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-white/10 text-gray-400 text-xs uppercase tracking-wider">
+                    <th className="py-3.5 px-4 font-semibold">Team Name</th>
+                    <th className="py-3.5 px-4 font-semibold">Members</th>
+                    <th className="py-3.5 px-4 font-semibold text-center">Solves</th>
+                    <th className="py-3.5 px-4 font-semibold text-center">Total Score</th>
+                    <th className="py-3.5 px-4 font-semibold text-center">Penalties</th>
+                    <th className="py-3.5 px-4 font-semibold text-center">Status</th>
+                    <th className="py-3.5 px-4 font-semibold text-right">Moderation Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5 text-sm">
+                  {teams.map((t) => (
+                    <tr key={t.id} className={`transition-colors ${t.banned ? 'bg-red-950/40 border-l-4 border-red-600' : 'hover:bg-white/5'}`}>
+                      <td className="py-4 px-4 font-bold text-white">
+                        {t.name}
+                      </td>
+                      <td className="py-4 px-4 text-xs text-gray-300">
+                        {t.members?.length > 0 ? t.members.join(", ") : "No captain registered"}
+                      </td>
+                      <td className="py-4 px-4 text-center font-mono font-bold text-cyan-300">
+                        {t.solvedCount}
+                      </td>
+                      <td className="py-4 px-4 text-center font-mono font-bold text-pink-400">
+                        {t.score} pts
+                      </td>
+                      <td className="py-4 px-4 text-center font-mono font-bold text-red-400">
+                        {t.penaltyPoints > 0 ? `-${t.penaltyPoints} pts` : "None"}
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        {t.banned ? (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-black bg-red-950 text-red-400 border border-red-500/50">
+                            🚫 BANNED
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-950/60 text-emerald-300 border border-emerald-500/40">
+                            ✓ Active
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-4 px-4 text-right space-x-2">
+                        <button
+                          onClick={() => openPenaltyModal(t)}
+                          className="px-3 py-1.5 bg-amber-950/60 border border-amber-500/40 text-amber-300 text-xs font-bold rounded-xl hover:bg-amber-900/60 transition-all shadow-[0_0_10px_rgba(245,158,11,0.2)]"
+                        >
+                          Penalty ⚠️
+                        </button>
+                        {t.banned ? (
+                          <button
+                            onClick={() => handleUnbanTeam(t)}
+                            className="px-3 py-1.5 bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-bold rounded-xl hover:bg-emerald-900/60 transition-all shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                          >
+                            Unban 🔓
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => openBanModal(t)}
+                            className="px-3 py-1.5 bg-red-950/80 border border-red-500/60 text-red-300 text-xs font-bold rounded-xl hover:bg-red-900/80 transition-all shadow-[0_0_10px_rgba(239,68,68,0.3)]"
+                          >
+                            Ban 🚫
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {teams.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-gray-500 text-sm">
+                        No participant teams registered yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* CONFIRMATION DIALOG MODAL: PENALTY */}
+      {penaltyModalTeam && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-[#12071a] border border-amber-500/40 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-[0_0_50px_rgba(245,158,11,0.3)] space-y-6 relative">
+            <button
+              onClick={() => setPenaltyModalTeam(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white text-lg font-bold"
+            >
+              ✕
+            </button>
+
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">⚠️</span>
+              <div>
+                <h3 className="text-xl font-black text-white uppercase tracking-wider">Confirm Point Penalty</h3>
+                <p className="text-xs text-gray-400 font-medium">Issue point deduction to participant team</p>
+              </div>
+            </div>
+
+            <div className="bg-amber-950/40 border border-amber-500/30 rounded-2xl p-4 text-xs space-y-2 text-amber-200">
+              <p className="font-bold text-sm text-white">Target Team: {penaltyModalTeam.name}</p>
+              <p className="text-gray-300">Current Score: <span className="text-pink-400 font-bold">{penaltyModalTeam.score} pts</span></p>
+              {penaltyModalTeam.members.length > 0 && (
+                <p className="text-gray-400">Members: {penaltyModalTeam.members.join(", ")}</p>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
+                  Penalty Points (Deduction Amount)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={penaltyPointsInput}
+                  onChange={(e) => setPenaltyPointsInput(Math.max(1, parseInt(e.target.value, 10) || 0))}
+                  placeholder="e.g. 50"
+                  className="w-full bg-[#07030a] border border-amber-500/40 rounded-xl px-4 py-2.5 text-white font-mono text-sm focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">
+                  Reason / Infraction Note
+                </label>
+                <input
+                  type="text"
+                  value={penaltyReasonInput}
+                  onChange={(e) => setPenaltyReasonInput(e.target.value)}
+                  placeholder="e.g. Code sharing / Unfair hint usage"
+                  className="w-full bg-[#07030a] border border-white/10 rounded-xl px-4 py-2.5 text-white text-xs focus:outline-none focus:border-amber-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setPenaltyModalTeam(null)}
+                className="flex-1 py-3 bg-white/5 border border-white/10 hover:bg-white/10 text-gray-300 text-xs font-bold rounded-xl transition-all uppercase tracking-wider"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmPenalty}
+                disabled={isSubmittingPenalty || penaltyPointsInput <= 0}
+                className="flex-1 py-3 bg-amber-600 hover:bg-amber-500 text-white text-xs font-black rounded-xl transition-all uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.5)] disabled:opacity-50"
+              >
+                {isSubmittingPenalty ? "Applying…" : "Confirm Penalty ⚠️"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRMATION DIALOG MODAL: BAN TEAM */}
+      {banModalTeam && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-[#12071a] border border-red-500/40 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-[0_0_50px_rgba(239,68,68,0.4)] space-y-6 relative">
+            <button
+              onClick={() => setBanModalTeam(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white text-lg font-bold"
+            >
+              ✕
+            </button>
+
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">🚫</span>
+              <div>
+                <h3 className="text-xl font-black text-white uppercase tracking-wider">Ban Team Confirmation</h3>
+                <p className="text-xs text-gray-400 font-medium">Block team access and remove from leaderboard</p>
+              </div>
+            </div>
+
+            <div className="bg-red-950/50 border border-red-500/40 rounded-2xl p-4 text-xs space-y-2 text-red-200">
+              <p className="font-bold text-sm text-white">Target Team: {banModalTeam.name}</p>
+              <p className="text-gray-300">This action will immediately block all members of this team from logging in or submitting answers. They will be removed from live standings.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-red-400 mb-1">
+                  Ban Reason
+                </label>
+                <input
+                  type="text"
+                  value={banReasonInput}
+                  onChange={(e) => setBanReasonInput(e.target.value)}
+                  placeholder="e.g. Plagiarism / Flag sharing"
+                  className="w-full bg-[#07030a] border border-red-500/30 rounded-xl px-4 py-2.5 text-white text-xs focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">
+                  Type <span className="text-red-400 font-black">BAN</span> to confirm
+                </label>
+                <input
+                  type="text"
+                  value={banConfirmInput}
+                  onChange={(e) => setBanConfirmInput(e.target.value)}
+                  placeholder="Type BAN here"
+                  className="w-full bg-[#07030a] border border-red-500/40 rounded-xl px-4 py-2.5 text-white font-mono text-sm focus:outline-none focus:border-red-500 uppercase"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setBanModalTeam(null)}
+                className="flex-1 py-3 bg-white/5 border border-white/10 hover:bg-white/10 text-gray-300 text-xs font-bold rounded-xl transition-all uppercase tracking-wider"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmBan}
+                disabled={isSubmittingBan || banConfirmInput.trim().toUpperCase() !== "BAN"}
+                className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white text-xs font-black rounded-xl transition-all uppercase tracking-wider shadow-[0_0_20px_rgba(239,68,68,0.5)] disabled:opacity-50"
+              >
+                {isSubmittingBan ? "Banning…" : "Confirm Ban 🚫"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRMATION DIALOG MODAL: REQUIRE TYPING 'reset' */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
+          <div className="bg-[#0d0716] border-2 border-red-500/80 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-[0_0_50px_rgba(239,68,68,0.4)] relative">
+            <button
+              onClick={() => setShowResetModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white text-lg font-bold"
+            >
+              ✕
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-3xl">⚠️</span>
+              <div>
+                <h3 className="text-xl font-black uppercase text-red-500 tracking-wider">Confirm Reset</h3>
+                <p className="text-xs text-gray-400 font-medium">Irreversible Action</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-300 mb-4 leading-relaxed">
+              This will permanently delete all <strong className="text-red-400">submissions</strong>, <strong className="text-red-400">score logs</strong>, and <strong className="text-red-400">logged-in participant teams</strong>, completely clearing the leaderboard.
+            </p>
+
+            <div className="bg-red-950/40 border border-red-500/30 rounded-2xl p-4 mb-5 space-y-2">
+              <label className="block text-[11px] font-black uppercase tracking-widest text-red-300">
+                To confirm, type <span className="bg-red-900/80 px-2 py-0.5 rounded text-white font-mono font-bold">reset</span> below:
+              </label>
+              <input
+                type="text"
+                value={resetConfirmInput}
+                onChange={(e) => setResetConfirmInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && resetConfirmInput.trim().toLowerCase() === "reset") {
+                    handleConfirmReset();
+                  }
+                }}
+                placeholder="type reset to confirm..."
+                autoFocus
+                className="w-full bg-[#07030a] border border-red-500/60 rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-500/50"
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowResetModal(false)}
+                className="w-1/2 py-3 bg-gray-900 border border-gray-700 hover:bg-gray-800 text-gray-300 text-xs font-bold rounded-xl transition-all uppercase tracking-wider"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmReset}
+                disabled={resetConfirmInput.trim().toLowerCase() !== "reset" || isResetting}
+                className={`w-1/2 py-3 text-xs font-black rounded-xl transition-all uppercase tracking-wider flex items-center justify-center gap-2 ${
+                  resetConfirmInput.trim().toLowerCase() === "reset" && !isResetting
+                    ? "bg-red-600 hover:bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.6)] cursor-pointer"
+                    : "bg-red-950/50 border border-red-900/50 text-red-400/50 cursor-not-allowed"
+                }`}
+              >
+                {isResetting ? "Resetting..." : "Confirm Reset 🚨"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

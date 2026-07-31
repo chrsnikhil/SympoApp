@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
 import { collections } from "@/lib/db/client";
 import { calculateChallengeValue } from "@/lib/ctf/scoring";
+import { readSnapshot } from "@/lib/leaderboard/materialize";
 
 export async function GET(
   request: Request,
@@ -20,6 +21,7 @@ export async function GET(
     const cleanSlug = slug.trim();
     const challengesCollection = await collections.challenges();
     const subsCollection = await collections.submissions();
+    const teamsCollection = await collections.teams();
 
     const ch = await challengesCollection.findOne({
       type: "ctf",
@@ -35,6 +37,23 @@ export async function GET(
     }
 
     const cId = ch._id!.toString();
+
+    // Query all open CTF challenges for prev / next question navigation
+    const allCtfChallenges = await challengesCollection
+      .find({ type: "ctf", disabled: { $ne: true }, "config.status": { $ne: "hidden" } })
+      .project<{ slug: string }>({ slug: 1 })
+      .toArray();
+
+    const currIndex = allCtfChallenges.findIndex((c) => c.slug.toLowerCase() === ch.slug.toLowerCase());
+    const prevSlug = currIndex > 0 ? allCtfChallenges[currIndex - 1].slug : null;
+    const nextSlug = currIndex >= 0 && currIndex < allCtfChallenges.length - 1 ? allCtfChallenges[currIndex + 1].slug : null;
+
+    // Get current team name and current total score
+    const teamDoc = await teamsCollection.findOne({ _id: new (require("mongodb").ObjectId)(teamIdStr) });
+    const snapshot = await readSnapshot("ctf");
+    const teamRow = snapshot.rows.find((r) => r.teamId === teamIdStr);
+    const teamScore = teamRow?.points ?? 0;
+    const teamName = teamDoc?.name ?? teamRow?.teamName ?? "Team";
 
     // Get solve count for decay calculation
     const solveCount = await subsCollection.countDocuments({
@@ -57,7 +76,6 @@ export async function GET(
     });
 
     const isSolved = Boolean(teamSub);
-    const isFirstBlood = Boolean(teamSub?.verdict?.meta?.firstBlood);
 
     // Dynamic hints structure (defaults if not in config)
     const defaultHints = [
@@ -66,8 +84,25 @@ export async function GET(
       { id: 3, text: "It's encrypted... but not very well.", unlockSeconds: 900 }, // 15 min
     ];
 
+    // Get last board reset timestamp
+    const { getDb } = await import("@/lib/db/client");
+    const db = await getDb();
+    const lastResetDoc = await db.collection("system_settings").findOne({ key: "ctf_last_reset" });
+    const resetAt = lastResetDoc?.resetAt ? new Date(lastResetDoc.resetAt).toISOString() : "1970-01-01T00:00:00.000Z";
+
+    const rawHints = ch.config.hints && ch.config.hints.length > 0 ? ch.config.hints : defaultHints;
+    const hintsList = rawHints.map((h, idx) => ({
+      ...h,
+      unlockSeconds: idx === 0 ? 300 : idx === 1 ? 600 : 900,
+    }));
+
     return NextResponse.json({
       teamId: teamIdStr,
+      teamName,
+      teamScore,
+      prevSlug,
+      nextSlug,
+      resetAt,
       challenge: {
         id: cId,
         slug: ch.slug,
@@ -80,9 +115,8 @@ export async function GET(
         points: currentPoints,
         solveCount,
         isSolved,
-        isFirstBlood,
         attachments: ch.config.attachments && ch.config.attachments.length > 0 ? ch.config.attachments : [],
-        hints: ch.config.hints && ch.config.hints.length > 0 ? ch.config.hints : defaultHints,
+        hints: hintsList,
       },
     });
   } catch (err) {

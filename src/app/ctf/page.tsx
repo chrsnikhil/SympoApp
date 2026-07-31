@@ -14,7 +14,6 @@ interface ChallengeItem {
   points: number;
   solveCount: number;
   isSolved: boolean;
-  isFirstBlood: boolean;
   attachments: string[];
   status: string;
 }
@@ -24,7 +23,6 @@ interface LeaderboardRow {
   teamName: string;
   points: number;
   solvedCount?: number;
-  firstBloodCount?: number;
   lastScoreAt: string | null;
 }
 
@@ -107,10 +105,9 @@ export default function CtfDashboardPage() {
           [slug]: { ok: false, msg: result.error ?? "Flag submission failed" },
         }));
       } else if (result.correct) {
-        const bonusMsg = result.meta?.firstBlood ? " 🩸 FIRST BLOOD BONUS AWARDED!" : "";
         setFeedback((prev) => ({
           ...prev,
-          [slug]: { ok: true, msg: `🎉 CORRECT! +${result.points} pts.${bonusMsg}` },
+          [slug]: { ok: true, msg: `🎉 CORRECT! +${result.points} pts.` },
         }));
         setFlagInputs((prev) => ({ ...prev, [slug]: "" }));
         setActiveSubmit(null);
@@ -349,23 +346,44 @@ export default function CtfDashboardPage() {
               </h2>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-1.5 custom-scrollbar">
-              {data?.leaderboard.map((row, idx) => (
-                <div key={row.teamId} className={`flex items-center gap-4 p-3 rounded-xl transition-all ${idx === 0 ? 'bg-amber-500/10 border border-amber-500/20' : idx < 3 ? 'bg-white/5 border border-white/10' : 'hover:bg-white/5 border border-transparent'}`}>
-                  <div className="w-8 flex justify-center font-black">
-                    {idx === 0 ? <span className="text-2xl drop-shadow-[0_0_10px_rgba(250,204,21,0.6)]">🥇</span> : 
-                     idx === 1 ? <span className="text-2xl drop-shadow-[0_0_10px_rgba(203,213,225,0.6)]">🥈</span> :
-                     idx === 2 ? <span className="text-2xl drop-shadow-[0_0_10px_rgba(217,119,6,0.6)]">🥉</span> :
-                     <span className="text-gray-500 text-sm">{idx + 1}</span>}
+              {(data?.leaderboard ?? []).filter((row) => row.teamName.toLowerCase() !== "admin team").map((row, idx) => {
+                const isMyTeam = data?.team?.id === row.teamId;
+                return (
+                  <div
+                    key={row.teamId}
+                    className={`flex items-center gap-4 p-3 rounded-xl transition-all ${
+                      isMyTeam
+                        ? "bg-red-950/60 border-2 border-red-500/80 shadow-[0_0_20px_rgba(239,68,68,0.4)]"
+                        : idx === 0
+                        ? "bg-amber-500/10 border border-amber-500/20"
+                        : idx < 3
+                        ? "bg-white/5 border border-white/10"
+                        : "hover:bg-white/5 border border-transparent"
+                    }`}
+                  >
+                    <div className="w-8 flex justify-center font-black">
+                      {idx === 0 ? <span className="text-2xl drop-shadow-[0_0_10px_rgba(250,204,21,0.6)]">🥇</span> : 
+                       idx === 1 ? <span className="text-2xl drop-shadow-[0_0_10px_rgba(203,213,225,0.6)]">🥈</span> :
+                       idx === 2 ? <span className="text-2xl drop-shadow-[0_0_10px_rgba(217,119,6,0.6)]">🥉</span> :
+                       <span className="text-gray-500 text-sm">{idx + 1}</span>}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-white font-bold text-sm tracking-wide flex items-center gap-2">
+                        <span>{row.teamName}</span>
+                        {isMyTeam && (
+                          <span className="px-1.5 py-0.5 bg-red-600 text-[9px] font-black uppercase text-white rounded tracking-wider shadow">
+                            YOU
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-gray-400 text-[11px] uppercase tracking-wider mt-0.5">{row.points} Points</div>
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-[#1a0a14] border border-red-500/30 flex items-center justify-center text-sm shadow-[0_0_10px_rgba(220,38,38,0.2)]">
+                      {['🕷️', '🕸️', '🦸‍♂️', '🦹'][idx % 4]}
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <div className="text-white font-bold text-sm tracking-wide">{row.teamName}</div>
-                    <div className="text-gray-400 text-[11px] uppercase tracking-wider mt-0.5">{row.points} Points</div>
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-[#1a0a14] border border-red-500/30 flex items-center justify-center text-sm shadow-[0_0_10px_rgba(220,38,38,0.2)]">
-                    {['🕷️', '🕸️', '🦸‍♂️', '🦹'][idx % 4]}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {(!data?.leaderboard || data.leaderboard.length === 0) && (
                  <div className="text-center text-gray-500 text-sm py-10">No scores yet.</div>
               )}

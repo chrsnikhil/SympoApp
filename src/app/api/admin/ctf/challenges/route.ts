@@ -46,7 +46,6 @@ export async function POST(request: Request) {
       initialPoints,
       minimumPoints,
       decayAfter,
-      firstBloodBonus,
       status,
     } = body;
 
@@ -77,7 +76,6 @@ export async function POST(request: Request) {
         initialPoints: initialPts,
         minimumPoints: Number(minimumPoints) || 50,
         decayAfter: Number(decayAfter) || 3,
-        firstBloodBonus: Number(firstBloodBonus) || 30,
         status: status || "open",
         attachments: [],
       },
@@ -111,7 +109,6 @@ export async function PUT(request: Request) {
       initialPoints,
       minimumPoints,
       decayAfter,
-      firstBloodBonus,
       status,
       disabled,
     } = body;
@@ -136,7 +133,6 @@ export async function PUT(request: Request) {
     if (initialPoints !== undefined) updateConfig.initialPoints = Number(initialPoints);
     if (minimumPoints !== undefined) updateConfig.minimumPoints = Number(minimumPoints);
     if (decayAfter !== undefined) updateConfig.decayAfter = Number(decayAfter);
-    if (firstBloodBonus !== undefined) updateConfig.firstBloodBonus = Number(firstBloodBonus);
     if (status !== undefined) updateConfig.status = status; // open, closed, released, hidden
     if (disabled !== undefined) updateConfig.disabled = Boolean(disabled);
 

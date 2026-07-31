@@ -10,7 +10,12 @@ import type { EventKey, SubmissionStatus } from "@/lib/config";
 export interface Team {
   _id?: ObjectId;
   name: string;
+  nameKey?: string;
   createdAt: Date;
+  banned?: boolean;
+  bannedReason?: string;
+  bannedAt?: Date;
+  penaltyPoints?: number;
 }
 
 export interface Participant {
@@ -60,9 +65,6 @@ export interface Challenge {
     limitSeconds?: number;
     /** quiz: bonus for answering fast, scaled by time remaining. */
     speedBonus?: number;
-    /** ctf: extra points for the first team to solve. */
-    firstBloodBonus?: number;
-    firstBloodTeamId?: ObjectId;
     initialPoints?: number;
     /** minimum score after decay */
     minimumPoints?: number;
@@ -146,6 +148,5 @@ export interface LeaderboardSnapshot {
     points: number;
     lastScoreAt: Date | null;
     solvedCount?: number;
-    firstBloodCount?: number;
   }>;
 }

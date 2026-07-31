@@ -4,13 +4,12 @@ import { calculateChallengeValue } from "@/lib/ctf/scoring";
 import type { GradeInput, GradeResult } from "./types";
 
 /**
- * CTF Grader — Hashed flag compare + Atomic First Blood bonus.
+ * CTF Grader — Hashed flag compare + dynamic decay scoring.
  *
  * Requirements:
  *  1. Flags: Case-sensitive, exact match, no trimming, SPIDER{...} format.
  *  2. SHA256 comparison against challenge.config.answerHash.
  *  3. Duplicate solve check per team.
- *  4. Atomic first-blood bonus using conditional MongoDB update on `firstBloodTeamId`.
  */
 export async function gradeCtf(input: GradeInput): Promise<GradeResult> {
   const { challenge, teamId, payload } = input;
@@ -32,24 +31,7 @@ export async function gradeCtf(input: GradeInput): Promise<GradeResult> {
     return { correct: false, points: 0, meta: { reason: "wrong-flag" } };
   }
 
-  // 3 ── Atomic First-Blood Check
-  const challenges = await collections.challenges();
-  const fbResult = await challenges.updateOne(
-    {
-      _id: challenge._id,
-      $or: [
-        { "config.firstBloodTeamId": { $exists: false } },
-        { "config.firstBloodTeamId": null },
-      ],
-    },
-    {
-      $set: { "config.firstBloodTeamId": teamId },
-    }
-  );
-  const firstBlood = fbResult.modifiedCount > 0;
-  const bonus = firstBlood ? challenge.config.firstBloodBonus ?? 0 : 0;
-
-  // 4 ── Calculate Dynamic Points
+  // 3 ── Calculate Dynamic Points
   const previousSolves = await subs.countDocuments({
     challengeId: challenge._id,
     "verdict.correct": true,
@@ -60,16 +42,12 @@ export async function gradeCtf(input: GradeInput): Promise<GradeResult> {
   const minPts = challenge.config.minimumPoints ?? 50;
   const decayAfter = challenge.config.decayAfter ?? 5;
 
-  const basePoints = calculateChallengeValue(initialPts, minPts, decayAfter, currentSolves);
-  const totalPoints = basePoints + bonus;
+  const totalPoints = calculateChallengeValue(initialPts, minPts, decayAfter, currentSolves);
 
   return {
     correct: true,
     points: totalPoints,
     meta: {
-      firstBlood,
-      bonus,
-      basePoints,
       solves: currentSolves,
     },
   };
