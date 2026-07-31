@@ -1,0 +1,354 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system definition.
+ *
+ * The @theme inline block maps CSS custom properties to Tailwind utility
+ * classes (e.g. --color-primary -> bg-primary, text-primary).
+ *
+ * The :root and .dark blocks define the actual color values using oklch.
+ * All colors MUST use oklch format.
+ *
+ * To add a new semantic color:
+ * 1. Add the variable to :root (light value) and .dark (dark value)
+ * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.129 0.042 264.695);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.129 0.042 264.695);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.129 0.042 264.695);
+  --primary: oklch(0.208 0.042 265.755);
+  --primary-foreground: oklch(0.984 0.003 247.858);
+  --secondary: oklch(0.968 0.007 247.896);
+  --secondary-foreground: oklch(0.208 0.042 265.755);
+  --muted: oklch(0.968 0.007 247.896);
+  --muted-foreground: oklch(0.554 0.046 257.417);
+  --accent: oklch(0.968 0.007 247.896);
+  --accent-foreground: oklch(0.208 0.042 265.755);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --border: oklch(0.929 0.013 255.508);
+  --input: oklch(0.929 0.013 255.508);
+  --ring: oklch(0.704 0.04 256.788);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.984 0.003 247.858);
+  --sidebar-foreground: oklch(0.129 0.042 264.695);
+  --sidebar-primary: oklch(0.208 0.042 265.755);
+  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-accent: oklch(0.968 0.007 247.896);
+  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
+  --sidebar-border: oklch(0.929 0.013 255.508);
+  --sidebar-ring: oklch(0.704 0.04 256.788);
+}
+
+.dark {
+  --background: oklch(0.129 0.042 264.695);
+  --foreground: oklch(0.984 0.003 247.858);
+  --card: oklch(0.208 0.042 265.755);
+  --card-foreground: oklch(0.984 0.003 247.858);
+  --popover: oklch(0.208 0.042 265.755);
+  --popover-foreground: oklch(0.984 0.003 247.858);
+  --primary: oklch(0.929 0.013 255.508);
+  --primary-foreground: oklch(0.208 0.042 265.755);
+  --secondary: oklch(0.279 0.041 260.031);
+  --secondary-foreground: oklch(0.984 0.003 247.858);
+  --muted: oklch(0.279 0.041 260.031);
+  --muted-foreground: oklch(0.704 0.04 256.788);
+  --accent: oklch(0.279 0.041 260.031);
+  --accent-foreground: oklch(0.984 0.003 247.858);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.551 0.027 264.364);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.208 0.042 265.755);
+  --sidebar-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-accent: oklch(0.279 0.041 260.031);
+  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.551 0.027 264.364);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+}
+
+/* ============================================================
+   Spider-Verse quiz — ported comic UI styles
+   ============================================================ */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  overscroll-behavior: none;
+  background-color: #f4ecd8;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+.comic-app {
+  position: relative;
+  min-height: 100vh;
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  color: #1b1b1c;
+}
+
+.comic-app main > :first-child {
+  margin-top: 0 !important;
+}
+.comic-app main > :last-child {
+  margin-bottom: 0 !important;
+}
+
+.comic-border {
+  border: 3px solid #1b1b1c;
+  box-shadow: 8px 8px 0px 0px #1b1b1c;
+}
+.comic-border-sm {
+  border: 2px solid #1b1b1c;
+  box-shadow: 4px 4px 0px 0px #1b1b1c;
+}
+.comic-tilt-left {
+  transform: rotate(-1.5deg);
+}
+.comic-tilt-right {
+  transform: rotate(1.5deg);
+}
+.ben-day {
+  background-image: radial-gradient(#1b1b1c 1px, transparent 0);
+  background-size: 3px 3px;
+  opacity: 0.1;
+}
+.ben-day-light {
+  background-image: radial-gradient(#ffffff 1px, transparent 0);
+  background-size: 3px 3px;
+}
+
+.view {
+  display: none;
+}
+.view.active {
+  display: block;
+  animation: pageflip 0.6s ease;
+}
+@keyframes pageflip {
+  from {
+    opacity: 0;
+    transform: perspective(1400px) rotateY(-10deg) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(1400px) rotateY(0deg) scale(1);
+  }
+}
+@keyframes popIn {
+  0% {
+    transform: scale(0.5) rotate(-8deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08) rotate(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+.pop-in {
+  animation: popIn 0.5s ease;
+}
+
+#toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(150%);
+  transition: transform 0.3s ease;
+  z-index: 100;
+}
+#toast.show {
+  transform: translateX(-50%) translateY(0);
+}
+
+.answer-selected {
+  outline: 4px solid #1b1b1c;
+}
+
+/* ============================================================
+   Vintage Bronze Age comic page background
+   ============================================================ */
+.comic-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.comic-bg > * {
+  position: absolute;
+  inset: 0;
+}
+
+/* warm newsprint base bleeding through everything */
+.comic-bg__paper {
+  background: #f2e7cf;
+}
+
+/* the printed comic page itself, full bleed */
+.comic-bg__page {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.27;
+  filter: saturate(0.92) contrast(1.02) sepia(0.12);
+}
+
+/* imperfect print registration: a faintly offset, ink-shifted second pass */
+.comic-bg__misprint {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transform: translate(2px, -1.5px) scale(1.004);
+  opacity: 0.09;
+  filter: hue-rotate(-12deg) saturate(1.6) blur(0.6px);
+  mix-blend-mode: multiply;
+}
+
+/* CMYK halftone dot texture over every colour field */
+.comic-bg__halftone {
+  background-image:
+    radial-gradient(circle at 25% 25%, rgba(0, 132, 168, 0.16) 0.8px, transparent 1.1px),
+    radial-gradient(circle at 75% 45%, rgba(200, 30, 90, 0.16) 0.8px, transparent 1.1px),
+    radial-gradient(circle at 50% 80%, rgba(230, 180, 20, 0.18) 0.8px, transparent 1.1px),
+    radial-gradient(circle, rgba(27, 27, 28, 0.14) 0.7px, transparent 1px);
+  background-size:
+    4px 4px,
+    4px 4px,
+    4px 4px,
+    3px 3px;
+  mix-blend-mode: multiply;
+  opacity: 0.85;
+}
+
+/* aged newsprint grain + sun-worn corners */
+.comic-bg__grain {
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(140, 110, 60, 0.1) 0 1px, transparent 2px),
+    radial-gradient(circle at 68% 8%, rgba(140, 110, 60, 0.08) 0 1px, transparent 2px),
+    radial-gradient(circle at 88% 62%, rgba(140, 110, 60, 0.1) 0 1px, transparent 2px),
+    radial-gradient(circle at 34% 88%, rgba(140, 110, 60, 0.08) 0 1px, transparent 2px),
+    radial-gradient(ellipse at 0% 0%, rgba(196, 154, 84, 0.4), transparent 26%),
+    radial-gradient(ellipse at 100% 0%, rgba(196, 154, 84, 0.34), transparent 24%),
+    radial-gradient(ellipse at 0% 100%, rgba(196, 154, 84, 0.38), transparent 26%),
+    radial-gradient(ellipse at 100% 100%, rgba(196, 154, 84, 0.42), transparent 28%);
+  background-size:
+    17px 17px,
+    23px 23px,
+    29px 29px,
+    31px 31px,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%;
+  mix-blend-mode: multiply;
+  opacity: 0.7;
+}
+
+/* calmer, lighter, softly blurred zone behind the central content */
+.comic-bg__center-wash {
+  background: radial-gradient(
+    ellipse 62% 58% at 50% 46%,
+    rgba(247, 240, 224, 0.94) 0%,
+    rgba(247, 240, 224, 0.82) 38%,
+    rgba(247, 240, 224, 0.4) 66%,
+    rgba(247, 240, 224, 0) 88%
+  );
+  backdrop-filter: blur(1.6px);
+}
+
+/* soft vignette keeps the edges crisp and dark like a printed page */
+.comic-bg__vignette {
+  background: radial-gradient(
+    ellipse 88% 84% at 50% 50%,
+    rgba(27, 27, 28, 0) 52%,
+    rgba(27, 27, 28, 0.14) 78%,
+    rgba(27, 27, 28, 0.3) 100%
+  );
+}

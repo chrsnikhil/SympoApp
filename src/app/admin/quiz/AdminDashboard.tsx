@@ -427,7 +427,7 @@ export default function AdminDashboard() {
                               <button
                                 disabled={busy || closed}
                                 onClick={() => callAdvance({ action: "close-puzzle", slug: p.slug })}
-                                className="border border-paper-white/20 px-3 py-1.5 text-xs text-paper-white/70 hover:border-paper-white/50"
+                                className="comic-btn bg-ink-black px-3 py-1.5 text-xs"
                               >
                                 Close & move everyone on
                               </button>
@@ -545,7 +545,7 @@ export default function AdminDashboard() {
                       <button
                         disabled={busy}
                         onClick={() => callAdvance({ action: "revoke-coin", coin: c.coin })}
-                        className="border border-signal-wrong px-2 py-0.5 text-[0.65rem] font-bold text-signal-wrong hover:bg-signal-wrong/20"
+                        className="px-2.5 py-1 text-[0.65rem] font-bold border-2 border-signal-wrong bg-signal-wrong text-paper-white hover:bg-white hover:text-signal-wrong transition-colors rounded shadow-sm"
                       >
                         REVOKE
                       </button>

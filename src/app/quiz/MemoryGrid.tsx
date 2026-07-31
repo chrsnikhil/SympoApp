@@ -73,7 +73,7 @@ export default function MemoryGrid({ slug, onDone }: { slug: string; onDone: (po
     }
   }
 
-  if (!state) return <p className="font-comic text-xl text-paper-white/40">Loading the grid…</p>;
+  if (!state) return <p className="font-label-sm text-sm uppercase text-on-surface-variant">Loading the grid…</p>;
 
   const revealedIndexes = new Set(state.revealed.map((r) => r.index));
   const matchedIndexes = new Map(state.matched.map((m) => [m.index, m.token]));
@@ -83,16 +83,16 @@ export default function MemoryGrid({ slug, onDone }: { slug: string; onDone: (po
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between text-[0.65rem] uppercase tracking-[0.2em] text-paper-white/45">
+      <div className="mb-4 flex items-center justify-between font-label-sm text-xs uppercase text-on-surface-variant">
         <span>
-          Flips <span className="tabular-nums text-paper-white/70">{state.flipsUsed}</span> / <span className="tabular-nums text-paper-white/70">{state.flipCap}</span>
+          Flips: <span className="tabular-nums text-primary font-bold">{state.flipsUsed}</span> / <span className="tabular-nums text-on-surface">{state.flipCap}</span>
         </span>
         <span>
-          Matched <span className="tabular-nums text-glitch-cyan">{state.matched.length / 2}</span> / {state.totalCells / 2}
+          Matched: <span className="tabular-nums text-primary font-bold">{state.matched.length / 2}</span> / {state.totalCells / 2}
         </span>
       </div>
 
-      <div className="grid grid-cols-4 gap-2 sm:gap-3">
+      <div className="grid grid-cols-4 gap-3 sm:gap-4">
         {Array.from({ length: state.totalCells }, (_, i) => {
           const matchedToken = matchedIndexes.get(i);
           const revealedToken = revealedTokens.get(i);
@@ -107,34 +107,37 @@ export default function MemoryGrid({ slug, onDone }: { slug: string; onDone: (po
               type="button"
               disabled={disabled}
               onClick={() => flip(i)}
-              className="card-flip-scene aspect-square"
+              className={`aspect-square relative comic-border-sm transition-all duration-150 ${faceUp
+                  ? "bg-surface-container-lowest comic-tilt-right"
+                  : "bg-surface hover:bg-surface-container-high comic-tilt-left hover:scale-105"
+                } ${disabled ? "cursor-default" : "cursor-pointer"}`}
               aria-label={faceUp ? look?.label ?? "card" : "face-down card"}
             >
-              <div className={`card-flip-inner relative h-full w-full ${faceUp ? "is-flipped" : ""}`}>
-                <div
-                  className={`card-face grid place-items-center border-2 ${matchedToken ? "border-glitch-cyan/70" : "border-paper-white/20"} bg-ink-black/70`}
-                >
-                  <span className="font-display text-lg text-paper-white/25">?</span>
-                </div>
-                <div
-                  className="card-face card-face-back grid place-items-center border-2 px-1 text-center"
-                  style={{ borderColor: look?.colour ?? "#666", background: `${look?.colour ?? "#666"}22` }}
-                >
-                  <span className="font-comic text-xs leading-tight sm:text-sm" style={{ color: look?.colour ?? "#fff" }}>
+              {faceUp ? (
+                <div className="h-full w-full flex flex-col items-center justify-center p-1 text-center">
+                  <div
+                    className="w-4 h-4 rounded-full comic-border-sm mb-1"
+                    style={{ backgroundColor: look?.colour ?? "#a41616" }}
+                  />
+                  <span className="font-display-xl text-xs uppercase leading-tight" style={{ color: look?.colour ?? "#1b1b1c" }}>
                     {look?.label ?? ""}
                   </span>
                 </div>
-              </div>
+              ) : (
+                <div className="h-full w-full flex items-center justify-center bg-surface">
+                  <span className="font-display-xl text-xl text-on-surface-variant/40">?</span>
+                </div>
+              )}
             </button>
           );
         })}
       </div>
 
-      {error && <p className="anim-shake mt-3 text-xs text-signal-wrong">{error}</p>}
+      {error && <p className="anim-shake mt-3 font-label-sm text-xs text-primary uppercase">{error}</p>}
 
       {state.completedAt && (
-        <p className="mt-4 border-l-4 border-glitch-cyan bg-glitch-cyan/10 px-3 py-2 font-comic text-lg text-glitch-cyan">
-          {state.scoredPoints && state.scoredPoints > 0 ? `MATCHED! +${state.scoredPoints}` : "OUT OF FLIPS."}
+        <p className="mt-4 comic-border bg-tertiary-fixed text-on-tertiary-fixed px-4 py-3 font-headline-lg text-headline-lg-mobile uppercase text-center comic-tilt-right">
+          {state.scoredPoints && state.scoredPoints > 0 ? `MATCHED! +${state.scoredPoints} PTS` : "OUT OF FLIPS."}
         </p>
       )}
     </div>
