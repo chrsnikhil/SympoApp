@@ -25,18 +25,9 @@ if (existsSync(envPath)) {
   }
 }
 
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { collections, ensureIndexes } from "../src/lib/db/client";
-import { hashCode, hashAnswer, normaliseCode } from "../src/lib/auth/session";
-
-function makeCode(): string {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const chunk = (n: number) =>
-    Array.from(randomBytes(n))
-      .map((b) => alphabet[b % alphabet.length])
-      .join("");
-  return `X26-${chunk(5)}-${chunk(5)}`;
-}
+import { hashAnswer } from "../src/lib/auth/session";
 
 function sha256(flag: string): string {
   return createHash("sha256").update(flag).digest("hex");
@@ -48,55 +39,9 @@ async function main() {
 
   const teams = await collections.teams();
   const participants = await collections.participants();
-  const codes = await collections.accessCodes();
   const challenges = await collections.challenges();
-  const hunt = await collections.huntProgress();
 
-  console.log("Seeding teams + codes…");
-  const issued: Array<{ team: string; code: string }> = [];
-
-  for (const name of ["Team Arachnid", "Team Multiverse", "Spider Society"]) {
-    const existingTeam = await teams.findOne({ name });
-    let teamId = existingTeam?._id;
-    if (!teamId) {
-      teamId = new ObjectId();
-      const nameKey = name.toLowerCase().replace(/\s+/g, "_");
-      await teams.insertOne({ _id: teamId, name, nameKey, createdAt: new Date() });
-    }
-
-    const existingPart = await participants.findOne({ teamId });
-    if (!existingPart) {
-      const participantId = new ObjectId();
-      await participants.insertOne({
-        _id: participantId,
-        teamId,
-        name: name === "Spider Society" ? "Miles Morales" : `${name} captain`,
-        role: "participant",
-        createdAt: new Date(),
-      });
-
-      const code = name === "Spider Society" ? "SPIDER2026" : makeCode();
-      const cHash = hashCode(code);
-      const existingCode = await codes.findOne({ codeHash: cHash });
-      if (!existingCode) {
-        await codes.insertOne({
-          codeHash: cHash,
-          teamId,
-          participantId,
-          role: "participant",
-          redeemedAt: null,
-        });
-      }
-      issued.push({ team: name, code: normaliseCode(code) });
-    }
-
-    await hunt.updateOne(
-      { teamId, challengeSlug: "clue-1" },
-      { $setOnInsert: { teamId, challengeSlug: "clue-1", unlockedAt: new Date(), solvedAt: null, hintsUsed: 0 } },
-      { upsert: true }
-    );
-  }
-
+  console.log("Seeding Admin Team…");
   // Seed Admin Participant / Team if missing
   let adminTeam = await teams.findOne({ name: "Admin Team" });
   if (!adminTeam) {
@@ -362,11 +307,7 @@ async function main() {
     },
   ]);
 
-  console.log("\n── SEEDED ALL CHALLENGES & TEAMS ─────────────────────────────");
-  console.log("  Issued Access Codes:");
-  for (const item of issued) {
-    console.log(`    ${item.team.padEnd(20)}: ${item.code}`);
-  }
+  console.log("\n── SEEDED ALL CHALLENGES & ADMIN TEAM ─────────────────────────────");
   console.log("  CTF Easy:   easy-01, easy-02, easy-03 (100 pts each)");
   console.log("  CTF Medium: medium-01, medium-02, medium-03 (150 pts each)");
   console.log("  CTF Hard:   hard-01, hard-02 (200 pts each)");

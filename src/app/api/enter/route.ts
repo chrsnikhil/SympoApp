@@ -6,10 +6,10 @@ import { materialize } from "@/lib/leaderboard/materialize";
 
 /**
  * In-memory IP rate limiter to protect against brute-force login attacks.
- * Max 10 attempts per IP per 3-minute window.
+ * Tracks FAILED authentication attempts per IP (max 10 failures per 3-minute window).
  */
 interface RateLimitRecord {
-  attempts: number;
+  failures: number;
   resetAt: number;
 }
 
@@ -17,21 +17,28 @@ const loginRateMap = new Map<string, RateLimitRecord>();
 
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
-  const windowMs = 3 * 60 * 1000; // 3 minutes
-  const maxAttempts = 10;
-
   const record = loginRateMap.get(ip);
-  if (!record || now > record.resetAt) {
-    loginRateMap.set(ip, { attempts: 1, resetAt: now + windowMs });
+  if (!record) return false;
+  if (now > record.resetAt) {
+    loginRateMap.delete(ip);
     return false;
   }
+  return record.failures >= 10;
+}
 
-  if (record.attempts >= maxAttempts) {
-    return true;
+function recordFailedAttempt(ip: string): void {
+  const now = Date.now();
+  const windowMs = 3 * 60 * 1000; // 3 minutes
+  const record = loginRateMap.get(ip);
+  if (!record || now > record.resetAt) {
+    loginRateMap.set(ip, { failures: 1, resetAt: now + windowMs });
+  } else {
+    record.failures += 1;
   }
+}
 
-  record.attempts += 1;
-  return false;
+function clearRateLimit(ip: string): void {
+  loginRateMap.delete(ip);
 }
 
 /**
@@ -42,6 +49,10 @@ function safeCompare(input: string, target: string): boolean {
   const hashA = createHash("sha256").update(String(input)).digest();
   const hashB = createHash("sha256").update(String(target)).digest();
   return hashA.length === hashB.length && timingSafeEqual(hashA, hashB);
+}
+
+function sha256Hex(str: string): string {
+  return createHash("sha256").update(str).digest("hex");
 }
 
 function escapeRegex(str: string): string {
@@ -58,7 +69,7 @@ export async function POST(request: Request) {
 
   if (isRateLimited(clientIp)) {
     return NextResponse.json(
-      { error: "Too many login attempts. Please wait 3 minutes before trying again." },
+      { error: "Too many failed login attempts. Please wait 3 minutes before trying again." },
       { status: 429 }
     );
   }
@@ -67,18 +78,28 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as Record<string, unknown>;
   } catch {
+    recordFailedAttempt(clientIp);
     return NextResponse.json({ error: "Malformed JSON payload" }, { status: 400 });
   }
 
+  const expectedAdminUser = process.env.ADMIN_USERNAME ?? "licet";
   const expectedAdminPass = process.env.ADMIN_PASSWORD ?? "licet@2026";
   const expectedParticipantPass = process.env.PARTICIPANT_PASSWORD ?? "licet@123";
 
   // 1 ── ADMIN LOGIN
-  if (typeof body.username === "string" && body.username.trim().toLowerCase() === "licet") {
+  if (typeof body.username === "string" && body.username.trim()) {
+    const userStr = body.username.trim();
     const pass = typeof body.password === "string" ? body.password : "";
-    if (pass.length > 100 || !safeCompare(pass, expectedAdminPass)) {
+
+    const userMatch = safeCompare(userStr.toLowerCase(), expectedAdminUser.toLowerCase());
+    const passMatch = pass.length <= 100 && safeCompare(pass, expectedAdminPass);
+
+    if (!userMatch || !passMatch) {
+      recordFailedAttempt(clientIp);
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
+
+    clearRateLimit(clientIp);
 
     const teams = await collections.teams();
     const participants = await collections.participants();
@@ -115,39 +136,82 @@ export async function POST(request: Request) {
     return res;
   }
 
-  // 2 ── PARTICIPANT TEAM LOGIN
+  // 2 ── PARTICIPANT TEAM LOGIN / REGISTRATION
   if (typeof body.teamName === "string" && body.teamName.trim()) {
     const teamNameStr = body.teamName.trim();
-    if (teamNameStr.length > 60) {
-      return NextResponse.json({ error: "Team name exceeds 60 characters" }, { status: 400 });
+    if (teamNameStr.length < 2 || teamNameStr.length > 60) {
+      recordFailedAttempt(clientIp);
+      return NextResponse.json({ error: "Team name must be between 2 and 60 characters" }, { status: 400 });
     }
 
     const pass = typeof body.password === "string" ? body.password : "";
-    if (pass.length > 100 || !safeCompare(pass, expectedParticipantPass)) {
+    if (!pass || pass.length > 100) {
+      recordFailedAttempt(clientIp);
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
     const teams = await collections.teams();
     const participants = await collections.participants();
+    const nameKey = teamNameStr.toLowerCase().replace(/\s+/g, "_");
 
-    // Match team by exact case-insensitive name
-    let team = await teams.findOne({ name: { $regex: new RegExp(`^${escapeRegex(teamNameStr)}$`, "i") } });
+    // Match team by nameKey or exact case-insensitive name
+    let team = await teams.findOne({
+      $or: [
+        { nameKey },
+        { name: { $regex: new RegExp(`^${escapeRegex(teamNameStr)}$`, "i") } },
+      ],
+    });
 
     if (team?.banned) {
+      recordFailedAttempt(clientIp);
       return NextResponse.json(
         { error: `Your team has been banned: ${team.bannedReason || "Violation of event rules"}` },
         { status: 403 }
       );
     }
 
+    const inputHash = sha256Hex(pass);
+
     if (!team) {
+      // NEW TEAM REGISTRATION: Verify event password
+      if (!safeCompare(pass, expectedParticipantPass)) {
+        recordFailedAttempt(clientIp);
+        return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+      }
+
       const insertedTeam = await teams.insertOne({
         name: teamNameStr,
-        nameKey: teamNameStr.toLowerCase().replace(/\s+/g, "_"),
+        nameKey,
+        passwordHash: inputHash,
         createdAt: new Date(),
       } as any);
-      team = { _id: insertedTeam.insertedId, name: teamNameStr, createdAt: new Date() };
+      team = {
+        _id: insertedTeam.insertedId,
+        name: teamNameStr,
+        nameKey,
+        passwordHash: inputHash,
+        createdAt: new Date(),
+      };
+    } else {
+      // EXISTING TEAM LOGIN: Verify against stored passwordHash (or fallback for legacy teams)
+      let isPasswordValid = false;
+      if (team.passwordHash) {
+        isPasswordValid = safeCompare(inputHash, team.passwordHash);
+      } else {
+        // Fallback for legacy teams without passwordHash: verify against event pass and backfill
+        isPasswordValid = safeCompare(pass, expectedParticipantPass);
+        if (isPasswordValid) {
+          await teams.updateOne({ _id: team._id }, { $set: { passwordHash: inputHash } });
+        }
+      }
+
+      if (!isPasswordValid) {
+        recordFailedAttempt(clientIp);
+        return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+      }
     }
+
+    clearRateLimit(clientIp);
 
     let participant = await participants.findOne({ teamId: team._id! });
     if (!participant) {
@@ -157,7 +221,13 @@ export async function POST(request: Request) {
         role: "participant",
         createdAt: new Date(),
       });
-      participant = { _id: insertedParticipant.insertedId, teamId: team._id!, name: `${teamNameStr} Captain`, role: "participant", createdAt: new Date() };
+      participant = {
+        _id: insertedParticipant.insertedId,
+        teamId: team._id!,
+        name: `${teamNameStr} Captain`,
+        role: "participant",
+        createdAt: new Date(),
+      };
     }
 
     const token = await signSession({
@@ -183,6 +253,7 @@ export async function POST(request: Request) {
   if (typeof code === "string" && code.trim()) {
     const codeStr = code.trim();
     if (codeStr.length > 50) {
+      recordFailedAttempt(clientIp);
       return NextResponse.json({ error: "Access code invalid" }, { status: 400 });
     }
 
@@ -190,8 +261,11 @@ export async function POST(request: Request) {
     const record = await codes.findOne({ codeHash: hashCode(codeStr) });
 
     if (!record) {
+      recordFailedAttempt(clientIp);
       return NextResponse.json({ error: "That access code is invalid" }, { status: 401 });
     }
+
+    clearRateLimit(clientIp);
 
     if (!record.redeemedAt) {
       await codes.updateOne({ _id: record._id }, { $set: { redeemedAt: new Date() } });
@@ -208,5 +282,6 @@ export async function POST(request: Request) {
     return res;
   }
 
+  recordFailedAttempt(clientIp);
   return NextResponse.json({ error: "Please enter Team Name / Code or Admin credentials" }, { status: 400 });
 }

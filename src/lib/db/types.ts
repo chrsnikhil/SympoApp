@@ -16,6 +16,7 @@ export interface Team {
   bannedReason?: string;
   bannedAt?: Date;
   penaltyPoints?: number;
+  passwordHash?: string;
 }
 
 export interface Participant {

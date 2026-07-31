@@ -489,8 +489,12 @@ export default function AdminCtfPage() {
               Reset CTF Board ⚠️
             </button>
             <button
-              onClick={() => {
-                document.cookie = "session=; path=/; max-age=0;";
+              onClick={async () => {
+                try {
+                  await fetch("/api/logout", { method: "POST" });
+                } catch (e) {
+                  console.error("Logout error", e);
+                }
                 window.location.href = "/enter";
               }}
               className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-red-950/60 border border-red-500/40 text-red-300 rounded-xl hover:bg-red-900/60 transition-all uppercase tracking-wider shadow-[0_0_15px_rgba(220,38,38,0.2)]"

@@ -216,8 +216,12 @@ export default function CtfDashboardPage() {
         </div>
         <div className="flex items-center gap-5">
           <button
-            onClick={() => {
-              document.cookie = "session=; path=/; max-age=0;";
+            onClick={async () => {
+              try {
+                await fetch("/api/logout", { method: "POST" });
+              } catch (e) {
+                console.error("Logout error", e);
+              }
               window.location.href = "/enter";
             }}
             className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-red-500/30 bg-red-950/30 hover:bg-red-900/50 text-red-400 hover:text-red-300 text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_10px_rgba(220,38,38,0.2)]"
