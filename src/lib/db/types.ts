@@ -74,6 +74,10 @@ export interface Challenge {
     difficulty?: "Easy" | "Medium" | "Hard" | string;
     /** detailed description / prompt */
     description?: string;
+    /** additional scenario details / instructions */
+    details?: string;
+    /** structured hints array */
+    hints?: Array<{ id: number; text: string; unlockSeconds: number }>;
     /** challenge attachments (ZIP, PDF, PCAP, Images) */
     attachments?: string[];
     /** status: open, closed, hidden, released */

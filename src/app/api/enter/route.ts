@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
     let adminTeam = await teams.findOne({ name: "Admin Team" });
     if (!adminTeam) {
-      const inserted = await teams.insertOne({ name: "Admin Team", createdAt: new Date() });
+      const inserted = await teams.insertOne({ name: "Admin Team", nameKey: "admin_team", createdAt: new Date() } as any);
       adminTeam = { _id: inserted.insertedId, name: "Admin Team", createdAt: new Date() };
     }
 
@@ -69,7 +69,11 @@ export async function POST(request: Request) {
     // Match team by exact case-insensitive name
     let team = await teams.findOne({ name: { $regex: new RegExp(`^${escapeRegex(teamNameStr)}$`, "i") } });
     if (!team) {
-      const insertedTeam = await teams.insertOne({ name: teamNameStr, createdAt: new Date() });
+      const insertedTeam = await teams.insertOne({
+        name: teamNameStr,
+        nameKey: teamNameStr.toLowerCase().replace(/\s+/g, "_"),
+        createdAt: new Date(),
+      } as any);
       team = { _id: insertedTeam.insertedId, name: teamNameStr, createdAt: new Date() };
     }
 

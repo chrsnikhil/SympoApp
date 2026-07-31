@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import SpiderBackgroundFX from "@/components/SpiderBackgroundFX";
 
 interface AdminChallenge {
   _id: string;
@@ -32,11 +33,21 @@ interface AdminSubmission {
   meta?: Record<string, unknown>;
 }
 
+interface LeaderboardRow {
+  teamId: string;
+  teamName: string;
+  points: number;
+  solvedCount?: number;
+  firstBloodCount?: number;
+  lastScoreAt: string | null;
+}
+
 export default function AdminCtfPage() {
   const [challenges, setChallenges] = useState<AdminChallenge[]>([]);
   const [submissions, setSubmissions] = useState<AdminSubmission[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"challenges" | "submissions" | "create">("challenges");
+  const [activeTab, setActiveTab] = useState<"challenges" | "leaderboard" | "submissions" | "create">("challenges");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // New Challenge Form State
@@ -57,9 +68,10 @@ export default function AdminCtfPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [cRes, sRes] = await Promise.all([
+      const [cRes, sRes, dashRes] = await Promise.all([
         fetch("/api/admin/ctf/challenges"),
         fetch("/api/admin/ctf/submissions"),
+        fetch("/api/ctf/dashboard"),
       ]);
 
       if (cRes.status === 401 || sRes.status === 401) {
@@ -69,9 +81,11 @@ export default function AdminCtfPage() {
 
       const cData = await cRes.json();
       const sData = await sRes.json();
+      const dashData = await dashRes.json();
 
       if (cRes.ok) setChallenges(cData.challenges ?? []);
       if (sRes.ok) setSubmissions(sData.submissions ?? []);
+      if (dashRes.ok && dashData.leaderboard) setLeaderboard(dashData.leaderboard ?? []);
     } catch (e) {
       console.error("Admin fetch error:", e);
     } finally {
@@ -81,11 +95,15 @@ export default function AdminCtfPage() {
 
   useEffect(() => {
     fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
   }, [fetchData]);
 
   async function handleCreateChallenge(e: React.FormEvent) {
     e.preventDefault();
     setMsg(null);
+
+    const points = newDifficulty === "Hard" ? 200 : newDifficulty === "Medium" ? 150 : 100;
 
     try {
       const res = await fetch("/api/admin/ctf/challenges", {
@@ -98,10 +116,7 @@ export default function AdminCtfPage() {
           category: newCategory,
           description: newDescription,
           flag: newFlag,
-          initialPoints: newInitialPts,
-          minimumPoints: newMinPts,
-          decayAfter: newDecayAfter,
-          firstBloodBonus: newFbBonus,
+          points,
           status: "open",
         }),
       });
@@ -194,80 +209,201 @@ export default function AdminCtfPage() {
     window.open(`/api/admin/ctf/export?format=${format}`, "_blank");
   }
 
+  // Group challenges by difficulty like the participant page
+  const easyChallenges = challenges.filter(c => (c.config?.difficulty ?? "Easy").toLowerCase() === "easy");
+  const mediumChallenges = challenges.filter(c => (c.config?.difficulty ?? "").toLowerCase() === "medium");
+  const hardChallenges = challenges.filter(c => (c.config?.difficulty ?? "").toLowerCase() === "hard");
+
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#070510] text-white flex items-center justify-center font-sans">
+      <main className="min-h-screen bg-[#070308] text-white flex items-center justify-center font-sans">
         <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-gray-400 text-sm font-semibold tracking-widest uppercase">Loading Admin Dashboard...</p>
+          <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto shadow-[0_0_20px_rgba(220,38,38,0.5)]" />
+          <p className="text-red-400 text-sm font-bold tracking-widest uppercase">Connecting to Alchemax Admin Network...</p>
         </div>
       </main>
     );
   }
 
+  const renderAdminCard = (ch: AdminChallenge) => {
+    const status = ch.config.status ?? "open";
+    return (
+      <div
+        key={ch._id}
+        className="bg-[#160d1a]/90 border border-white/10 rounded-2xl p-5 flex flex-col justify-between shadow-xl backdrop-blur-md hover:border-white/20 transition-all"
+      >
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="px-2.5 py-0.5 text-[10px] font-black uppercase bg-pink-950/60 text-pink-300 rounded-md border border-pink-500/30">
+              {ch.config.category ?? "Misc"}
+            </span>
+            <span
+              className={`px-2.5 py-0.5 text-[10px] font-black uppercase rounded-md border ${status === "open"
+                  ? "bg-emerald-950/60 text-emerald-300 border-emerald-500/40"
+                  : status === "closed"
+                    ? "bg-red-950/60 text-red-300 border-red-500/40"
+                    : status === "released"
+                      ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/40"
+                      : "bg-gray-950/60 text-gray-400 border-gray-500/40"
+                }`}
+            >
+              STATUS: {status}
+            </span>
+          </div>
+
+          <h4 className="text-lg font-bold text-white mb-1">{ch.title}</h4>
+          <p className="text-xs font-mono text-pink-400 mb-2">Slug: {ch.slug}</p>
+          <p className="text-xs text-gray-300 mb-4 leading-relaxed line-clamp-2">{ch.config.description}</p>
+
+          <div className="bg-[#07030a] p-3 rounded-xl text-xs space-y-1 font-mono mb-4 text-gray-300 border border-white/5">
+            <div>Initial Pts: <span className="text-red-400 font-bold">{ch.config.initialPoints ?? ch.points}</span></div>
+            <div>Minimum Pts: <span className="text-pink-400 font-bold">{ch.config.minimumPoints ?? 50}</span></div>
+            <div>Decay After: <span className="text-amber-400 font-bold">{ch.config.decayAfter ?? 3} solves</span></div>
+            <div>First Blood Bonus: <span className="text-emerald-400 font-bold">+{ch.config.firstBloodBonus ?? 30} pts</span></div>
+            <div>Attachments: <span className="text-gray-400">{ch.config.attachments?.join(", ") || "None"}</span></div>
+          </div>
+        </div>
+
+        {/* Controls: Open, Close, Release, Hide */}
+        <div className="space-y-2 pt-3 border-t border-white/10">
+          <span className="block text-[10px] uppercase font-black text-gray-400 mb-1">State Controls</span>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => handleUpdateStatus(ch.slug, "open")}
+              className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all ${status === "open"
+                  ? "bg-emerald-600 text-white border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+                  : "bg-emerald-950/40 text-emerald-300 border-emerald-500/30 hover:bg-emerald-900/50"
+                }`}
+            >
+              Open 🟢
+            </button>
+            <button
+              onClick={() => handleUpdateStatus(ch.slug, "closed")}
+              className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all ${status === "closed"
+                  ? "bg-red-600 text-white border-red-400 shadow-[0_0_10px_rgba(239,68,68,0.5)]"
+                  : "bg-red-950/40 text-red-300 border-red-500/30 hover:bg-red-900/50"
+                }`}
+            >
+              Close 🔴
+            </button>
+            <button
+              onClick={() => handleUpdateStatus(ch.slug, "released")}
+              className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all ${status === "released"
+                  ? "bg-cyan-600 text-white border-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.5)]"
+                  : "bg-cyan-950/40 text-cyan-300 border-cyan-500/30 hover:bg-cyan-900/50"
+                }`}
+            >
+              Release 🚀
+            </button>
+            <button
+              onClick={() => handleUpdateStatus(ch.slug, "hidden")}
+              className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all ${status === "hidden"
+                  ? "bg-gray-700 text-white border-gray-500"
+                  : "bg-gray-900/40 text-gray-400 border-gray-700 hover:bg-gray-800/50"
+                }`}
+            >
+              Hide 👻
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <main className="min-h-screen bg-[#070510] text-gray-100 font-sans pb-16 relative selection:bg-purple-500 selection:text-white">
+    <main className="min-h-screen bg-[#0a0510] text-gray-100 font-sans pb-16 relative overflow-x-hidden selection:bg-red-500 selection:text-white z-0">
+      {/* Interactive FX: Cursor, Web Trail & Crawling Spiders */}
+      <SpiderBackgroundFX />
+
+      {/* Background aesthetics */}
+      <div className="fixed inset-0 pointer-events-none -z-10">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_#1f0612_0%,_#0a0510_80%)]" />
+        <div className="absolute bottom-0 w-full h-[50vh] bg-gradient-to-t from-red-950/40 to-transparent" />
+        <div className="absolute left-0 top-1/4 w-[600px] h-[600px] bg-red-600/10 rounded-full blur-[150px]" />
+        <div className="absolute right-0 bottom-1/4 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[150px]" />
+        <div className="absolute bottom-0 left-0 w-full h-32 opacity-20 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiMwYTA1MTAiLz48cGF0aCBkPSJNMCAxMDBWMzBoMjB2MTBoMTVWMjBoMTB2MTBoMThWNTBoMTB2MTBoMTVWNDBoMjB2MjBoMTBWMTBoMTV2MTBoMjBWNTBIMTAwVjEwMGgtMTAwWiIgZmlsbD0iI2RjMjYyNiIgb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] bg-repeat-x bg-bottom" style={{ backgroundSize: '150px 100%' }}></div>
+      </div>
+
       {/* Top Navbar */}
-      <header className="bg-[#0e0924] border-b border-purple-500/20 px-6 py-4 sticky top-0 z-50 backdrop-blur-md">
+      <header className="bg-[#0a0510]/80 border-b border-red-500/20 px-6 py-5 sticky top-0 z-40 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="text-2xl">⚙️</span>
             <div>
-              <h1 className="text-2xl font-black bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
-                MULTIVERSE BREACH — ADMIN CONTROL
+              <h1 className="text-2xl font-black italic tracking-tighter flex items-center gap-2">
+                <span className="text-gray-200 drop-shadow-md">X-PLORE 26</span>
+                <span className="text-red-600 drop-shadow-[0_0_15px_rgba(220,38,38,0.8)]">ADMIN CONTROL PANEL</span>
               </h1>
-              <p className="text-xs text-gray-400 font-medium">CTF Event Management & Telemetry</p>
+              <p className="text-xs text-gray-400 font-medium">Spider-Verse CTF Event Telemetry & Management</p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <a
               href="/ctf"
-              className="px-4 py-2 text-xs font-bold bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 rounded-xl hover:bg-cyan-500/40 transition-all uppercase tracking-wider"
+              className="px-4 py-2 text-xs font-bold bg-red-950/60 border border-red-500/40 text-red-300 rounded-xl hover:bg-red-900/60 transition-all uppercase tracking-wider shadow-[0_0_15px_rgba(220,38,38,0.2)]"
             >
               Participant View 👁️
             </a>
             <button
               onClick={handleResetLeaderboard}
-              className="px-4 py-2 text-xs font-bold bg-red-600/30 border border-red-500/50 text-red-300 rounded-xl hover:bg-red-600/50 transition-all uppercase tracking-wider"
+              className="px-4 py-2 text-xs font-bold bg-red-600/30 border border-red-500/60 text-red-200 rounded-xl hover:bg-red-600/60 transition-all uppercase tracking-wider shadow-[0_0_15px_rgba(239,68,68,0.3)]"
             >
               Reset CTF Board ⚠️
+            </button>
+            <button
+              onClick={() => {
+                document.cookie = "session=; path=/; max-age=0;";
+                window.location.href = "/enter";
+              }}
+              className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-red-950/60 border border-red-500/40 text-red-300 rounded-xl hover:bg-red-900/60 transition-all uppercase tracking-wider shadow-[0_0_15px_rgba(220,38,38,0.2)]"
+            >
+              Logout
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
             </button>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-6 mt-8">
+      <div className="max-w-7xl mx-auto px-6 mt-8 z-10 relative">
         {/* Top Controls & Navigation */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-white/10 pb-4 mb-8">
-          <div className="flex bg-[#140e2b] p-1.5 rounded-2xl border border-white/5 space-x-2">
+          <div className="flex bg-[#07030a] p-1.5 rounded-2xl border border-white/10 space-x-2">
             <button
               onClick={() => setActiveTab("challenges")}
-              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all uppercase tracking-wider ${
-                activeTab === "challenges"
-                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-[0_0_20px_rgba(236,72,153,0.4)]"
+              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wider ${activeTab === "challenges"
+                  ? "bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.5)]"
                   : "text-gray-400 hover:text-white"
-              }`}
+                }`}
             >
               Manage Challenges ({challenges.length})
             </button>
             <button
-              onClick={() => setActiveTab("create")}
-              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all uppercase tracking-wider ${
-                activeTab === "create"
-                  ? "bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-[0_0_20px_rgba(0,229,255,0.4)]"
+              onClick={() => setActiveTab("leaderboard")}
+              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wider ${activeTab === "leaderboard"
+                  ? "bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.5)]"
                   : "text-gray-400 hover:text-white"
-              }`}
+                }`}
+            >
+              Live Leaderboard 🏆 ({leaderboard.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("create")}
+              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wider ${activeTab === "create"
+                  ? "bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.5)]"
+                  : "text-gray-400 hover:text-white"
+                }`}
             >
               Create Challenge ➕
             </button>
             <button
               onClick={() => setActiveTab("submissions")}
-              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all uppercase tracking-wider ${
-                activeTab === "submissions"
-                  ? "bg-gradient-to-r from-pink-500 to-cyan-500 text-white shadow-[0_0_20px_rgba(0,229,255,0.4)]"
+              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wider ${activeTab === "submissions"
+                  ? "bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.5)]"
                   : "text-gray-400 hover:text-white"
-              }`}
+                }`}
             >
               Submissions Log ({submissions.length})
             </button>
@@ -276,13 +412,13 @@ export default function AdminCtfPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => handleExport("csv")}
-              className="px-4 py-2 bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold rounded-xl hover:bg-emerald-600/40 transition-all"
+              className="px-4 py-2 bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-bold rounded-xl hover:bg-emerald-900/60 transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)]"
             >
               Export CSV 📥
             </button>
             <button
               onClick={() => handleExport("json")}
-              className="px-4 py-2 bg-cyan-600/20 border border-cyan-500/40 text-cyan-300 text-xs font-bold rounded-xl hover:bg-cyan-600/40 transition-all"
+              className="px-4 py-2 bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 text-xs font-bold rounded-xl hover:bg-cyan-900/60 transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)]"
             >
               Export JSON 📄
             </button>
@@ -292,11 +428,10 @@ export default function AdminCtfPage() {
         {/* Global Feedback Banner */}
         {msg && (
           <div
-            className={`mb-6 p-4 rounded-2xl border text-sm font-semibold flex items-center justify-between ${
-              msg.ok
+            className={`mb-6 p-4 rounded-2xl border text-sm font-bold flex items-center justify-between animate-fadeIn ${msg.ok
                 ? "bg-emerald-950/80 border-emerald-500/50 text-emerald-200"
                 : "bg-red-950/80 border-red-500/50 text-red-200"
-            }`}
+              }`}
           >
             <span>{msg.text}</span>
             <button onClick={() => setMsg(null)} className="text-xs opacity-70 hover:opacity-100">
@@ -309,15 +444,15 @@ export default function AdminCtfPage() {
         {activeTab === "challenges" && (
           <div className="space-y-8">
             {/* Attachment Upload Drawer */}
-            <div className="bg-[#110b27] border border-purple-500/30 rounded-3xl p-6 shadow-xl">
-              <h3 className="text-lg font-bold text-white mb-2">Upload Attachment to Challenge</h3>
-              <p className="text-xs text-gray-400 mb-4">Supported formats: zip, pdf, png, jpg, pcap</p>
+            <div className="bg-[#0d0716]/90 border border-red-500/30 rounded-3xl p-6 shadow-[0_0_30px_rgba(220,38,38,0.1)] backdrop-blur-xl">
+              <h3 className="text-lg font-black uppercase tracking-wide text-white mb-1">Upload Attachment to Challenge</h3>
+              <p className="text-xs text-gray-400 mb-4 font-medium">Supported formats: zip, pdf, png, jpg, pcap</p>
 
               <form onSubmit={handleFileUpload} className="flex flex-col md:flex-row items-center gap-4">
                 <select
                   value={uploadSlug}
                   onChange={(e) => setUploadSlug(e.target.value)}
-                  className="bg-[#181038] border border-purple-500/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400 w-full md:w-64"
+                  className="bg-[#07030a] border border-red-500/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-500 w-full md:w-64"
                 >
                   <option value="">Select Challenge...</option>
                   {challenges.map((c) => (
@@ -330,152 +465,164 @@ export default function AdminCtfPage() {
                 <input
                   type="file"
                   onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
-                  className="text-xs text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-600/30 file:text-purple-200 hover:file:bg-purple-600/50"
+                  className="text-xs text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-red-950 file:text-red-300 hover:file:bg-red-900 border border-red-500/20 rounded-xl bg-[#07030a]"
                 />
 
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-xs rounded-xl shadow-lg hover:opacity-90 transition-all uppercase tracking-wider w-full md:w-auto"
+                  className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-pink-600 text-white font-black text-xs rounded-xl shadow-[0_0_15px_rgba(220,38,38,0.4)] hover:opacity-90 transition-all uppercase tracking-wider w-full md:w-auto"
                 >
                   Upload Attachment
                 </button>
               </form>
             </div>
 
-            {/* Challenges Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {challenges.map((ch) => {
-                const status = ch.config.status ?? "open";
-                return (
-                  <div
-                    key={ch._id}
-                    className="bg-[#0e0924] border border-purple-500/20 rounded-3xl p-6 flex flex-col justify-between shadow-xl"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase bg-cyan-500/20 text-cyan-300 rounded-md border border-cyan-500/30">
-                          {ch.config.difficulty ?? "Easy"}
-                        </span>
-                        <span
-                          className={`px-2.5 py-0.5 text-[10px] font-extrabold uppercase rounded-md border ${
-                            status === "open"
-                              ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                              : status === "closed"
-                              ? "bg-red-500/20 text-red-300 border-red-500/40"
-                              : status === "released"
-                              ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
-                              : "bg-gray-500/20 text-gray-400 border-gray-500/40"
-                          }`}
-                        >
-                          STATUS: {status}
-                        </span>
-                      </div>
+            {/* 3 Difficulty Columns Grid like Participant Page */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* EASY COLUMN */}
+              <div className="flex flex-col gap-4 border border-emerald-500/30 bg-[#0a1612]/70 rounded-3xl p-5 shadow-[0_0_25px_rgba(16,185,129,0.1)] backdrop-blur-md">
+                <div className="text-center pb-3 border-b border-emerald-500/20 mb-1">
+                  <h2 className="text-emerald-400 font-black uppercase tracking-widest text-lg drop-shadow-[0_0_10px_rgba(16,185,129,0.5)] flex items-center justify-center gap-2">
+                    <span>🟢</span> EASY ({easyChallenges.length})
+                  </h2>
+                </div>
+                {easyChallenges.length === 0 ? (
+                  <div className="text-center py-10 text-gray-500 text-xs italic font-medium">No easy challenges created</div>
+                ) : (
+                  easyChallenges.map(renderAdminCard)
+                )}
+              </div>
 
-                      <h4 className="text-xl font-bold text-white mb-1">{ch.title}</h4>
-                      <p className="text-xs font-mono text-cyan-400 mb-3">Slug: {ch.slug}</p>
-                      <p className="text-xs text-gray-300 mb-4">{ch.config.description}</p>
+              {/* MEDIUM COLUMN */}
+              <div className="flex flex-col gap-4 border border-amber-500/30 bg-[#16120a]/70 rounded-3xl p-5 shadow-[0_0_25px_rgba(245,158,11,0.1)] backdrop-blur-md">
+                <div className="text-center pb-3 border-b border-amber-500/20 mb-1">
+                  <h2 className="text-amber-400 font-black uppercase tracking-widest text-lg drop-shadow-[0_0_10px_rgba(245,158,11,0.5)] flex items-center justify-center gap-2">
+                    <span>🟡</span> MEDIUM ({mediumChallenges.length})
+                  </h2>
+                </div>
+                {mediumChallenges.length === 0 ? (
+                  <div className="text-center py-10 text-gray-500 text-xs italic font-medium">No medium challenges created</div>
+                ) : (
+                  mediumChallenges.map(renderAdminCard)
+                )}
+              </div>
 
-                      <div className="bg-[#150e35] p-3 rounded-2xl text-xs space-y-1 font-mono mb-4 text-gray-300">
-                        <div>Initial Pts: <span className="text-cyan-300 font-bold">{ch.config.initialPoints ?? ch.points}</span></div>
-                        <div>Minimum Pts: <span className="text-purple-300 font-bold">{ch.config.minimumPoints ?? 50}</span></div>
-                        <div>Decay After: <span className="text-pink-300 font-bold">{ch.config.decayAfter ?? 3} solves</span></div>
-                        <div>First Blood Bonus: <span className="text-red-400 font-bold">+{ch.config.firstBloodBonus ?? 30} pts</span></div>
-                        <div>Attachments: <span className="text-gray-400">{ch.config.attachments?.join(", ") || "None"}</span></div>
-                      </div>
-                    </div>
-
-                    {/* Controls: Open, Close, Release, Hide */}
-                    <div className="space-y-2 pt-2 border-t border-white/10">
-                      <span className="block text-[10px] uppercase font-bold text-gray-400 mb-1">State Controls</span>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => handleUpdateStatus(ch.slug, "open")}
-                          className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all ${
-                            status === "open"
-                              ? "bg-emerald-600 text-white border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
-                              : "bg-emerald-950/40 text-emerald-300 border-emerald-500/30 hover:bg-emerald-900/50"
-                          }`}
-                        >
-                          Open 🟢
-                        </button>
-                        <button
-                          onClick={() => handleUpdateStatus(ch.slug, "closed")}
-                          className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all ${
-                            status === "closed"
-                              ? "bg-red-600 text-white border-red-400 shadow-[0_0_10px_rgba(239,68,68,0.5)]"
-                              : "bg-red-950/40 text-red-300 border-red-500/30 hover:bg-red-900/50"
-                          }`}
-                        >
-                          Close 🔴
-                        </button>
-                        <button
-                          onClick={() => handleUpdateStatus(ch.slug, "released")}
-                          className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all ${
-                            status === "released"
-                              ? "bg-cyan-600 text-white border-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.5)]"
-                              : "bg-cyan-950/40 text-cyan-300 border-cyan-500/30 hover:bg-cyan-900/50"
-                          }`}
-                        >
-                          Release 🚀
-                        </button>
-                        <button
-                          onClick={() => handleUpdateStatus(ch.slug, "hidden")}
-                          className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all ${
-                            status === "hidden"
-                              ? "bg-gray-700 text-white border-gray-500"
-                              : "bg-gray-900/40 text-gray-400 border-gray-700 hover:bg-gray-800/50"
-                          }`}
-                        >
-                          Hide 👻
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {/* HARD COLUMN */}
+              <div className="flex flex-col gap-4 border border-red-500/30 bg-[#160a0f]/70 rounded-3xl p-5 shadow-[0_0_25px_rgba(220,38,38,0.15)] backdrop-blur-md">
+                <div className="text-center pb-3 border-b border-red-500/20 mb-1">
+                  <h2 className="text-pink-500 font-black uppercase tracking-widest text-lg drop-shadow-[0_0_10px_rgba(236,72,153,0.5)] flex items-center justify-center gap-2">
+                    <span>🔴</span> HARD ({hardChallenges.length})
+                  </h2>
+                </div>
+                {hardChallenges.length === 0 ? (
+                  <div className="text-center py-10 text-gray-500 text-xs italic font-medium">No hard challenges created</div>
+                ) : (
+                  hardChallenges.map(renderAdminCard)
+                )}
+              </div>
             </div>
           </div>
         )}
 
-        {/* TAB 2: CREATE CHALLENGE FORM */}
+        {/* TAB 2: LIVE LEADERBOARD */}
+        {activeTab === "leaderboard" && (
+          <div className="bg-[#0d0716]/90 border border-red-500/30 rounded-3xl p-6 md:p-8 shadow-[0_0_50px_rgba(220,38,38,0.15)] backdrop-blur-xl">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-black uppercase tracking-tight text-white">Live Team Standings & Telemetry</h2>
+                <p className="text-xs text-gray-400 font-medium">Real-time leaderboard updated dynamically via decay scoring engine</p>
+              </div>
+              <button
+                onClick={fetchData}
+                className="px-4 py-2 bg-red-950/60 border border-red-500/40 text-red-300 text-xs font-bold rounded-xl hover:bg-red-900/60 transition-all shadow-[0_0_15px_rgba(220,38,38,0.2)]"
+              >
+                Refresh Standings 🔄
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-white/10 text-gray-400 text-xs uppercase tracking-wider">
+                    <th className="py-3.5 px-4 font-semibold">Rank</th>
+                    <th className="py-3.5 px-4 font-semibold">Team Name</th>
+                    <th className="py-3.5 px-4 font-semibold text-center">Solves Count</th>
+                    <th className="py-3.5 px-4 font-semibold text-center">First Bloods 🩸</th>
+                    <th className="py-3.5 px-4 font-semibold text-right">Total Score</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5 text-sm">
+                  {leaderboard.map((row, idx) => (
+                    <tr key={row.teamId} className={`transition-colors ${idx < 3 ? 'bg-red-950/20' : 'hover:bg-white/5'}`}>
+                      <td className="py-4 px-4 font-black">
+                        {idx === 0 ? "🥇 #1" : idx === 1 ? "🥈 #2" : idx === 2 ? "🥉 #3" : `#${idx + 1}`}
+                      </td>
+                      <td className="py-4 px-4 font-bold text-white flex items-center gap-3">
+                        <span>{row.teamName}</span>
+                      </td>
+                      <td className="py-4 px-4 text-center font-mono font-bold text-cyan-300">
+                        {row.solvedCount ?? 0}
+                      </td>
+                      <td className="py-4 px-4 text-center font-mono font-bold text-red-400">
+                        {row.firstBloodCount ?? 0}
+                      </td>
+                      <td className="py-4 px-4 text-right font-mono font-black text-pink-400 text-base">
+                        {row.points} pts
+                      </td>
+                    </tr>
+                  ))}
+                  {leaderboard.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-gray-500 text-sm">
+                        No team scores calculated yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: CREATE CHALLENGE FORM */}
         {activeTab === "create" && (
-          <div className="bg-[#110b27] border border-purple-500/30 rounded-3xl p-6 md:p-8 max-w-3xl mx-auto shadow-2xl">
-            <h2 className="text-2xl font-extrabold text-white mb-2">Create New CTF Challenge</h2>
-            <p className="text-xs text-gray-400 mb-6">Flags are automatically hashed into SHA-256 (stored secure, never plaintext)</p>
+          <div className="bg-[#0d0716]/90 border border-red-500/30 rounded-3xl p-6 md:p-8 max-w-3xl mx-auto shadow-[0_0_50px_rgba(220,38,38,0.15)] backdrop-blur-xl">
+            <h2 className="text-2xl font-black uppercase tracking-tight text-white mb-1">Create New CTF Challenge</h2>
+            <p className="text-xs text-gray-400 mb-6 font-medium">Flags are automatically hashed into SHA-256 (stored secure, never plaintext)</p>
 
             <form onSubmit={handleCreateChallenge} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-cyan-300 mb-1">Challenge Slug</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-red-400 mb-1">Challenge Slug</label>
                   <input
                     type="text"
                     value={newSlug}
                     onChange={(e) => setNewSlug(e.target.value)}
                     placeholder="e.g. easy-04"
                     required
-                    className="w-full bg-[#181038] border border-purple-500/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-mono"
+                    className="w-full bg-[#07030a] border border-red-500/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-500 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-cyan-300 mb-1">Title</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-red-400 mb-1">Title</label>
                   <input
                     type="text"
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     placeholder="Challenge Title"
                     required
-                    className="w-full bg-[#181038] border border-purple-500/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-[#07030a] border border-red-500/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-purple-300 mb-1">Difficulty</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-pink-400 mb-1">Difficulty</label>
                   <select
                     value={newDifficulty}
                     onChange={(e) => setNewDifficulty(e.target.value)}
-                    className="w-full bg-[#181038] border border-purple-500/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-400"
+                    className="w-full bg-[#07030a] border border-red-500/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-pink-500"
                   >
                     <option value="Easy">Easy</option>
                     <option value="Medium">Medium</option>
@@ -483,95 +630,63 @@ export default function AdminCtfPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-purple-300 mb-1">Category</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-pink-400 mb-1">Category</label>
                   <input
                     type="text"
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
                     placeholder="e.g. Web, Crypto, Forensics"
                     required
-                    className="w-full bg-[#181038] border border-purple-500/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-400"
+                    className="w-full bg-[#07030a] border border-red-500/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-pink-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase text-pink-300 mb-1">Flag String</label>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-red-400 mb-1">Flag String</label>
                 <input
                   type="text"
                   value={newFlag}
                   onChange={(e) => setNewFlag(e.target.value)}
                   placeholder="SPIDER{exact_flag_here}"
                   required
-                  className="w-full bg-[#181038] border border-pink-500/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-pink-400 font-mono"
+                  className="w-full bg-[#07030a] border border-red-500/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-500 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase text-gray-300 mb-1">Description / Prompt</label>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Description / Prompt</label>
                 <textarea
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
                   rows={3}
                   placeholder="Detailed challenge instructions..."
-                  className="w-full bg-[#181038] border border-purple-500/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400"
+                  className="w-full bg-[#07030a] border border-red-500/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-500"
                 />
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase text-gray-400 mb-1">Initial Points</label>
-                  <input
-                    type="number"
-                    value={newInitialPts}
-                    onChange={(e) => setNewInitialPts(Number(e.target.value))}
-                    className="w-full bg-[#181038] border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase text-gray-400 mb-1">Min Points</label>
-                  <input
-                    type="number"
-                    value={newMinPts}
-                    onChange={(e) => setNewMinPts(Number(e.target.value))}
-                    className="w-full bg-[#181038] border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase text-gray-400 mb-1">Decay After</label>
-                  <input
-                    type="number"
-                    value={newDecayAfter}
-                    onChange={(e) => setNewDecayAfter(Number(e.target.value))}
-                    className="w-full bg-[#181038] border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase text-gray-400 mb-1">First Blood Bonus</label>
-                  <input
-                    type="number"
-                    value={newFbBonus}
-                    onChange={(e) => setNewFbBonus(Number(e.target.value))}
-                    className="w-full bg-[#181038] border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                  />
-                </div>
+              <div className="bg-[#07030a] p-3 rounded-xl border border-red-500/20 text-xs flex items-center justify-between text-gray-300 font-mono">
+                <span>Awarded Points for <strong className="text-pink-400">{newDifficulty}</strong>:</span>
+                <span className="text-emerald-400 font-black text-sm">
+                  {newDifficulty === "Hard" ? "200 pts ⭐" : newDifficulty === "Medium" ? "150 pts ⭐" : "100 pts ⭐"}
+                </span>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-3.5 mt-4 bg-gradient-to-r from-cyan-500 via-purple-600 to-pink-500 text-white font-bold rounded-xl shadow-lg hover:opacity-95 text-xs uppercase tracking-wider"
+                className="w-full py-3.5 mt-4 bg-gradient-to-r from-red-600 via-pink-600 to-red-600 hover:from-red-500 hover:to-pink-500 text-white font-black rounded-xl shadow-[0_0_25px_rgba(220,38,38,0.5)] transition-all text-xs uppercase tracking-widest flex items-center justify-center gap-2"
               >
-                Create Challenge
+                <span>🕷️</span> Create Challenge
               </button>
             </form>
           </div>
         )}
 
-        {/* TAB 3: SUBMISSIONS LOG */}
+        {/* TAB 4: SUBMISSIONS LOG */}
         {activeTab === "submissions" && (
-          <div className="bg-[#110b27] border border-purple-500/30 rounded-3xl p-6 md:p-8 shadow-2xl">
-            <h2 className="text-2xl font-extrabold text-white mb-2">All CTF Submissions Log</h2>
-            <p className="text-xs text-gray-400 mb-6">Real-time audit log of participant attempts</p>
+          <div className="bg-[#0d0716]/90 border border-red-500/30 rounded-3xl p-6 md:p-8 shadow-[0_0_50px_rgba(220,38,38,0.15)] backdrop-blur-xl">
+            <h2 className="text-2xl font-black uppercase tracking-tight text-white mb-1">All CTF Submissions Log</h2>
+            <p className="text-xs text-gray-400 mb-6 font-medium">Real-time audit log of participant attempts</p>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -590,20 +705,20 @@ export default function AdminCtfPage() {
                       <td className="py-3.5 px-4 font-mono text-xs text-gray-400">
                         {new Date(sub.receivedAt).toLocaleString()}
                       </td>
-                      <td className="py-3.5 px-4 font-bold text-cyan-300">{sub.teamName}</td>
+                      <td className="py-3.5 px-4 font-bold text-pink-400">{sub.teamName}</td>
                       <td className="py-3.5 px-4 text-white">{sub.challengeTitle}</td>
                       <td className="py-3.5 px-4">
                         {sub.correct ? (
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-950/60 text-emerald-300 border border-emerald-500/40">
                             ✓ Correct {sub.meta?.firstBlood ? "🩸 First Blood" : ""}
                           </span>
                         ) : (
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-500/20 text-red-300 border border-red-500/30">
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-950/60 text-red-300 border border-red-500/40">
                             ✕ Wrong
                           </span>
                         )}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-purple-300">
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-red-400">
                         +{sub.points} pts
                       </td>
                     </tr>

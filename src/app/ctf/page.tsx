@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import SpiderBackgroundFX from "@/components/SpiderBackgroundFX";
 
 interface ChallengeItem {
   id: string;
@@ -53,11 +54,10 @@ interface DashboardData {
 export default function CtfDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"challenges" | "leaderboard" | "history">("challenges");
   const [flagInputs, setFlagInputs] = useState<Record<string, string>>({});
   const [submittingSlug, setSubmittingSlug] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Record<string, { ok: boolean; msg: string }>>({});
-  const [timerSeconds, setTimerSeconds] = useState(7200); // 2-hour event timer
+  const [activeSubmit, setActiveSubmit] = useState<string | null>(null);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -79,25 +79,9 @@ export default function CtfDashboardPage() {
 
   useEffect(() => {
     fetchDashboard();
-    // Poll every 5s for live leaderboard and scores
     const interval = setInterval(fetchDashboard, 5000);
     return () => clearInterval(interval);
   }, [fetchDashboard]);
-
-  // Countdown timer effect
-  useEffect(() => {
-    const t = setInterval(() => {
-      setTimerSeconds((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  function formatTime(secs: number) {
-    const h = Math.floor(secs / 3600);
-    const m = Math.floor((secs % 3600) / 60);
-    const s = secs % 60;
-    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  }
 
   async function handleFlagSubmit(slug: string) {
     const flag = flagInputs[slug]?.trim();
@@ -126,12 +110,13 @@ export default function CtfDashboardPage() {
         const bonusMsg = result.meta?.firstBlood ? " 🩸 FIRST BLOOD BONUS AWARDED!" : "";
         setFeedback((prev) => ({
           ...prev,
-          [slug]: { ok: true, msg: `🎉 CORRECT FLAG! +${result.points} points.${bonusMsg}` },
+          [slug]: { ok: true, msg: `🎉 CORRECT! +${result.points} pts.${bonusMsg}` },
         }));
         setFlagInputs((prev) => ({ ...prev, [slug]: "" }));
+        setActiveSubmit(null);
         fetchDashboard();
       } else {
-        const reason = result.meta?.reason === "already-solved" ? "Already Solved!" : "Incorrect flag format or answer!";
+        const reason = result.meta?.reason === "already-solved" ? "Already Solved!" : "Incorrect flag!";
         setFeedback((prev) => ({ ...prev, [slug]: { ok: false, msg: `❌ ${reason}` } }));
       }
     } catch {
@@ -146,475 +131,355 @@ export default function CtfDashboardPage() {
     window.open(`/api/ctf/attachments?slug=${encodeURIComponent(slug)}&file=${encodeURIComponent(name)}`, "_blank");
   }
 
+  const setFlagInput = (slug: string, val: string) => {
+    setFlagInputs((prev) => ({ ...prev, [slug]: val }));
+  };
+
   if (loading && !data) {
     return (
-      <main className="min-h-screen bg-[#070510] text-white flex items-center justify-center font-sans">
+      <main className="min-h-screen bg-[#070308] text-white flex items-center justify-center font-sans">
         <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-gray-400 text-sm font-semibold tracking-widest uppercase">Connecting to Spider-Verse Arena...</p>
+          <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto shadow-[0_0_15px_rgba(220,38,38,0.5)]" />
+          <p className="text-red-400 text-sm font-bold tracking-widest uppercase">Connecting to Spider-Verse...</p>
         </div>
       </main>
     );
   }
 
-  const easyChallenges = data?.challenges.filter((c) => c.difficulty.toLowerCase() === "easy") ?? [];
-  const mediumChallenges = data?.challenges.filter((c) => c.difficulty.toLowerCase() === "medium") ?? [];
-  const hardChallenges = data?.challenges.filter((c) => c.difficulty.toLowerCase() === "hard") ?? [];
+  // Categorize challenges strictly by difficulty, fallback to points if difficulty is unspecified
+  const allChs = data?.challenges ?? [];
+  const easyChallenges: ChallengeItem[] = [];
+  const mediumChallenges: ChallengeItem[] = [];
+  const hardChallenges: ChallengeItem[] = [];
+
+  allChs.forEach((ch) => {
+    const diff = (ch.difficulty || "").toLowerCase().trim();
+    if (diff === "hard") {
+      hardChallenges.push(ch);
+    } else if (diff === "medium") {
+      mediumChallenges.push(ch);
+    } else if (diff === "easy") {
+      easyChallenges.push(ch);
+    } else {
+      // Fallback by points if difficulty string is missing or custom
+      const pts = ch.points || ch.initialPoints || 100;
+      if (pts >= 225) {
+        hardChallenges.push(ch);
+      } else if (pts >= 150) {
+        mediumChallenges.push(ch);
+      } else {
+        easyChallenges.push(ch);
+      }
+    }
+  });
 
   return (
-    <main className="min-h-screen bg-[#070510] text-gray-100 font-sans pb-16 relative overflow-x-hidden selection:bg-pink-500 selection:text-white">
-      {/* Background Spider-Verse Glow Orbs */}
-      <div className="fixed top-0 left-1/4 w-[500px] h-[500px] bg-purple-600/15 rounded-full blur-[140px] pointer-events-none" />
-      <div className="fixed bottom-0 right-1/4 w-[500px] h-[500px] bg-cyan-500/15 rounded-full blur-[140px] pointer-events-none" />
+    <main className="min-h-screen bg-[#0a0510] text-gray-100 font-sans relative overflow-hidden flex flex-col selection:bg-red-500 selection:text-white z-0">
+      <SpiderBackgroundFX />
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(220, 38, 38, 0.3);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(220, 38, 38, 0.5);
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-in-out;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-5px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
 
-      {/* Top Navbar Header */}
-      <header className="sticky top-0 z-50 bg-[#0c081d]/90 backdrop-blur-md border-b border-purple-500/20 px-4 md:px-8 py-4 shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-400 via-purple-600 to-pink-500 p-0.5 shadow-[0_0_15px_rgba(0,229,255,0.4)]">
-              <div className="w-full h-full bg-[#0d0920] rounded-[10px] flex items-center justify-center font-black text-cyan-400 text-lg">
-                🕷️
-              </div>
-            </div>
-            <div>
-              <h1 className="text-xl md:text-2xl font-black tracking-tight bg-gradient-to-r from-cyan-400 via-purple-300 to-pink-500 bg-clip-text text-transparent">
-                MULTIVERSE BREACH
-              </h1>
-              <p className="text-xs text-gray-400 font-medium">Spider-Verse CTF Management Platform</p>
-            </div>
-          </div>
+      {/* Background aesthetics */}
+      <div className="fixed inset-0 pointer-events-none -z-10">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_#1a0610_0%,_#0a0510_80%)]" />
+        <div className="absolute bottom-0 w-full h-[50vh] bg-gradient-to-t from-red-950/40 to-transparent" />
+        <div className="absolute left-0 top-1/4 w-[600px] h-[600px] bg-red-600/5 rounded-full blur-[150px]" />
+        <div className="absolute right-0 bottom-1/4 w-[600px] h-[600px] bg-purple-600/5 rounded-full blur-[150px]" />
+        <div className="absolute bottom-0 left-0 w-full h-32 opacity-20 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiMwYTA1MTAiLz48cGF0aCBkPSJNMCAxMDBWMzBoMjB2MTBoMTVWMjBoMTB2MTBoMThWNTBoMTB2MTBoMTVWNDBoMjB2MjBoMTBWMTBoMTV2MTBoMjBWNTBIMTAwVjEwMGgtMTAwWiIgZmlsbD0iI2RjMjYyNiIgb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] bg-repeat-x bg-bottom" style={{ backgroundSize: '150px 100%' }}></div>
+      </div>
 
-          {/* Header Stats */}
-          <div className="flex items-center gap-4 md:gap-6 bg-[#150f2e] border border-white/10 rounded-2xl px-5 py-2.5">
-            <div className="text-center">
-              <span className="block text-[10px] text-gray-400 uppercase tracking-widest font-semibold">Team</span>
-              <span className="text-sm font-bold text-cyan-300">{data?.team.name ?? "Arachnid"}</span>
-            </div>
-            <div className="w-px h-8 bg-white/10" />
-            <div className="text-center">
-              <span className="block text-[10px] text-gray-400 uppercase tracking-widest font-semibold">Score</span>
-              <span className="text-base font-black text-purple-300">{data?.score ?? 0} <span className="text-xs font-normal text-purple-400">pts</span></span>
-            </div>
-            <div className="w-px h-8 bg-white/10" />
-            <div className="text-center">
-              <span className="block text-[10px] text-gray-400 uppercase tracking-widest font-semibold">Rank</span>
-              <span className="text-base font-black text-pink-400">#{data?.rank ?? "—"}</span>
-            </div>
-            <div className="w-px h-8 bg-white/10" />
-            <div className="text-center">
-              <span className="block text-[10px] text-gray-400 uppercase tracking-widest font-semibold">Time Remaining</span>
-              <span className="text-sm font-mono font-bold text-amber-400">{formatTime(timerSeconds)}</span>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3">
-            {data?.team.role === "admin" && (
-              <a
-                href="/admin/ctf"
-                className="px-4 py-2 text-xs font-bold uppercase tracking-wider bg-purple-600/30 border border-purple-500/50 hover:bg-purple-600/50 text-purple-200 rounded-xl transition-all shadow-[0_0_15px_rgba(168,85,247,0.3)]"
-              >
-                Admin Panel ⚙️
-              </a>
-            )}
-            <button
-              onClick={() => {
-                document.cookie = "session=; path=/; max-age=0;";
-                window.location.href = "/enter";
-              }}
-              className="px-4 py-2 text-xs font-bold uppercase tracking-wider bg-red-500/20 border border-red-500/40 hover:bg-red-500/30 text-red-300 rounded-xl transition-all"
-            >
-              Logout
-            </button>
-          </div>
+      {/* Header */}
+      <header className="flex-none flex items-center justify-between px-6 md:px-10 py-5 border-b border-red-500/20 bg-[#0a0510]/80 backdrop-blur-md z-10 shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
+        <div className="flex items-center gap-12">
+          <h1 className="text-2xl md:text-3xl font-black italic tracking-tighter flex items-center gap-2">
+            <span className="text-gray-200 drop-shadow-md">X-PLORE 26</span>
+            <span className="text-red-600 drop-shadow-[0_0_15px_rgba(220,38,38,0.8)]">MULTIVERSE BREACH</span>
+          </h1>
+        </div>
+        <div className="flex items-center gap-5">
+          <button
+            onClick={() => {
+              document.cookie = "session=; path=/; max-age=0;";
+              window.location.href = "/enter";
+            }}
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-red-500/30 bg-red-950/30 hover:bg-red-900/50 text-red-400 hover:text-red-300 text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_10px_rgba(220,38,38,0.2)]"
+          >
+            Logout
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-4 md:px-8 mt-8">
-        {/* Navigation Tabs */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-8">
-          <div className="flex bg-[#140e2b] p-1.5 rounded-2xl border border-white/5 space-x-2">
-            <button
-              onClick={() => setActiveTab("challenges")}
-              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all uppercase tracking-wider ${
-                activeTab === "challenges"
-                  ? "bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-[0_0_20px_rgba(0,229,255,0.4)]"
-                  : "text-gray-400 hover:text-white"
-              }`}
-            >
-              Challenges 🎯
-            </button>
-            <button
-              onClick={() => setActiveTab("leaderboard")}
-              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all uppercase tracking-wider ${
-                activeTab === "leaderboard"
-                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-[0_0_20px_rgba(236,72,153,0.4)]"
-                  : "text-gray-400 hover:text-white"
-              }`}
-            >
-              Leaderboard 🏆
-            </button>
-            <button
-              onClick={() => setActiveTab("history")}
-              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all uppercase tracking-wider ${
-                activeTab === "history"
-                  ? "bg-gradient-to-r from-pink-500 to-cyan-500 text-white shadow-[0_0_20px_rgba(0,229,255,0.4)]"
-                  : "text-gray-400 hover:text-white"
-              }`}
-            >
-              Submissions 📜
-            </button>
+      {/* Main Content Grid */}
+      <div className="flex-1 overflow-hidden p-6 md:p-8 flex flex-col xl:flex-row gap-6 max-w-[1800px] mx-auto w-full z-10 h-full">
+        
+        {/* Left Side - llenges Grid (Scrollable) */}
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto pr-2 pb-10 custom-scrollbar h-full">
+          
+          {/* EASY COLUMN */}
+          <div className="flex flex-col gap-4 border border-cyan-500/30 bg-[#0f111a]/80 rounded-2xl p-4 shadow-[0_0_20px_rgba(6,182,212,0.1)] backdrop-blur-sm h-max">
+            <div className="text-center pb-3 pt-1 border-b border-cyan-500/20 mb-2">
+              <h2 className="text-cyan-400 font-black uppercase tracking-widest text-lg drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]">
+                EASY ({easyChallenges.length})
+              </h2>
+            </div>
+            {easyChallenges.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 text-xs italic font-medium">No easy challenges available</div>
+            ) : (
+              easyChallenges.map((ch) => (
+                <ChallengeCard
+                  key={ch.id}
+                  ch={ch}
+                  activeSubmit={activeSubmit}
+                  setActiveSubmit={setActiveSubmit}
+                  flagInput={flagInputs[ch.slug] || ""}
+                  setFlagInput={setFlagInput}
+                  onSubmit={handleFlagSubmit}
+                  submitting={submittingSlug === ch.slug}
+                  feedback={feedback[ch.slug]}
+                  onDownload={handleDownloadAttachment}
+                />
+              ))
+            )}
           </div>
 
-          <div className="hidden md:flex items-center gap-2 text-xs text-gray-400 font-medium">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" /> Live Telemetry Connected
+          {/* MEDIUM COLUMN */}
+          <div className="flex flex-col gap-4 border border-amber-500/40 bg-[#161010]/80 rounded-2xl p-4 shadow-[0_0_20px_rgba(245,158,11,0.1)] backdrop-blur-sm h-max">
+            <div className="text-center pb-3 pt-1 border-b border-amber-500/20 mb-2">
+              <h2 className="text-amber-400 font-black uppercase tracking-widest text-lg drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]">
+                MEDIUM ({mediumChallenges.length})
+              </h2>
+            </div>
+            {mediumChallenges.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 text-xs italic font-medium">No medium challenges available</div>
+            ) : (
+              mediumChallenges.map((ch) => (
+                <ChallengeCard
+                  key={ch.id}
+                  ch={ch}
+                  activeSubmit={activeSubmit}
+                  setActiveSubmit={setActiveSubmit}
+                  flagInput={flagInputs[ch.slug] || ""}
+                  setFlagInput={setFlagInput}
+                  onSubmit={handleFlagSubmit}
+                  submitting={submittingSlug === ch.slug}
+                  feedback={feedback[ch.slug]}
+                  onDownload={handleDownloadAttachment}
+                />
+              ))
+            )}
+          </div>
+
+          {/* HARD COLUMN */}
+          <div className="flex flex-col gap-4 border border-red-500/40 bg-[#160a0f]/80 rounded-2xl p-4 shadow-[0_0_20px_rgba(220,38,38,0.15)] backdrop-blur-sm h-max">
+            <div className="text-center pb-3 pt-1 border-b border-red-500/20 mb-2">
+              <h2 className="text-pink-500 font-black uppercase tracking-widest text-lg drop-shadow-[0_0_8px_rgba(236,72,153,0.5)]">
+                HARD ({hardChallenges.length})
+              </h2>
+            </div>
+            {hardChallenges.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 text-xs italic font-medium">No hard challenges available</div>
+            ) : (
+              hardChallenges.map((ch) => (
+                <ChallengeCard
+                  key={ch.id}
+                  ch={ch}
+                  activeSubmit={activeSubmit}
+                  setActiveSubmit={setActiveSubmit}
+                  flagInput={flagInputs[ch.slug] || ""}
+                  setFlagInput={setFlagInput}
+                  onSubmit={handleFlagSubmit}
+                  submitting={submittingSlug === ch.slug}
+                  feedback={feedback[ch.slug]}
+                  onDownload={handleDownloadAttachment}
+                />
+              ))
+            )}
           </div>
         </div>
 
-        {/* TAB 1: CHALLENGES */}
-        {activeTab === "challenges" && (
-          <div className="space-y-12">
-            {/* EASY CATEGORY */}
-            <ChallengeSection
-              title="Easy Category"
-              subtitle="Initialize your spider-sense. 100 base points each."
-              badgeColor="from-emerald-500 to-cyan-500"
-              challenges={easyChallenges}
-              flagInputs={flagInputs}
-              setFlagInputs={setFlagInputs}
-              submittingSlug={submittingSlug}
-              feedback={feedback}
-              onSubmit={handleFlagSubmit}
-              onDownload={handleDownloadAttachment}
-            />
-
-            {/* MEDIUM CATEGORY */}
-            <ChallengeSection
-              title="Medium Category"
-              subtitle="Alchemax dimension breaches. 150 base points each."
-              badgeColor="from-amber-500 to-purple-600"
-              challenges={mediumChallenges}
-              flagInputs={flagInputs}
-              setFlagInputs={setFlagInputs}
-              submittingSlug={submittingSlug}
-              feedback={feedback}
-              onSubmit={handleFlagSubmit}
-              onDownload={handleDownloadAttachment}
-            />
-
-            {/* HARD CATEGORY */}
-            <ChallengeSection
-              title="Hard Category"
-              subtitle="Anomaly Containment Protocol. 225 base points each."
-              badgeColor="from-purple-600 to-pink-600"
-              challenges={hardChallenges}
-              flagInputs={flagInputs}
-              setFlagInputs={setFlagInputs}
-              submittingSlug={submittingSlug}
-              feedback={feedback}
-              onSubmit={handleFlagSubmit}
-              onDownload={handleDownloadAttachment}
-            />
-          </div>
-        )}
-
-        {/* TAB 2: LIVE LEADERBOARD */}
-        {activeTab === "leaderboard" && (
-          <div className="bg-[#110b27]/80 backdrop-blur-xl border border-purple-500/20 rounded-3xl p-6 md:p-8 shadow-2xl">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-extrabold text-white">Live Leaderboard</h2>
-                <p className="text-xs text-gray-400">Real-time materialized scoring snapshot</p>
+        {/* Right Side - Sidebar */}
+        <div className="w-full xl:w-[380px] flex-none flex flex-col gap-6 overflow-y-auto pb-10 custom-scrollbar h-full">
+          
+          {/* Active Team Card */}
+          <div className="border border-red-500/30 bg-[#12050a]/90 backdrop-blur-md rounded-2xl p-5 shadow-[0_0_25px_rgba(220,38,38,0.15)] relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[radial-gradient(circle_at_top_right,_rgba(220,38,38,0.15),_transparent_70%)] pointer-events-none" />
+            <div className="flex items-center gap-5 relative z-10">
+              <div className="w-14 h-14 rounded-full border border-red-500/50 bg-red-950 flex items-center justify-center text-3xl shadow-[0_0_20px_rgba(220,38,38,0.4)]">
+                🕷️
               </div>
-              <button
-                onClick={fetchDashboard}
-                className="px-4 py-2 bg-purple-600/20 border border-purple-500/40 text-purple-300 text-xs font-bold rounded-xl hover:bg-purple-600/40 transition-all"
-              >
-                Refresh Board 🔄
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-white/10 text-gray-400 text-xs uppercase tracking-wider">
-                    <th className="py-3.5 px-4 font-semibold">Rank</th>
-                    <th className="py-3.5 px-4 font-semibold">Team Name</th>
-                    <th className="py-3.5 px-4 font-semibold text-center">Solved</th>
-                    <th className="py-3.5 px-4 font-semibold text-center">First Bloods 🩸</th>
-                    <th className="py-3.5 px-4 font-semibold text-right">Score</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5 text-sm">
-                  {data?.leaderboard.map((row, idx) => {
-                    const isMyTeam = row.teamId === data.team.id;
-                    return (
-                      <tr
-                        key={row.teamId}
-                        className={`transition-all ${
-                          isMyTeam
-                            ? "bg-purple-900/30 border-l-4 border-l-cyan-400 text-white font-bold"
-                            : "hover:bg-white/5 text-gray-300"
-                        }`}
-                      >
-                        <td className="py-4 px-4 font-mono font-bold">
-                          {idx === 0 ? "🥇 #1" : idx === 1 ? "🥈 #2" : idx === 2 ? "🥉 #3" : `#${idx + 1}`}
-                        </td>
-                        <td className="py-4 px-4 flex items-center gap-2">
-                          <span>{row.teamName}</span>
-                          {isMyTeam && (
-                            <span className="px-2 py-0.5 text-[10px] uppercase font-extrabold bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 rounded-md">
-                              YOU
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-4 px-4 text-center font-mono">{row.solvedCount ?? 0}</td>
-                        <td className="py-4 px-4 text-center font-mono font-bold text-red-400">
-                          {row.firstBloodCount ?? 0}
-                        </td>
-                        <td className="py-4 px-4 text-right font-mono font-black text-cyan-300 text-base">
-                          {row.points} pts
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {(!data?.leaderboard || data.leaderboard.length === 0) && (
-                    <tr>
-                      <td colSpan={5} className="py-8 text-center text-gray-500 text-sm">
-                        No team submissions logged yet.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <div>
+                <div className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Active Team</div>
+                <div className="text-white font-bold text-lg tracking-tight mb-1">{data?.team.name ?? "Web-Slingers"}</div>
+                <div className="text-[11px] text-gray-400 uppercase tracking-widest">
+                  Total Secured Points: <span className="text-red-500 font-black text-sm ml-1">{data?.score ?? 0}</span>
+                </div>
+              </div>
             </div>
           </div>
-        )}
 
-        {/* TAB 3: SUBMISSION HISTORY */}
-        {activeTab === "history" && (
-          <div className="bg-[#110b27]/80 backdrop-blur-xl border border-purple-500/20 rounded-3xl p-6 md:p-8 shadow-2xl">
-            <h2 className="text-2xl font-extrabold text-white mb-2">Submission Audit Trail</h2>
-            <p className="text-xs text-gray-400 mb-6">Complete log of all flag attempts by your team</p>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-white/10 text-gray-400 text-xs uppercase tracking-wider">
-                    <th className="py-3.5 px-4 font-semibold">Timestamp</th>
-                    <th className="py-3.5 px-4 font-semibold">Challenge</th>
-                    <th className="py-3.5 px-4 font-semibold">Status</th>
-                    <th className="py-3.5 px-4 font-semibold text-right">Points Earned</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5 text-sm">
-                  {data?.submissions.map((sub) => (
-                    <tr key={sub.id} className="hover:bg-white/5">
-                      <td className="py-3.5 px-4 font-mono text-xs text-gray-400">
-                        {new Date(sub.receivedAt).toLocaleTimeString()}
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-white">{sub.challengeTitle}</td>
-                      <td className="py-3.5 px-4">
-                        {sub.correct ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                            ✓ Correct Flag {sub.meta?.firstBlood ? "🩸 First Blood" : ""}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-500/20 text-red-300 border border-red-500/30">
-                            ✕ Incorrect
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-purple-300">
-                        +{sub.points} pts
-                      </td>
-                    </tr>
-                  ))}
-                  {(!data?.submissions || data.submissions.length === 0) && (
-                    <tr>
-                      <td colSpan={4} className="py-8 text-center text-gray-500 text-sm">
-                        No submissions recorded for your team.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+          {/* Leaderboard Card */}
+          <div className="border border-red-500/20 bg-[#12050a]/90 backdrop-blur-md rounded-2xl flex-1 flex flex-col overflow-hidden min-h-[400px] shadow-[0_0_25px_rgba(220,38,38,0.1)]">
+            <div className="p-5 pb-3 border-b border-red-900/30">
+              <h2 className="text-red-500 font-black uppercase tracking-widest text-lg drop-shadow-[0_0_8px_rgba(220,38,38,0.5)]">
+                LEADERBOARD
+              </h2>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-1.5 custom-scrollbar">
+              {data?.leaderboard.map((row, idx) => (
+                <div key={row.teamId} className={`flex items-center gap-4 p-3 rounded-xl transition-all ${idx === 0 ? 'bg-amber-500/10 border border-amber-500/20' : idx < 3 ? 'bg-white/5 border border-white/10' : 'hover:bg-white/5 border border-transparent'}`}>
+                  <div className="w-8 flex justify-center font-black">
+                    {idx === 0 ? <span className="text-2xl drop-shadow-[0_0_10px_rgba(250,204,21,0.6)]">🥇</span> : 
+                     idx === 1 ? <span className="text-2xl drop-shadow-[0_0_10px_rgba(203,213,225,0.6)]">🥈</span> :
+                     idx === 2 ? <span className="text-2xl drop-shadow-[0_0_10px_rgba(217,119,6,0.6)]">🥉</span> :
+                     <span className="text-gray-500 text-sm">{idx + 1}</span>}
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-white font-bold text-sm tracking-wide">{row.teamName}</div>
+                    <div className="text-gray-400 text-[11px] uppercase tracking-wider mt-0.5">{row.points} Points</div>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-[#1a0a14] border border-red-500/30 flex items-center justify-center text-sm shadow-[0_0_10px_rgba(220,38,38,0.2)]">
+                    {['🕷️', '🕸️', '🦸‍♂️', '🦹'][idx % 4]}
+                  </div>
+                </div>
+              ))}
+              {(!data?.leaderboard || data.leaderboard.length === 0) && (
+                 <div className="text-center text-gray-500 text-sm py-10">No scores yet.</div>
+              )}
             </div>
           </div>
-        )}
+          
+        </div>
       </div>
     </main>
   );
 }
 
-// ── SUBCOMPONENT: CHALLENGE SECTION ─────────────────────────────────────
-
-interface SectionProps {
-  title: string;
-  subtitle: string;
-  badgeColor: string;
-  challenges: ChallengeItem[];
-  flagInputs: Record<string, string>;
-  setFlagInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  submittingSlug: string | null;
-  feedback: Record<string, { ok: boolean; msg: string }>;
-  onSubmit: (slug: string) => void;
-  onDownload: (slug: string, name?: string) => void;
-}
-
-function ChallengeSection({
-  title,
-  subtitle,
-  badgeColor,
-  challenges,
-  flagInputs,
-  setFlagInputs,
-  submittingSlug,
-  feedback,
+// Subcomponent for Challenge Cards
+function ChallengeCard({
+  ch,
+  activeSubmit,
+  setActiveSubmit,
+  flagInput,
+  setFlagInput,
   onSubmit,
+  submitting,
+  feedback,
   onDownload,
-}: SectionProps) {
-  if (challenges.length === 0) return null;
+}: {
+  ch: ChallengeItem;
+  activeSubmit: string | null;
+  setActiveSubmit: (val: string | null) => void;
+  flagInput: string;
+  setFlagInput: (slug: string, val: string) => void;
+  onSubmit: (slug: string) => void;
+  submitting: boolean;
+  feedback?: { ok: boolean; msg: string };
+  onDownload: (slug: string, name?: string) => void;
+}) {
+  const isExpanded = activeSubmit === ch.slug;
+  const isSolved = ch.isSolved;
 
   return (
-    <section>
-      <div className="mb-6">
-        <div className="flex items-center gap-3">
-          <span className={`w-3 h-8 rounded-full bg-gradient-to-b ${badgeColor}`} />
+    <div
+      className={`relative bg-[#160d1a]/80 backdrop-blur-md rounded-xl p-5 flex flex-col gap-4 border overflow-hidden transition-all duration-300 ${
+        isSolved
+          ? "border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+          : "border-white/10 hover:border-white/20 hover:bg-[#1a0f1f]/90"
+      }`}
+    >
+      {/* Background Accent */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-[radial-gradient(circle_at_top_right,_rgba(220,38,38,0.08),_transparent_70%)] pointer-events-none" />
+
+      {/* Header */}
+      <div className="flex justify-between items-start z-10">
+        <h3 className="text-white font-bold text-base leading-snug w-[85%]">{ch.title}</h3>
+        {isSolved && (
+          <span className="text-[9px] px-2 py-0.5 bg-emerald-500/20 text-emerald-400 font-bold rounded border border-emerald-500/30">
+            SOLVED
+          </span>
+        )}
+      </div>
+
+      {/* Meta info & Icon */}
+      <div className="flex justify-between items-center z-10">
+        <div className="flex flex-col gap-3">
           <div>
-            <h2 className="text-2xl font-black text-white tracking-tight">{title}</h2>
-            <p className="text-xs text-gray-400 font-medium">{subtitle}</p>
+            <div className="text-[9px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">Category</div>
+            <div className="text-gray-300 text-xs font-medium">{ch.category || "General"}</div>
           </div>
+          <div className="flex gap-6">
+            <div>
+              <div className="text-[9px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">Points</div>
+              <div className="flex items-center gap-1.5 text-pink-500 text-sm font-black">
+                <svg className="w-3.5 h-3.5 text-pink-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+                {ch.points}
+              </div>
+            </div>
+            <div>
+              <div className="text-[9px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">Difficulty</div>
+              <div
+                className={`flex items-center gap-1.5 text-sm font-black ${
+                  ch.difficulty.toLowerCase() === "easy"
+                    ? "text-emerald-500"
+                    : ch.difficulty.toLowerCase() === "medium"
+                    ? "text-amber-500"
+                    : "text-red-500"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+                </svg>
+                {ch.difficulty}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Avatar/Character Placeholder */}
+        <div className="w-16 h-16 rounded-full border border-red-500/20 bg-[#1a0a14] flex items-center justify-center text-3xl shadow-[0_0_15px_rgba(220,38,38,0.15)] overflow-hidden">
+           {ch.difficulty.toLowerCase() === 'easy' ? '🕷️' : ch.difficulty.toLowerCase() === 'medium' ? '🕸️' : '🦹'}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {challenges.map((ch) => {
-          const isBusy = submittingSlug === ch.slug;
-          const fb = feedback[ch.slug];
+      {/* Footer Actions */}
+      <div className="flex justify-end items-end mt-1 z-10">
 
-          return (
-            <div
-              key={ch.id}
-              className={`bg-[#0f0a24]/90 backdrop-blur-xl border rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 hover:translate-y-[-2px] relative overflow-hidden ${
-                ch.isSolved
-                  ? "border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.15)]"
-                  : "border-purple-500/20 hover:border-cyan-400/40 shadow-xl"
-              }`}
-            >
-              {/* Solved Overlay Ribbon */}
-              {ch.isSolved && (
-                <div className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-xs font-bold rounded-full shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                  ✓ SOLVED
-                </div>
-              )}
-
-              {/* First Blood Badge */}
-              {ch.isFirstBlood && (
-                <div className="absolute top-4 right-28 flex items-center gap-1.5 px-3 py-1 bg-red-600/30 border border-red-500/60 text-red-300 text-xs font-extrabold rounded-full animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.4)]">
-                  🩸 FIRST BLOOD
-                </div>
-              )}
-
-              <div>
-                {/* Header Pills */}
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider rounded-md bg-purple-500/20 border border-purple-400/30 text-purple-300">
-                    {ch.category}
-                  </span>
-                  <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider rounded-md bg-cyan-500/20 border border-cyan-400/30 text-cyan-300">
-                    {ch.difficulty}
-                  </span>
-                </div>
-
-                <h3 className="text-xl font-bold text-white mb-2">{ch.title}</h3>
-                <p className="text-xs text-gray-300 leading-relaxed mb-4">{ch.description}</p>
-              </div>
-
-              <div>
-                {/* Score & Solves count */}
-                <div className="flex items-center justify-between bg-[#160f38] px-4 py-3 rounded-2xl border border-white/5 mb-4">
-                  <div>
-                    <span className="block text-[10px] text-gray-400 uppercase font-semibold">Value</span>
-                    <span className="text-base font-black text-cyan-300">
-                      {ch.points} <span className="text-xs text-gray-400 font-normal">/ {ch.initialPoints} pts</span>
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="block text-[10px] text-gray-400 uppercase font-semibold">Total Solves</span>
-                    <span className="text-xs font-mono font-bold text-purple-300">{ch.solveCount} solves</span>
-                  </div>
-                </div>
-
-                {/* Download Attachment Button */}
-                {ch.attachments && ch.attachments.length > 0 ? (
-                  <button
-                    onClick={() => onDownload(ch.slug, ch.attachments[0])}
-                    className="w-full mb-3 py-2 px-3 text-xs font-semibold bg-purple-600/20 border border-purple-500/40 text-purple-200 rounded-xl hover:bg-purple-600/40 transition-all flex items-center justify-center gap-2"
-                  >
-                    📁 Download Attachment ({ch.attachments[0]})
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => onDownload(ch.slug, `${ch.slug}.zip`)}
-                    className="w-full mb-3 py-2 px-3 text-xs font-semibold bg-white/5 border border-white/10 text-gray-400 rounded-xl hover:bg-white/10 transition-all flex items-center justify-center gap-2"
-                  >
-                    📁 Download Attachment ({ch.slug}.zip)
-                  </button>
-                )}
-
-                {/* Flag Input Form */}
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    onSubmit(ch.slug);
-                  }}
-                  className="space-y-2"
-                >
-                  <div className="relative">
-                    <input
-                      type="text"
-                      disabled={ch.isSolved || isBusy}
-                      value={flagInputs[ch.slug] ?? ""}
-                      onChange={(e) =>
-                        setFlagInputs((prev) => ({ ...prev, [ch.slug]: e.target.value }))
-                      }
-                      placeholder={ch.isSolved ? "Already Solved!" : "SPIDER{flag_here}"}
-                      className="w-full bg-[#18113b] border border-purple-500/30 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-500 font-mono focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 disabled:opacity-50 transition-all"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={ch.isSolved || isBusy}
-                    className={`w-full py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 ${
-                      ch.isSolved
-                        ? "bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 cursor-not-allowed"
-                        : "bg-gradient-to-r from-cyan-500 via-purple-600 to-pink-500 text-white hover:opacity-95 shadow-[0_0_15px_rgba(0,229,255,0.25)]"
-                    }`}
-                  >
-                    {ch.isSolved ? "Solved ✓" : isBusy ? "Submitting..." : "Submit Flag"}
-                  </button>
-                </form>
-
-                {/* Feedback Toast */}
-                {fb && (
-                  <div
-                    className={`mt-3 p-2.5 rounded-xl text-xs font-medium text-center animate-fadeIn ${
-                      fb.ok
-                        ? "bg-emerald-950/60 border border-emerald-500/40 text-emerald-300"
-                        : "bg-red-950/60 border border-red-500/40 text-red-300"
-                    }`}
-                  >
-                    {fb.msg}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        <a
+          href={`/ctf/${ch.slug}`}
+          className="flex items-center gap-1.5 border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-[0_0_10px_rgba(220,38,38,0.2)]"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+          Open
+        </a>
       </div>
-    </section>
+    </div>
   );
 }
