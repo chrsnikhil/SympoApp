@@ -4,35 +4,9 @@ import { collections } from "@/lib/db/client";
 import { appendScore } from "@/lib/score/ledger";
 import type { Challenge, MemoryGameState } from "@/lib/db/types";
 
-/**
- * Round 1, Game 2 — Memory Game.
- *
- * A flip-and-match grid themed on Spider Multiverse variants. The grid is
- * generated ONCE per team, server-side, at first request, and the client
- * never receives its contents up front — it asks to flip a cell by index and
- * the server answers with what was under it. This is the same "never let
- * something reach the browser that names its own answer" discipline the
- * platform's Connections game (dropped from this event, but the lesson stays)
- * was built around: an unflipped cell must carry nothing that gives away its
- * pair.
- *
- * SCORING FALLOFF — a documented default, not dictated by the rules doc (it
- * only gives the 16pt cap and "limited by a maximum flip count"), so it should
- * be confirmed with the event coordinator before the day:
- *   - `par`  = 2× the pair count — the fewest flips a team could need if every
- *     flip after the first of a pair immediately found its match.
- *   - `cap`  = 3× the pair count — the hard limit; hit it with pairs still
- *     unmatched and the grid locks, scoring zero.
- *   - Finishing at or under `par`: full marks.
- *   - Finishing between `par` and `cap`: linear falloff to a 30% floor.
- *   - Not finishing by `cap`: zero.
- */
-
 const DEFAULT_PAIRS = 8;
-const FLOOR_FRACTION = 0.3;
+const DEFAULT_FLIP_CAP = 14; // Maximum allowed flips: 14
 
-/** Eight Spider-Verse variants — text tokens only; the client maps these to
- *  colour/label, no external art required. */
 export const VARIANT_TOKENS = [
   "spider-man",
   "miles",
@@ -44,14 +18,10 @@ export const VARIANT_TOKENS = [
   "peni",
 ] as const;
 
-function parCapFor(pairs: number): { par: number; cap: number } {
-  return { par: pairs * 2, cap: pairs * 3 };
-}
-
 function shuffledGrid(pairCount: number): string[] {
   const tokens = VARIANT_TOKENS.slice(0, pairCount);
   const deck = [...tokens, ...tokens];
-  // Fisher-Yates with a CSPRNG — same fairness bar as the rest of the platform's rolls.
+  // Fisher-Yates with CSPRNG — randomizes card positions every game
   for (let i = deck.length - 1; i > 0; i--) {
     const j = randomInt(i + 1);
     [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -59,8 +29,6 @@ function shuffledGrid(pairCount: number): string[] {
   return deck;
 }
 
-/** Team-visible projection: counts and revealed/matched cell CONTENTS only —
- *  never the grid, so an unflipped cell tells the client nothing. */
 export interface MemoryPublicState {
   slug: string;
   totalCells: number;
@@ -85,16 +53,13 @@ function toPublic(state: MemoryGameState): MemoryPublicState {
   };
 }
 
-/** Get-or-create a team's memory game state. Reload-safe: never regenerates
- *  an existing grid. */
 export async function getOrCreateMemoryState(teamId: ObjectId, challenge: Challenge): Promise<MemoryPublicState> {
   const states = await collections.memoryStates();
   const existing = await states.findOne({ teamId, challengeSlug: challenge.slug });
   if (existing) return toPublic(existing);
 
   const pairs = challenge.config.memoryPairs ?? DEFAULT_PAIRS;
-  const { cap } = parCapFor(pairs);
-  const flipCap = challenge.config.memoryFlipCap ?? cap;
+  const flipCap = challenge.config.memoryFlipCap ?? DEFAULT_FLIP_CAP;
 
   const fresh: MemoryGameState = {
     teamId,
@@ -123,11 +88,15 @@ export type FlipResult =
   | { ok: true; state: MemoryPublicState; matched: boolean | null; mismatchInfo?: Array<{ index: number; token: string }> }
   | { ok: false; reason: "not-started" | "completed" | "cap-reached" | "already-face-up" | "bad-index" };
 
-/**
- * Flip one cell. Turn logic: the first flip of a turn reveals; the second flip
- * resolves the pair (match -> locked face-up, mismatch -> returns mismatchInfo
- * and clears DB revealed so client auto-flips back down after a brief delay).
- */
+export function completionBonusForRank(rank: number): number {
+  if (rank === 1) return 6;
+  if (rank === 2) return 5;
+  if (rank === 3) return 4;
+  if (rank === 4) return 3;
+  if (rank === 5) return 2;
+  return 1;
+}
+
 export async function flipCell(teamId: ObjectId, challenge: Challenge, cellIndex: number): Promise<FlipResult> {
   const states = await collections.memoryStates();
   const state = await states.findOne({ teamId, challengeSlug: challenge.slug });
@@ -139,10 +108,13 @@ export async function flipCell(teamId: ObjectId, challenge: Challenge, cellIndex
   let revealed = state.revealed.length === 2 ? [] : state.revealed;
   if (revealed.includes(cellIndex)) return { ok: false, reason: "already-face-up" };
 
-  if (state.flipsUsed >= state.flipCap) return { ok: false, reason: "cap-reached" };
+  const flipCap = challenge.config.memoryFlipCap ?? DEFAULT_FLIP_CAP;
+  if (state.flipsUsed >= flipCap) return { ok: false, reason: "cap-reached" };
 
   revealed = [...revealed, cellIndex];
-  const flipsUsed = state.flipsUsed + 1;
+
+  // Selecting two cards counts as 1 flip (flipsUsed increments on 2nd card selection)
+  const flipsUsed = revealed.length === 2 ? state.flipsUsed + 1 : state.flipsUsed;
   let matched = state.matched;
   let matchedThisTurn: boolean | null = null;
   let mismatchInfo: Array<{ index: number; token: string }> | undefined;
@@ -152,23 +124,41 @@ export async function flipCell(teamId: ObjectId, challenge: Challenge, cellIndex
     if (state.grid[a] === state.grid[b]) {
       matched = [...matched, a, b];
       matchedThisTurn = true;
-      revealed = []; // a matched pair locks immediately
+      revealed = []; // matched pair locks face-up
     } else {
       matchedThisTurn = false;
       mismatchInfo = [
         { index: a, token: state.grid[a] },
         { index: b, token: state.grid[b] },
       ];
-      revealed = []; // clear DB revealed state so cards flip back down automatically
+      revealed = []; // clear DB revealed so client 3D flips back down after 1s
     }
   }
 
-  const completed = matched.length === state.grid.length;
+  const totalPairs = state.grid.length / 2;
+  const matchedPairs = matched.length / 2;
+  const completed = matchedPairs === totalPairs;
+  const capExhausted = flipsUsed >= flipCap && revealed.length === 0 && !completed;
   const now = new Date();
 
   let scoredPoints = state.scoredPoints;
-  if (completed && scoredPoints === null) {
-    scoredPoints = scoreMemory(challenge.points, state.grid.length / 2, flipsUsed);
+
+  if ((completed || capExhausted) && scoredPoints === null) {
+    if (completed) {
+      // Calculate completion rank among teams that completed all 8 pairs
+      const priorCompleted = await states.countDocuments({
+        challengeSlug: challenge.slug,
+        completedAt: { $ne: null },
+        scoredPoints: { $gt: totalPairs * 2 },
+      });
+      const rank = priorCompleted + 1;
+      const bonus = completionBonusForRank(rank);
+      scoredPoints = totalPairs * 2 + bonus; // (8 * 2) + bonus
+    } else {
+      // Unfinished when cap reached: base score only (2 pts per matched pair)
+      scoredPoints = matchedPairs * 2;
+    }
+
     if (scoredPoints > 0) {
       await appendScore({
         teamId,
@@ -178,9 +168,6 @@ export async function flipCell(teamId: ObjectId, challenge: Challenge, cellIndex
         at: now,
       });
     }
-  } else if (!completed && flipsUsed >= state.flipCap) {
-    // Cap exhausted with pairs still unmatched: locked at zero, permanently.
-    scoredPoints = 0;
   }
 
   await states.updateOne(
@@ -190,7 +177,7 @@ export async function flipCell(teamId: ObjectId, challenge: Challenge, cellIndex
         revealed,
         matched,
         flipsUsed,
-        completedAt: completed ? now : flipsUsed >= state.flipCap ? now : null,
+        completedAt: completed ? now : capExhausted ? now : null,
         scoredPoints,
       },
     }
@@ -198,17 +185,4 @@ export async function flipCell(teamId: ObjectId, challenge: Challenge, cellIndex
 
   const updated = await states.findOne({ _id: state._id });
   return { ok: true, state: toPublic(updated!), matched: matchedThisTurn, mismatchInfo };
-}
-
-/** See the module doc comment for the falloff rationale. */
-export function scoreMemory(fullPoints: number, pairs: number, flipsUsedAtCompletion: number): number {
-  const { par, cap } = parCapFor(pairs);
-  const floor = Math.round(fullPoints * FLOOR_FRACTION);
-
-  if (flipsUsedAtCompletion <= par) return fullPoints;
-  if (flipsUsedAtCompletion > cap) return 0;
-
-  const span = cap - par;
-  const over = flipsUsedAtCompletion - par;
-  return Math.round(fullPoints - (fullPoints - floor) * (over / span));
 }

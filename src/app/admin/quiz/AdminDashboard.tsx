@@ -181,7 +181,7 @@ export default function AdminDashboard() {
         {/* ROUND CONTROLS */}
         <section className="panel space-y-4 p-5">
           <h2 className="display-title text-xl text-glitch-cyan">Round Controls</h2>
-          <p className="text-xs text-paper-white/70">
+          <p className="text-sm font-semibold text-paper-white/95">
             {round < 3
               ? `Advancing Round ${round} to Round ${round + 1}. Default advances: ${data.defaultAdvances ?? "—"} teams.`
               : "Round 3 — final round."}
@@ -354,7 +354,7 @@ export default function AdminDashboard() {
             {data.judgeQueue && (
               <section className="panel p-5">
                 <div className="mb-3 flex items-center justify-between">
-                  <h2 className="font-display text-sm uppercase tracking-wide text-paper-white/70">Image Replication judge queue ({data.judgeQueue.length})</h2>
+                  <h2 className="font-display text-sm uppercase tracking-wide text-paper-white font-bold">Image Replication judge queue ({data.judgeQueue.length})</h2>
                   <button
                     disabled={busy || data.judgeQueue.length === 0}
                     onClick={() => callAdvance({ action: "judge-image", slug: "image-1" })}
@@ -363,7 +363,7 @@ export default function AdminDashboard() {
                     Judge remaining now
                   </button>
                 </div>
-                <p className="mb-3 text-xs text-paper-white/45">
+                <p className="mb-3 text-xs font-semibold text-paper-white/85">
                   Submissions remain queued while the event is active so teams can freely re-upload and refine their creations.
                   Click &quot;Judge remaining now&quot; (or wait for the round to end) to send the latest submission from each team to the vision model.
                 </p>
@@ -393,7 +393,7 @@ export default function AdminDashboard() {
             {data.connectionsPuzzles && (
               <section className="panel p-5">
                 <h2 className="display-title mb-1 text-xl text-glitch-cyan">Connections — reveal control</h2>
-                <p className="mb-4 text-xs text-paper-white/45">
+                <p className="mb-4 text-xs font-semibold text-paper-white/85">
                   Coordinator-paced: click a puzzle&apos;s image to reveal it live for every team at once. A puzzle
                   needs to be opened before its tiles can be revealed.
                 </p>
@@ -405,10 +405,10 @@ export default function AdminDashboard() {
                       <div key={p.slug} className="admin-card p-3">
                         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                           <div>
-                            <span className="font-display text-sm text-paper-white">Puzzle {p.puzzleIndex}</span>
-                            <span className="ml-2 text-xs text-paper-white/50">{p.clue ?? "No clue set"}</span>
+                            <span className="font-display text-sm text-paper-white font-bold">Puzzle {p.puzzleIndex}</span>
+                            <span className="ml-2 text-xs font-semibold text-paper-white/90">{p.clue ?? "No clue set"}</span>
                           </div>
-                          <span className="text-[0.65rem] uppercase tracking-widest text-paper-white/40">
+                          <span className="text-xs uppercase tracking-widest text-paper-white/90 font-bold">
                             {closed ? "closed" : notOpen ? "not opened" : `${p.revealedCount}/${p.totalImages} revealed`} · {p.solvedCount} solved
                           </span>
                         </div>
@@ -449,12 +449,12 @@ export default function AdminDashboard() {
         {(round === 2 || round === 3) && data.flags && (
           <section className="panel p-5">
             <h2 className="display-title mb-1 text-xl text-glitch-cyan">Proctor flags</h2>
-            <p className="mb-3 text-xs text-paper-white/45">
+            <p className="mb-3 text-xs font-semibold text-paper-white/85">
               Client-reported tab switches, window blurs (alt+tab / ctrl+tab) and fullscreen exits during this round.
               A signal to review, not an automatic disqualification — a browser can&apos;t police itself.
             </p>
             {data.flags.length === 0 ? (
-              <p className="text-xs text-paper-white/40">Nothing flagged.</p>
+              <p className="text-xs font-bold text-paper-white/70">Nothing flagged.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="admin-table">
@@ -487,14 +487,14 @@ export default function AdminDashboard() {
         {/* TOKEN MANAGEMENT */}
         <section className="panel panel-accent p-5">
           <h2 className="display-title mb-1 text-xl text-gadget-pink">Token Management</h2>
-          <p className="mb-4 text-xs text-paper-white/60">
+          <p className="mb-4 text-xs font-semibold text-paper-white/85">
             Assign a coin to any team — online-registered (matched by name) or a walk-in (creates the team on the
             spot). A coin is locked to whichever team holds it; revoke first to reassign it.
           </p>
 
           <div className="mb-5 flex flex-wrap items-end gap-2">
             <div>
-              <label className="mb-1 block text-[0.65rem] uppercase tracking-widest text-paper-white/50">Coin #</label>
+              <label className="mb-1 block text-xs uppercase tracking-widest font-bold text-paper-white/85">Coin #</label>
               <input
                 value={assignCoin}
                 onChange={(e) => setAssignCoin(e.target.value)}
@@ -503,7 +503,7 @@ export default function AdminDashboard() {
               />
             </div>
             <div className="flex-1">
-              <label className="mb-1 block text-[0.65rem] uppercase tracking-widest text-paper-white/50">Team name</label>
+              <label className="mb-1 block text-xs uppercase tracking-widest font-bold text-paper-white/85">Team name</label>
               <input
                 value={assignTeamName}
                 onChange={(e) => setAssignTeamName(e.target.value)}

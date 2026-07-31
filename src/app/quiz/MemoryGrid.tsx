@@ -107,13 +107,22 @@ export default function MemoryGrid({ slug, onDone }: { slug: string; onDone: (po
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between text-xs font-mono tracking-widest uppercase text-paper-white/60 bg-ink-black/60 border border-paper-white/10 px-4 py-2 rounded">
-        <span>
-          FLIPS USED: <span className="text-comic-yellow font-bold">{state.flipsUsed}</span> / {state.flipCap}
-        </span>
-        <span>
-          MATCHED: <span className="text-glitch-cyan font-bold">{state.matched.length / 2}</span> / {state.totalCells / 2} PAIRS
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-mono tracking-wider uppercase text-paper-white bg-ink-black/80 border border-paper-white/20 px-4 py-2.5 rounded shadow">
+        <div>
+          <span>FLIPS: </span>
+          <span className="text-comic-yellow font-bold">{state.flipsUsed} / {state.flipCap}</span>
+          <span className="text-paper-white/50 text-[10px] ml-1">({Math.max(0, state.flipCap - state.flipsUsed)} left)</span>
+        </div>
+
+        <div>
+          <span>PAIRS: </span>
+          <span className="text-glitch-cyan font-bold">{state.matched.length / 2} / {state.totalCells / 2}</span>
+        </div>
+
+        <div>
+          <span>SCORE: </span>
+          <span className="text-signal-good font-bold">{(state.matched.length / 2) * 2} PTS</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-3 sm:gap-4 max-w-2xl mx-auto">

@@ -87,18 +87,26 @@ export async function standings(round: QuizRound): Promise<Standing[]> {
 
   const tiebreak = new Map<string, number>();
   const answered = new Map<string, number>();
+  const correctAnswers = new Map<string, number>();
+  const latestSubmission = new Map<string, number>();
+
+  // Collect correct answers and latest submission timestamps
+  const allDoneSubs = await subs.find({ type: "quiz", status: "done" }).toArray();
+  for (const s of allDoneSubs) {
+    const key = String(s.teamId);
+    if (s.verdict?.correct) {
+      correctAnswers.set(key, (correctAnswers.get(key) ?? 0) + 1);
+    }
+    const at = s.receivedAt.getTime();
+    latestSubmission.set(key, Math.max(latestSubmission.get(key) ?? 0, at));
+  }
 
   if (round === 1) {
-    // Latest receivedAt among this team's round-1 submissions = when they
-    // finished their third game. Earlier is better, so this becomes the
-    // ascending tiebreak key directly (as a unix-seconds timestamp).
-    const roundSubs = await subs
-      .find({ type: "quiz", status: "done" })
-      .toArray();
+    // Latest receivedAt among this team's round-1 submissions
     const challenges = await collections.challenges();
     const chDocs = await challenges.find({ type: "quiz", "config.round": 1 }).toArray();
     const chById = new Map(chDocs.map((c) => [String(c._id), c]));
-    for (const s of roundSubs) {
+    for (const s of allDoneSubs) {
       const ch = chById.get(String(s.challengeId));
       if (!ch) continue;
       const key = String(s.teamId);
@@ -114,13 +122,14 @@ export async function standings(round: QuizRound): Promise<Standing[]> {
       const limitMs = s.answerableUntil.getTime() - s.servedAt.getTime();
       const takenMs = s.answeredAt ? s.answeredAt.getTime() - s.servedAt.getTime() : limitMs;
       tiebreak.set(key, (tiebreak.get(key) ?? 0) + Math.max(0, takenMs) / 1000);
-      if (s.answeredAt) answered.set(key, (answered.get(key) ?? 0) + 1);
+      if (s.answeredAt) {
+        answered.set(key, (answered.get(key) ?? 0) + 1);
+        latestSubmission.set(key, Math.max(latestSubmission.get(key) ?? 0, s.answeredAt.getTime()));
+      }
     }
   }
 
-  // Everyone who qualified for this round belongs in its table, even on zero
-  // — otherwise a team that qualified but hasn't answered anything yet simply
-  // vanishes, and "top N" comes up short.
+  // Everyone who qualified for this round belongs in its table
   const rawInvolved = new Set<string>([...points.keys(), ...tiebreak.keys()]);
   const involved = new Set<string>();
   for (const id of rawInvolved) {
@@ -144,22 +153,29 @@ export async function standings(round: QuizRound): Promise<Standing[]> {
     }
   }
 
-  // Sorted on team IDs first, not the mapped rows — a team with NO tiebreak
-  // entry (never submitted anything this round) must rank BELOW every team
-  // that actually played, even at an equal 0 points. Defaulting its
-  // tiebreakSeconds to 0 for *display* is fine (reads as "—" worth of
-  // activity), but using that same 0 as the ascending sort key would rank a
-  // team that did nothing ahead of one that genuinely finished at second 0 —
-  // worse, ahead of everyone, since real timestamps are always > 0. This is
-  // what let two stale, never-played teams outrank real competitors for a
-  // cut slot.
+  // Ranking Comparator (Official Specification):
+  // 1. Highest total score
+  // 2. Highest number of correct answers
+  // 3. Lowest cumulative response time across all questions
+  // 4. Earliest final submission time
   const ranked = [...involved].sort((a, b) => {
+    // 1. Highest total score
     const pointsDiff = (points.get(b) ?? 0) - (points.get(a) ?? 0);
     if (pointsDiff !== 0) return pointsDiff;
+
+    // 2. Highest number of correct answers
+    const correctDiff = (correctAnswers.get(b) ?? 0) - (correctAnswers.get(a) ?? 0);
+    if (correctDiff !== 0) return correctDiff;
+
+    // 3. Lowest cumulative response time across all questions
     const aPlayed = tiebreak.has(a);
     const bPlayed = tiebreak.has(b);
     if (aPlayed !== bPlayed) return aPlayed ? -1 : 1;
-    return (tiebreak.get(a) ?? 0) - (tiebreak.get(b) ?? 0);
+    const timeDiff = (tiebreak.get(a) ?? 0) - (tiebreak.get(b) ?? 0);
+    if (timeDiff !== 0) return timeDiff;
+
+    // 4. Earliest final submission time
+    return (latestSubmission.get(a) ?? Infinity) - (latestSubmission.get(b) ?? Infinity);
   });
 
   return ranked.map((teamId) => ({

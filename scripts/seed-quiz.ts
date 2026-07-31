@@ -389,7 +389,7 @@ async function main() {
     // no falloff room at all, so this is binary: finish in exactly 16 for
     // full points, or the grid locks at 0. Confirmed with the coordinator as
     // intentional, not the earlier par/cap-with-partial-credit default.
-    config: { round: 1, format: "memory", order: 3, memoryPairs: 8, memoryFlipCap: 16 },
+    config: { round: 1, format: "memory", order: 3, memoryPairs: 8, memoryFlipCap: 14 },
   });
 
   ROUND_2.forEach((m, i) => {

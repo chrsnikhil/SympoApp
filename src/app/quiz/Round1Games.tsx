@@ -176,7 +176,7 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
   }
   const phaseStartMs = phaseStartRef.current[phase];
 
-  const DEFAULT_GAME_SECONDS = 270; // 4 min 30 sec
+  const DEFAULT_GAME_SECONDS = phase === "image" ? 210 : 270; // Game 1 is 3m 30s
   const openMs = game.opensAt ? new Date(game.opensAt).getTime() : phaseStartMs;
   const closeMs = game.closesAt ? new Date(game.closesAt).getTime() : openMs + DEFAULT_GAME_SECONDS * 1000;
 
@@ -248,7 +248,7 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
         {notOpenYet ? (
           <p className="text-sm text-paper-white/50">Waiting for the coordinator to open this game…</p>
         ) : phase === "image" ? (
-          <ImageReplication game={game} disabled={closed} onChanged={onChanged} />
+          <ImageReplication game={game} disabled={closed} onChanged={onChanged} openMs={openMs} currentNow={currentNow} />
         ) : phase === "connections" ? (
           <ConnectionsGame game={game} disabled={closed} onSolved={onChanged} />
         ) : (
@@ -271,36 +271,43 @@ function PreGameRulesGate({
 
   const rulesConfig: Record<string, { title: string; color: string; bgBorder: string; icon: string; points: string[] }> = {
     image: {
-      title: "GAME 1: AI IMAGE REPLICATION",
+      title: "GAME 1: IMAGE REPLICATION",
       color: "text-glitch-cyan",
       bgBorder: "border-glitch-cyan bg-glitch-cyan/10",
-      icon: "🎮",
+      icon: "🖼️",
       points: [
-        "Examine the reference image displayed on screen carefully.",
-        "Type descriptive prompts to recreate the image using Groq AI.",
-        "You get up to 3 prompt submissions. The highest similarity score wins!",
+        "Reference Image Display: 50 seconds at start (reappears for 30s at 2m 30s mark).",
+        "Image Generation & Submission Time: 3 minutes 30 seconds total.",
+        "Use ANY AI image-generation tool to recreate the image as closely as possible.",
+        "Upload your final generated image before the timer ends.",
+        "Only the LAST submitted image before the deadline will be evaluated.",
+        "Late or no submission will receive 0 points.",
       ],
     },
     connections: {
-      title: "GAME 2: CONNECTIONS PUZZLES (5 PUZZLES)",
+      title: "GAME 2: CONNECTIONS",
       color: "text-comic-yellow",
       bgBorder: "border-comic-yellow bg-comic-yellow/10",
       icon: "🧩",
       points: [
-        "4 images will be revealed one by one live on stage.",
-        "Identify the common theme/connection linking all 4 images.",
-        "Type the exact connection answer before time expires!",
+        "A series of images will be revealed one by one on screen.",
+        "Each image acts as a new clue to identify the single connecting word or phrase.",
+        "Teams are allowed ONLY ONE answer submission after each image is revealed.",
+        "If your answer is incorrect, you must wait for the next image tile before trying again.",
+        "Maximum number of attempts = total images shown (e.g., 4 images = 4 attempts).",
       ],
     },
     memory: {
-      title: "GAME 3: MEMORY MATCH GAME",
+      title: "GAME 3: MEMORY GAME",
       color: "text-gadget-pink",
       bgBorder: "border-gadget-pink bg-gadget-pink/10",
       icon: "🃏",
       points: [
-        "Click to flip and match Multiverse Spider-Hero cards.",
-        "Match all 6 pairs in as few flips as possible.",
-        "Fewer total flips = higher bonus points!",
+        "16 face-down cards (8 matching Spider-Verse character pairs) displayed on grid.",
+        "Flip two cards at a time to find matching pairs.",
+        "If cards match, they stay face up. If they do not match, they automatically flip back.",
+        "Objective: Match all 8 pairs using the fewest flips possible within the flip limit.",
+        "Game ends when all 8 pairs are matched, OR maximum flip limit is reached.",
       ],
     },
   };
@@ -379,7 +386,19 @@ async function shrinkImage(file: File): Promise<string> {
  * current attempt (and reverses its score if it had already been judged —
  * see the image route's DELETE handler) and drops back to the dropzone.
  */
-function ImageReplication({ game, disabled, onChanged }: { game: Round1Game; disabled: boolean; onChanged: () => void }) {
+function ImageReplication({
+  game,
+  disabled,
+  onChanged,
+  openMs,
+  currentNow,
+}: {
+  game: Round1Game;
+  disabled: boolean;
+  onChanged: () => void;
+  openMs: number;
+  currentNow: number;
+}) {
   const [preview, setPreview] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "uploading">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -387,6 +406,19 @@ function ImageReplication({ game, disabled, onChanged }: { game: Round1Game; dis
 
   const hasSubmission = game.status !== undefined && game.status !== "not-started";
   const displayImage = preview || game.uploadedImage;
+
+  // Reference Image Visibility Timing
+  const elapsedSeconds = Math.max(0, Math.floor((currentNow - openMs) / 1000));
+
+  // 1) First 50 seconds: Initial display
+  const isInitialVisible = elapsedSeconds < 50;
+  const initialSecondsLeft = Math.max(0, 50 - elapsedSeconds);
+
+  // 2) Mid-game peek: At 2m 30s (150s) -> visible for 30s (150s to 180s)
+  const isMidGameVisible = elapsedSeconds >= 150 && elapsedSeconds < 180;
+  const midGameSecondsLeft = Math.max(0, 180 - elapsedSeconds);
+
+  const isReferenceVisible = isInitialVisible || isMidGameVisible;
 
   async function handleFile(file: File) {
     setStatus("uploading");
@@ -448,12 +480,38 @@ function ImageReplication({ game, disabled, onChanged }: { game: Round1Game; dis
 
   return (
     <div>
+      {/* Reference Image Display with 50s initial view + 30s mid-game peek at 2m 30s */}
       {game.referenceImage && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={game.referenceImage} alt="The reference image to recreate" className="mt-1 mb-4 w-full max-w-xs border-2 border-paper-white/15" />
+        <div className="mb-4">
+          {isReferenceVisible ? (
+            <div className="border-2 border-glitch-cyan bg-glitch-cyan/10 p-3 rounded space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-display text-xs uppercase tracking-wider text-glitch-cyan flex items-center gap-1.5">
+                  {isInitialVisible ? "📷 Reference Image Display" : "👀 Mid-Game Bonus Peek!"}
+                </span>
+                <span className="font-mono text-xs font-bold text-comic-yellow bg-ink-black px-2 py-0.5 rounded border border-comic-yellow/40">
+                  Hides in {isInitialVisible ? initialSecondsLeft : midGameSecondsLeft}s
+                </span>
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={game.referenceImage} alt="The reference image to recreate" className="w-full max-h-72 object-contain border-2 border-paper-white/20 bg-ink-black/80" />
+            </div>
+          ) : (
+            <div className="border-2 border-dashed border-paper-white/20 bg-ink-black/60 p-4 text-center rounded space-y-1.5">
+              <div className="text-xl">🙈</div>
+              <p className="font-display text-xs uppercase tracking-wider text-paper-white/90">Reference Image Hidden</p>
+              <p className="text-[11px] text-paper-white/70">
+                {elapsedSeconds < 150
+                  ? "Reference image was visible for the first 50s. It will reappear for 30s at the 2m 30s mark (1min before deadline)!"
+                  : "All reference image peeks completed. Submit your final creation before the deadline!"}
+              </p>
+            </div>
+          )}
+        </div>
       )}
-      <p className="mb-3 text-xs text-paper-white/50">
-        Prompt, generate, upload — you can delete and redo as many times as you like until the window closes.
+
+      <p className="mb-3 text-xs text-paper-white/70 font-semibold">
+        Use any AI tool to recreate the image, then upload your result before the 3m 30s deadline.
       </p>
 
       {hasSubmission || displayImage ? (
@@ -682,14 +740,19 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
         })}
       </div>
 
-      <p className="mt-2 text-[0.7rem] text-paper-white/40">
-        {images.length >= total ? "All tiles are up." : `${images.length} of ${total} tiles revealed so far.`}
+      <p className="mt-2 text-xs font-semibold text-paper-white/80 flex flex-wrap items-center justify-between gap-2">
+        <span>{images.length >= total ? "✓ All tiles revealed." : `${images.length} of ${total} tiles revealed.`}</span>
+        <span className="text-comic-yellow font-bold uppercase tracking-wider">Attempt {images.length} of {total} (1 try per tile)</span>
       </p>
 
       {lockedAnswer ? (
-        <div className="mt-4 border-2 border-glitch-cyan/60 bg-glitch-cyan/10 p-4 text-center">
-          <p className="font-comic text-sm text-glitch-cyan">🔒 Answer Submitted & Locked</p>
-          <p className="mt-1 font-mono text-base font-bold text-paper-white">&quot;{lockedAnswer}&quot;</p>
+        <div className="mt-4 border-2 border-glitch-cyan/60 bg-glitch-cyan/10 p-4 text-center rounded space-y-1">
+          <p className="font-comic text-sm text-glitch-cyan">🔒 Attempt {images.length} Submitted: &quot;{lockedAnswer}&quot;</p>
+          <p className="text-xs text-paper-white/70">
+            {images.length < total
+              ? `Wait for Tile ${images.length + 1} to be revealed for your next attempt!`
+              : `Evaluation in progress for final 10s window!`}
+          </p>
         </div>
       ) : (
         <div className="mt-4 flex gap-2">

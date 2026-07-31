@@ -310,9 +310,9 @@ function RoundTransition({
       title: "Round 1 — Final Universe (3 Mini-Games)",
       desc: "Prepare for 3 sequential mini-games. Each game tests a different dimension of skill!",
       points: [
-        "🎮 Game 1: AI Image Replication (Prompt engineering & similarity)",
-        "🧩 Game 2: Connections Puzzles (5 sequential visual theme puzzles)",
-        "🃏 Game 3: Memory Match (Flip and match Multiverse Spider-Hero pairs)",
+        "🖼️ Game 1: Image Replication (50s initial view + 30s peek at 2m 30s | 3m 30s to submit)",
+        "🧩 Game 2: Connections (1 submission per image revealed | 5 puzzles)",
+        "🃏 Game 3: Memory Game (16 cards / 8 pairs — match all pairs within flip limit)",
       ],
     },
     2: {
