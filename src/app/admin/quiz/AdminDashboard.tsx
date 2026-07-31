@@ -421,29 +421,19 @@ export default function AdminDashboard() {
                             >
                               ▶ Start Puzzle & Reveal Tile 1
                             </button>
+                          ) : p.revealedCount >= p.totalImages ? (
+                            <div className="border border-signal-good/50 bg-signal-good/15 text-signal-good px-3 py-1.5 text-xs font-bold rounded flex items-center gap-1.5 shadow">
+                              <span>✓ All {p.totalImages} Tiles Revealed</span>
+                              <span className="text-paper-white/60">• 10s Answer Timer Active ({p.solvedCount} Solved)</span>
+                            </div>
                           ) : (
-                             <>
-                              <button
-                                disabled={busy || closed || p.revealedCount >= p.totalImages}
-                                onClick={() => callAdvance({ action: "reveal-next-image", slug: p.slug })}
-                                className={`comic-btn px-3 py-1.5 text-xs font-bold ${
-                                  p.revealedCount >= p.totalImages
-                                    ? "bg-paper-white/10 text-paper-white/40 cursor-not-allowed border border-paper-white/10"
-                                    : "comic-btn-cyan"
-                                }`}
-                              >
-                                {p.revealedCount >= p.totalImages
-                                  ? "✓ All 4 Tiles Revealed"
-                                  : `Reveal Next Tile (Tile ${p.revealedCount + 1} of ${p.totalImages})`}
-                              </button>
-                              <button
-                                disabled={busy || closed}
-                                onClick={() => callAdvance({ action: "close-puzzle", slug: p.slug })}
-                                className="comic-btn bg-ink-black px-3 py-1.5 text-xs font-bold"
-                              >
-                                Close & move everyone on
-                              </button>
-                            </>
+                            <button
+                              disabled={busy || closed}
+                              onClick={() => callAdvance({ action: "reveal-next-image", slug: p.slug })}
+                              className="comic-btn comic-btn-cyan px-3 py-1.5 text-xs font-bold"
+                            >
+                              ▶ Reveal Next Tile (Tile {p.revealedCount + 1} of {p.totalImages})
+                            </button>
                           )}
                         </div>
                       </div>
