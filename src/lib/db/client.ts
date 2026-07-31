@@ -102,6 +102,9 @@ export async function ensureIndexes(): Promise<void> {
     subs.createIndex({ status: 1 }),
     // First-blood and duplicate-solve checks hit this one.
     subs.createIndex({ challengeId: 1, teamId: 1, receivedAt: 1 }),
+    // Dynamic CTF leaderboard
+    subs.createIndex({challengeId: 1,"verdict.correct": 1,}),
+    subs.createIndex({challengeId: 1,"verdict.correct": 1,receivedAt: 1,}),
     scores.createIndex({ teamId: 1 }),
     scores.createIndex({ event: 1, at: -1 }),
     hunt.createIndex({ teamId: 1, challengeSlug: 1 }, { unique: true }),

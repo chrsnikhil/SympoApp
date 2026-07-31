@@ -62,7 +62,23 @@ export interface Challenge {
     speedBonus?: number;
     /** ctf: extra points for the first team to solve. */
     firstBloodBonus?: number;
-    /** code: reference to the hidden test bundle in blob storage. */
+    firstBloodTeamId?: ObjectId;
+    initialPoints?: number;
+    /** minimum score after decay */
+    minimumPoints?: number;
+    /** number of solves before score starts decreasing */
+    decayAfter?: number;
+    /** challenge category (Web, Crypto, Forensics, etc.) */
+    category?: string;
+    /** difficulty category (Easy, Medium, Hard) */
+    difficulty?: "Easy" | "Medium" | "Hard" | string;
+    /** detailed description / prompt */
+    description?: string;
+    /** challenge attachments (ZIP, PDF, PCAP, Images) */
+    attachments?: string[];
+    /** status: open, closed, hidden, released */
+    status?: "open" | "closed" | "hidden" | "released";
+    disabled?: boolean;
     testsRef?: string;
   };
 }
@@ -125,5 +141,7 @@ export interface LeaderboardSnapshot {
     teamName: string;
     points: number;
     lastScoreAt: Date | null;
+    solvedCount?: number;
+    firstBloodCount?: number;
   }>;
 }
