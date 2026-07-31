@@ -65,7 +65,8 @@ export async function proxy(request: NextRequest) {
 
   // Rewrite the subdomain into its route group segment.
   const url = request.nextUrl.clone();
-  url.pathname = `/${event}${pathname === "/" ? "" : pathname}`;
+  const cleanPathname = pathname.startsWith(`/${event}`) ? pathname.slice(event.length + 1) || "/" : pathname;
+  url.pathname = `/${event}${cleanPathname === "/" ? "" : cleanPathname}`;
 
   const res = NextResponse.rewrite(url);
   // Hand identity to route handlers so they don't each re-parse the cookie.

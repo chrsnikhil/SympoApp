@@ -40,8 +40,19 @@ export async function GET() {
       }
 
       const subs = await collections.submissions();
-      const solved = await subs.findOne({ challengeId: challenge._id, teamId, status: "done", "verdict.correct": true });
-      const attempts = await subs.countDocuments({ challengeId: challenge._id, teamId });
+      const allSubs = await subs.find({ challengeId: challenge._id, teamId }).sort({ receivedAt: 1 }).toArray();
+      const solved = allSubs.find((s) => s.status === "done" && s.verdict?.correct);
+
+      const attemptsHistory = allSubs.map((s, idx) => ({
+        imageIndex: (s.verdict?.meta as Record<string, unknown> | undefined)?.imageIndex ?? (idx + 1),
+        payload: s.payload ?? "",
+        correct: s.verdict?.correct ?? false,
+        points: s.verdict?.points ?? 0,
+        rank: (s.verdict?.meta as Record<string, unknown> | undefined)?.rank ?? null,
+        reason: (s.verdict?.meta as Record<string, unknown> | undefined)?.reason ?? null,
+        penalty: (s.verdict?.meta as Record<string, unknown> | undefined)?.penalty ?? null,
+      }));
+
       return NextResponse.json(
         {
           serverTime,
@@ -60,7 +71,9 @@ export async function GET() {
             images: revealedImages(challenge),
             totalImages: (challenge.config.connectionsImages ?? []).length,
             solved: !!solved,
-            attempts,
+            solvedVerdict: solved?.verdict ? { correct: true, points: solved.verdict.points, rank: (solved.verdict.meta as any)?.rank } : null,
+            attempts: allSubs.length,
+            attemptsHistory,
           },
         },
         { headers: { "Cache-Control": "no-store" } }

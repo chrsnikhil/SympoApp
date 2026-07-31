@@ -1,5 +1,6 @@
 import React from "react";
 import type { Avatar } from "@/lib/quiz/avatars";
+import TeamAvatar from "@/components/ui/TeamAvatar";
 
 interface ComicHeaderProps {
   issueTitle?: string;
@@ -30,20 +31,12 @@ export default function ComicHeader({
 
         <div className="flex items-center gap-4">
           {teamName && (
-            <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-full comic-border-sm flex items-center justify-center font-display-xl text-on-primary text-base shrink-0"
-                style={{ backgroundColor: avatar?.colour ?? "#a41616" }}
-              >
-                {teamName.slice(0, 2).toUpperCase()}
-              </div>
-              <div className="text-left hidden sm:block">
-                <div className="font-headline-lg text-caption-bold uppercase leading-none">{teamName}</div>
-                <div className="font-label-sm text-[10px] text-on-surface-variant uppercase mt-0.5">
-                  {avatar ? avatar.name : "Spider Hero"}
-                </div>
-              </div>
-            </div>
+            <TeamAvatar
+              avatar={avatar}
+              teamName={teamName}
+              size="md"
+              showTitle
+            />
           )}
 
           {roundStamp && (

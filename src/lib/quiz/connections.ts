@@ -55,8 +55,9 @@ export async function scoreConnections(
   }
 
   const images = challenge.config.connectionsImages ?? [];
-  const revealedCount = Math.max(1, Math.min(images.length, challenge.config.connectionsRevealedCount ?? 1));
-  const stageRules = stageRulesFor(revealedCount);
+  const priorAttempts = await subs.countDocuments({ challengeId: challenge._id, teamId });
+  const imageIndex = Math.max(1, Math.min(images.length || 4, priorAttempts + 1));
+  const stageRules = stageRulesFor(imageIndex);
 
   const guess = payload.trim();
 
@@ -64,10 +65,10 @@ export async function scoreConnections(
   if (guess === "__timeout__" || !guess) {
     return {
       correct: false,
-      points: stageRules.noAnswerPenalty, // -1
+      points: stageRules.noAnswerPenalty,
       meta: {
         reason: "no-answer",
-        imageIndex: revealedCount,
+        imageIndex,
         penalty: stageRules.noAnswerPenalty,
       },
     };
@@ -80,7 +81,7 @@ export async function scoreConnections(
     // Count prior correct answers during THIS image stage for timestamp ranking
     const priorCorrectThisStage = await subs.countDocuments({
       challengeId: challenge._id,
-      "verdict.meta.imageIndex": revealedCount,
+      "verdict.meta.imageIndex": imageIndex,
       "verdict.correct": true,
     });
 
@@ -92,7 +93,7 @@ export async function scoreConnections(
       points,
       meta: {
         rank,
-        imageIndex: revealedCount,
+        imageIndex,
         pointsAwarded: points,
       },
     };
@@ -103,7 +104,7 @@ export async function scoreConnections(
       points: stageRules.wrongPenalty,
       meta: {
         reason: "wrong",
-        imageIndex: revealedCount,
+        imageIndex,
         penalty: stageRules.wrongPenalty,
       },
     };

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { QuizRound } from "@/lib/db/types";
+import TeamAvatar from "@/components/ui/TeamAvatar";
 
 interface Row {
   rank: number;
@@ -75,10 +76,11 @@ export default function Standings({ round }: { round: QuizRound }) {
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="font-display-xl text-base text-on-surface w-4 shrink-0">{row.rank}</span>
-                    <div
-                      className="w-3.5 h-3.5 rounded-full comic-border-sm shrink-0"
-                      style={{ backgroundColor: row.avatarColour ?? "#a41616" }}
-                      title={row.avatarName ?? undefined}
+                    <TeamAvatar
+                      avatarColour={row.avatarColour}
+                      avatarName={row.avatarName}
+                      teamName={row.teamName}
+                      size="sm"
                     />
                     <span className="font-headline-lg text-xs uppercase truncate text-on-surface">
                       {row.teamName}

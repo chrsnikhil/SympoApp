@@ -26,7 +26,17 @@ interface Round1Game {
   images?: string[];
   totalImages?: number;
   solved?: boolean;
+  solvedVerdict?: { correct: boolean; points: number; rank?: number } | null;
   attempts?: number;
+  attemptsHistory?: Array<{
+    imageIndex: number;
+    payload: string;
+    correct: boolean;
+    points: number;
+    rank?: number | null;
+    reason?: string | null;
+    penalty?: number | null;
+  }>;
 }
 
 interface Round1Response {
@@ -584,63 +594,28 @@ function ImageReplication({
 function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disabled: boolean; onSolved: () => void }) {
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
-  const [lockedAnswer, setLockedAnswer] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pop, setPop] = useState(false);
-  const prevCount = useRef(game.images?.length ?? 0);
-
-  useEffect(() => {
-    setLockedAnswer(null);
-    setValue("");
-    setError(null);
-  }, [game.slug, game.puzzleIndex]);
-
-  useEffect(() => {
-    const count = game.images?.length ?? 0;
-    if (count > prevCount.current) {
-      setPop(true);
-      const t = window.setTimeout(() => setPop(false), 650);
-      prevCount.current = count;
-      return () => window.clearTimeout(t);
-    }
-    prevCount.current = count;
-  }, [game.images?.length]);
-
-  async function submit() {
-    if (!value.trim() || busy || lockedAnswer) return;
-    const submittedVal = value.trim();
-    setBusy(true);
-    setError(null);
-    setLockedAnswer(submittedVal);
-    try {
-      const res = await fetch("/api/submit", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ event: "quiz", challengeSlug: game.slug, payload: submittedVal }),
-      });
-      if (!res.ok) {
-        const body = await res.json();
-        setError(body.error ?? "Submission failed");
-        setLockedAnswer(null);
-        return;
-      }
-      onSolved();
-    } catch {
-      setError("Submission failed");
-      setLockedAnswer(null);
-    } finally {
-      setBusy(false);
-    }
-  }
 
   const images = game.images ?? [];
-  const total = game.totalImages ?? 4;
-  const allTilesRevealed = images.length >= total;
+  const totalImages = game.totalImages ?? 4;
+  const history = game.attemptsHistory ?? [];
+  const isSolved = game.solved === true;
 
+  const revealedCount = images.length;
+  const isCompleted = isSolved || (history.length >= totalImages && revealedCount >= totalImages);
+
+  // Check if team has already submitted an attempt for the currently revealed tile count
+  const hasSubmittedForCurrentTile = history.length >= revealedCount;
+  const lastAttempt = history[history.length - 1];
+
+  // Final 10-second countdown once ALL tiles are revealed by the coordinator
+  const allTilesRevealed = revealedCount >= totalImages;
   const [finalSecondsLeft, setFinalSecondsLeft] = useState(10);
-  const hasTimedOut = useRef(false);
+  const hasTimedOutRef = useRef(false);
 
   const handleTimeout = useCallback(async () => {
+    if (hasTimedOutRef.current || isCompleted || disabled) return;
+    hasTimedOutRef.current = true;
     try {
       await fetch("/api/submit", {
         method: "POST",
@@ -650,47 +625,70 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
     } finally {
       onSolved();
     }
-  }, [game.slug, onSolved]);
+  }, [game.slug, isCompleted, disabled, onSolved]);
 
   useEffect(() => {
+    if (!allTilesRevealed || disabled || hasSubmittedForCurrentTile || isCompleted) return;
     setFinalSecondsLeft(10);
-    hasTimedOut.current = false;
-  }, [game.slug, game.puzzleIndex, images.length]);
+    hasTimedOutRef.current = false;
 
-  useEffect(() => {
-    if (!allTilesRevealed || disabled) return;
     const timer = setInterval(() => {
       setFinalSecondsLeft((s) => {
         if (s <= 1) {
           clearInterval(timer);
-          if (!hasTimedOut.current) {
-            hasTimedOut.current = true;
-            void handleTimeout();
-          }
+          void handleTimeout();
           return 0;
         }
         return s - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [allTilesRevealed, disabled, handleTimeout]);
+  }, [allTilesRevealed, disabled, hasSubmittedForCurrentTile, isCompleted, handleTimeout]);
+
+  async function submit() {
+    if (!value.trim() || busy || disabled || hasSubmittedForCurrentTile || isCompleted) return;
+    const submittedVal = value.trim();
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ event: "quiz", challengeSlug: game.slug, payload: submittedVal }),
+      });
+      if (!res.ok) {
+        const body = await res.json();
+        setError(body.error ?? "Submission failed");
+        return;
+      }
+      setValue("");
+      onSolved();
+    } catch {
+      setError("Submission failed");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <div>
-      <div className="mb-3 flex items-center justify-between gap-4">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-4 border-b border-paper-white/10 pb-3">
         <div>
-          <p className="text-xs text-paper-white/50">
-            A handful of pictures, one shared technical term. The coordinator reveals a new tile live — type it the
-            moment you&apos;re sure.
+          <span className="text-xs font-semibold text-paper-white/50">
+            Puzzle {game.puzzleIndex ?? 1} of {game.totalPuzzles ?? 5} • {totalImages} Image Tiles
+          </span>
+          <p className="text-xs text-paper-white/80 mt-0.5">
+            A handful of pictures, one shared technical term. The coordinator reveals each tile live!
           </p>
-          {allTilesRevealed && (
+          {allTilesRevealed && !isCompleted && (
             <p className="mt-1 font-comic text-xs text-spider-red animate-pulse">
               ⚡ All tiles revealed! Final 10-second countdown to answer!
             </p>
           )}
         </div>
-        <div className="shrink-0 flex items-center gap-3 pl-3">
-          {allTilesRevealed && (
+
+        <div className="shrink-0 flex items-center gap-3">
+          {allTilesRevealed && !isCompleted && !hasSubmittedForCurrentTile && (
             <SpiderTimer
               secondsLeft={finalSecondsLeft}
               totalSeconds={10}
@@ -700,86 +698,151 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
               phaseLabel="10S LEFT"
             />
           )}
-          <span className="text-[0.65rem] uppercase tracking-widest text-paper-white/40">
-            Puzzle {game.puzzleIndex ?? 1} of {game.totalPuzzles ?? 5}
-          </span>
         </div>
       </div>
 
       {game.clue && (
-        <p className="anim-pop mb-3 border-l-4 border-gadget-pink bg-gadget-pink/10 px-4 py-3 text-sm text-paper-white">
-          <span className="font-comic mr-2 text-base text-gadget-pink">Clue</span>
+        <p className="anim-pop border-l-4 border-gadget-pink bg-gadget-pink/10 px-4 py-3 text-sm text-paper-white">
+          <span className="font-comic mr-2 text-base text-gadget-pink">CLUE:</span>
           {game.clue}
         </p>
       )}
 
-      <div className={`grid gap-3 ${
-        total === 2 ? "grid-cols-2 max-w-xl mx-auto" :
-        total === 3 ? "grid-cols-1 sm:grid-cols-3" :
-        "grid-cols-2 sm:grid-cols-4"
-      }`}>
-        {Array.from({ length: total }).map((_, i) => {
-          const revealed = i < images.length;
+      {/* TILE IMAGE GRID — REVEALED LIVE BY COORDINATOR */}
+      <div
+        className={`grid gap-3 ${
+          totalImages === 2 ? "grid-cols-2 max-w-xl mx-auto" :
+          totalImages === 3 ? "grid-cols-1 sm:grid-cols-3" :
+          "grid-cols-2 sm:grid-cols-4"
+        }`}
+      >
+        {Array.from({ length: totalImages }).map((_, i) => {
+          const isRevealed = i < revealedCount;
           return (
             <div
               key={i}
-              className={`aspect-video overflow-hidden border-2 ${
-                revealed ? "border-glitch-cyan/50" : "border-dashed border-paper-white/15"
-              } ${revealed && i === images.length - 1 && pop ? "anim-pop" : ""}`}
+              className={`aspect-video overflow-hidden border-2 relative ${
+                isRevealed ? "border-glitch-cyan/60 bg-ink-black/80" : "border-dashed border-paper-white/15 bg-ink-black/40"
+              }`}
             >
-              {revealed ? (
+              {isRevealed && images[i] ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={images[i]} alt="" className="h-full w-full object-contain bg-ink-black/80 p-1" />
+                <img src={images[i]} alt={`Tile ${i + 1}`} className="h-full w-full object-contain p-1" />
               ) : (
-                <div className="grid h-full place-items-center bg-ink-black/40 text-[0.65rem] uppercase tracking-widest text-paper-white/25">
-                  Locked
+                <div className="grid h-full place-items-center text-[0.65rem] uppercase tracking-widest text-paper-white/30 font-mono">
+                  🔒 TILE {i + 1}
                 </div>
               )}
+              <div className="absolute top-1 left-1 bg-ink-black/80 text-[10px] font-mono px-1.5 py-0.5 text-paper-white/70 border border-paper-white/20 rounded">
+                #{i + 1}
+              </div>
             </div>
           );
         })}
       </div>
 
-      <p className="mt-2 text-xs font-semibold text-paper-white/80 flex flex-wrap items-center justify-between gap-2">
-        <span>{images.length >= total ? "✓ All tiles revealed." : `${images.length} of ${total} tiles revealed.`}</span>
-        <span className="text-comic-yellow font-bold uppercase tracking-wider">Attempt {images.length} of {total} (1 try per tile)</span>
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-paper-white/80">
+        <span>{allTilesRevealed ? "✓ All tiles revealed by coordinator." : `${revealedCount} of ${totalImages} tiles revealed.`}</span>
+        <span className="text-comic-yellow font-bold uppercase tracking-wider">
+          Attempt {history.length} of {totalImages} (1 try per revealed tile)
+        </span>
+      </div>
 
-      {lockedAnswer ? (
-        <div className="mt-4 border-2 border-glitch-cyan/60 bg-glitch-cyan/10 p-4 text-center rounded space-y-1">
-          <p className="font-comic text-sm text-glitch-cyan">🔒 Attempt {images.length} Submitted: &quot;{lockedAnswer}&quot;</p>
-          <p className="text-xs text-paper-white/70">
-            {images.length < total
-              ? `Wait for Tile ${images.length + 1} to be revealed for your next attempt!`
-              : `Evaluation in progress for final 10s window!`}
-          </p>
+      {/* ANSWER INPUT FORM */}
+      {!isCompleted ? (
+        <div className="space-y-3 pt-2">
+          {hasSubmittedForCurrentTile ? (
+            <div className="border-2 border-comic-yellow/50 bg-ink-black/80 p-4 text-center rounded space-y-1">
+              <p className="font-comic text-sm text-comic-yellow">
+                🔒 Attempt {history.length} Submitted: &quot;{lastAttempt?.payload === "__timeout__" ? "No Answer" : lastAttempt?.payload}&quot;
+              </p>
+              <p className="text-xs text-paper-white/70">
+                {revealedCount < totalImages
+                  ? `Wait for Tile ${revealedCount + 1} to be revealed by the coordinator for your next attempt!`
+                  : `Evaluation in progress for final window!`}
+              </p>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder={
+                  revealedCount === 0
+                    ? "Waiting for coordinator to reveal Tile 1..."
+                    : `Type answer for Tile ${revealedCount} (1 try per tile)...`
+                }
+                disabled={disabled || busy || revealedCount === 0}
+                onKeyDown={(e) => e.key === "Enter" && submit()}
+                data-web-target=""
+                className="w-full border-2 border-paper-white/20 bg-ink-black/80 px-4 py-3 text-base text-paper-white outline-none placeholder:text-paper-white/30 focus:border-glitch-cyan disabled:opacity-40 rounded"
+              />
+              <button
+                type="button"
+                data-web-target=""
+                onClick={submit}
+                disabled={busy || disabled || !value.trim() || revealedCount === 0}
+                className="comic-btn comic-btn-cyan shrink-0"
+              >
+                {busy ? "…" : "Lock it in"}
+              </button>
+            </div>
+          )}
+
+          {error && <p className="anim-shake text-xs text-signal-wrong font-bold">{error}</p>}
         </div>
       ) : (
-        <div className="mt-4 flex gap-2">
-          <input
-            type="text"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="The shared technical term"
-            disabled={disabled || busy || !!lockedAnswer || game.solved}
-            onKeyDown={(e) => e.key === "Enter" && submit()}
-            data-web-target=""
-            className="w-full border-2 border-paper-white/20 bg-ink-black/60 px-4 py-3 text-base text-paper-white outline-none placeholder:text-paper-white/30 focus:border-glitch-cyan disabled:opacity-40"
-          />
-          <button
-            type="button"
-            data-web-target=""
-            onClick={submit}
-            disabled={busy || disabled || !value.trim() || !!lockedAnswer || game.solved}
-            className="comic-btn comic-btn-cyan shrink-0"
-          >
-            {busy ? "…" : "Lock it in"}
-          </button>
+        <div className="border-2 border-signal-good bg-signal-good/10 p-5 text-center rounded space-y-2">
+          <p className="font-display-xl text-xl text-signal-good uppercase tracking-wider">
+            {isSolved ? "🎉 PUZZLE COMPLETED!" : "🏁 PUZZLE CONCLUDED"}
+          </p>
+          {game.solvedVerdict && (
+            <p className="font-headline-lg text-sm text-paper-white">
+              Awarded <span className="text-comic-yellow font-bold">+{game.solvedVerdict.points} PTS</span>
+              {game.solvedVerdict.rank && ` • Rank #${game.solvedVerdict.rank}`}
+            </p>
+          )}
+          <p className="text-xs text-paper-white/60">Moving to next puzzle...</p>
         </div>
       )}
 
-      {error && <p className="anim-shake mt-2 text-xs text-signal-wrong">{error}</p>}
-      {game.solved && <p className="mt-3 font-comic text-lg text-glitch-cyan">Solved! Unlocking next puzzle…</p>}
+      {/* ATTEMPTS HISTORY */}
+      {history.length > 0 && (
+        <div className="space-y-2 pt-2 border-t border-paper-white/10">
+          <p className="text-xs font-bold uppercase tracking-wider text-paper-white/50">STAGE ATTEMPTS HISTORY:</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {history.map((h, idx) => {
+              const isWin = h.correct;
+              const isTimeout = h.payload === "__timeout__" || h.reason === "no-answer";
+              return (
+                <div
+                  key={idx}
+                  className={`border-2 p-3 text-xs rounded space-y-1 ${
+                    isWin
+                      ? "border-signal-good bg-signal-good/15 text-signal-good font-bold"
+                      : isTimeout
+                        ? "border-comic-yellow/50 bg-comic-yellow/10 text-comic-yellow"
+                        : "border-signal-wrong/50 bg-signal-wrong/10 text-signal-wrong"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold uppercase">Attempt #{h.imageIndex}:</span>
+                    <span>
+                      {isWin
+                        ? `✅ Correct (+${h.points} pts${h.rank ? `, Rank #${h.rank}` : ""})`
+                        : isTimeout
+                          ? `⏰ No Answer (${h.points} pts penalty)`
+                          : `❌ Wrong Answer (${h.points} pts penalty)`}
+                    </span>
+                  </div>
+                  {!isTimeout && <p className="font-mono text-[11px] opacity-80">&quot;{h.payload}&quot;</p>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

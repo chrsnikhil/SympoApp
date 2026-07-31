@@ -6,6 +6,7 @@ import type { QuizRound } from "@/lib/db/types";
 import Celebration from "./Celebration";
 import Standings from "./Standings";
 import WebShooter, { WebNet } from "./WebShooter";
+import TeamAvatar from "@/components/ui/TeamAvatar";
 
 interface StandingRow {
   rank: number;
@@ -92,12 +93,7 @@ export default function QuizEndedScreen({
 
         {/* HERO RECORD CARD */}
         <div className="inline-flex items-center gap-4 bg-tertiary-fixed comic-border p-4 comic-tilt-right">
-          <div
-            className="w-14 h-14 rounded-full comic-border flex items-center justify-center font-display-xl text-on-tertiary-fixed text-xl shrink-0"
-            style={{ backgroundColor: avatar?.colour ?? "#a41616" }}
-          >
-            {teamName.slice(0, 2).toUpperCase()}
-          </div>
+          <TeamAvatar avatar={avatar} teamName={teamName} size="lg" />
           <div className="text-left">
             <span className="font-label-sm text-on-tertiary-fixed-variant uppercase text-[10px] block font-bold">
               Hero of Record

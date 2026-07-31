@@ -6,6 +6,7 @@ import { eventHostFor } from "@/lib/config";
 import WebShooter from "@/app/quiz/WebShooter";
 import ComicHeader from "@/components/ui/ComicHeader";
 import ComicButton from "@/components/ui/ComicButton";
+import TeamAvatar from "@/components/ui/TeamAvatar";
 
 /**
  * Entry page with Spider-Verse Symposium styling.
@@ -27,6 +28,8 @@ export default function EnterPage() {
             window.location.href = rt;
           } else if (data.role === "admin") {
             window.location.href = "/admin/quiz";
+          } else if (window.location.hostname.includes("localhost") || window.location.hostname === "127.0.0.1") {
+            window.location.href = "/quiz";
           } else {
             const quizHost = eventHostFor(window.location.host, "quiz");
             if (window.location.host === quizHost || window.location.host.startsWith("quiz.")) {
@@ -77,6 +80,8 @@ export default function EnterPage() {
       // Send participants on to the quiz subdomain explicitly; admins go to /admin/quiz
       if (data.role === "admin") {
         window.location.href = "/admin/quiz";
+      } else if (window.location.hostname.includes("localhost") || window.location.hostname === "127.0.0.1") {
+        window.location.href = "/quiz";
       } else {
         const quizHost = eventHostFor(window.location.host, "quiz");
         if (window.location.host === quizHost || window.location.host.startsWith("quiz.")) {
@@ -154,12 +159,7 @@ export default function EnterPage() {
           {!looksLikeCode && preview && (
             <div className="w-full max-w-sm mt-3 p-4 bg-tertiary-fixed comic-border comic-tilt-left shadow-[6px_6px_0px_0px_rgba(27,27,28,1)] text-left">
               <div className="flex items-center gap-4">
-                <div
-                  className="w-14 h-14 rounded-full comic-border-sm flex items-center justify-center font-display-xl text-on-tertiary-fixed text-xl shrink-0"
-                  style={{ backgroundColor: preview.colour }}
-                >
-                  {preview.name.slice(0, 2).toUpperCase()}
-                </div>
+                <TeamAvatar avatar={preview} size="lg" />
                 <div className="flex flex-col items-start min-w-0">
                   <span className="bg-primary text-on-primary font-headline-lg text-[10px] px-2.5 py-0.5 border-2 border-on-background shadow-[2px_2px_0px_0px_rgba(27,27,28,1)] inline-block -rotate-1 mb-1.5">
                     SPIDER HERO UNLOCKED!

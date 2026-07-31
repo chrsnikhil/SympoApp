@@ -3,6 +3,7 @@
 import type { Avatar } from "@/lib/quiz/avatars";
 import type { QuizRound } from "@/lib/db/types";
 import WebShooter, { WebNet } from "./WebShooter";
+import TeamAvatar from "@/components/ui/TeamAvatar";
 
 export default function QuizRulesLobby({
   teamName,
@@ -40,12 +41,11 @@ export default function QuizRulesLobby({
           <WebNet colour={persona.colour} originX={95} originY={5} animate={false} />
           <div className="relative z-10 flex flex-wrap items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div
-                className="w-16 h-16 rounded-full comic-border flex items-center justify-center font-display-xl text-on-primary text-2xl shrink-0"
-                style={{ backgroundColor: persona.colour }}
-              >
-                {teamName.slice(0, 1).toUpperCase()}
-              </div>
+              <TeamAvatar
+                avatar={avatar}
+                teamName={teamName}
+                size="lg"
+              />
               <div>
                 <p className="font-label-sm text-xs uppercase tracking-widest text-primary font-bold">
                   ASSIGNED MULTIVERSE IDENTITY

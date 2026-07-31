@@ -13,7 +13,20 @@ import type { EventKey, SubmissionStatus } from "@/lib/config";
  * `lib/quiz/avatars.ts`. Optional because the other three events (hunt/ctf/code)
  * use the plain access-code path and never touch this.
  */
-export type AvatarId = "spider-man" | "miles" | "gwen" | "miguel";
+export type AvatarId =
+  | "spider-man"
+  | "miles"
+  | "gwen"
+  | "miguel"
+  | "spider-punk"
+  | "pavitr"
+  | "spider-noir"
+  | "spider-ham"
+  | "peni"
+  | "spider-byte"
+  | "cyborg"
+  | "sun-spider"
+  | (string & {});
 
 export interface Team {
   _id?: ObjectId;
