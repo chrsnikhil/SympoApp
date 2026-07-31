@@ -7,7 +7,7 @@ import WebShooter, { WebNet } from "@/app/quiz/WebShooter";
  */
 export default function Home() {
   return (
-    <main className="relative grid min-h-dvh place-items-center overflow-hidden px-5 bg-background font-body-md text-on-surface">
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden px-5 bg-transparent font-body-md text-on-surface">
       <WebShooter colour="#a41616" webColour="#41617e" gloveColour="#1b1b1c" shape="classic" />
 
       {/* Background radial glow */}

@@ -8,17 +8,27 @@
   --spider-red: #a41616;
   --spider-red-dark: #92030b;
   --web-blue: #41617e;
+  --web-blue-dark: #1e293b;
   --ink-black: #1b1b1c;
-  --paper-white: #fcf9f8;
-  --comic-yellow: #e5c15c;
+  --paper-white: #ffffff;
+  --comic-yellow: #facc15;
+  --glitch-cyan: #00e5ff;
+  --gadget-pink: #ff6ec7;
+  --signal-wrong: #ff4d4d;
+  --signal-good: #22c55e;
 }
 
 @theme inline {
+  --color-glitch-cyan: #00e5ff;
+  --color-gadget-pink: #ff6ec7;
+  --color-signal-wrong: #ff4d4d;
+  --color-signal-good: #22c55e;
+  --color-web-blue-dark: #1e293b;
   --color-on-primary: #ffffff;
   --color-on-tertiary-fixed: #241a00;
   --color-on-secondary-fixed: #001d32;
   --color-surface-dim: #dcd9d9;
-  --color-background: #fcf9f8;
+  --color-background: transparent;
   --color-tertiary: #745b00;
   --color-tertiary-fixed-dim: #e7c35e;
   --color-on-primary-container: #ffe7e4;
@@ -87,10 +97,8 @@
   html, body { margin: 0; padding: 0; }
   body {
     overscroll-behavior: none;
-    background-color: var(--color-background);
+    background-color: #f2e7cf;
     color: var(--color-on-surface);
-    background-image: radial-gradient(circle, #00000011 1px, transparent 0);
-    background-size: 4px 4px;
     font-family: var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif;
   }
 }
@@ -172,71 +180,106 @@
   box-shadow: 7px 7px 0 var(--spider-red-dark);
 }
 
-/* COMIC BUTTON */
+/* COMIC BUTTON DESIGN SYSTEM */
 .comic-btn {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem 1.5rem;
-  font-family: var(--font-anton), sans-serif;
-  font-size: 1rem;
+  padding: 0.6rem 1.25rem;
+  font-family: var(--font-anton), "Anybody", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--paper-white);
-  background: var(--spider-red);
-  border: 3px solid var(--ink-black);
-  box-shadow: 4px 4px 0 var(--ink-black);
+  color: #ffffff !important;
+  background-color: var(--spider-red) !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 4px 4px 0px 0px #000000 !important;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, color 0.12s ease;
+  border-radius: 4px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
 .comic-btn:hover:not(:disabled) {
   transform: translate(2px, 2px);
-  box-shadow: 2px 2px 0 var(--ink-black);
-  background: var(--ink-black);
-  color: var(--spider-red);
-  border-color: var(--spider-red);
+  box-shadow: 2px 2px 0px 0px #000000 !important;
+  background-color: #ffffff !important;
+  color: var(--spider-red) !important;
+  border-color: var(--spider-red) !important;
 }
 
 .comic-btn:active:not(:disabled) {
   transform: translate(4px, 4px);
-  box-shadow: 0 0 0 var(--ink-black);
+  box-shadow: 0px 0px 0px 0px #000000 !important;
 }
 
 .comic-btn:disabled {
-  opacity: 0.35;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
+/* CYAN BUTTON (PROCEED TO ROUND / CONFIRM) */
 .comic-btn-cyan {
-  background: var(--glitch-cyan);
-  color: var(--ink-black);
+  background-color: #00e5ff !important;
+  color: #0b0f19 !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 4px 4px 0px 0px #000000 !important;
 }
+
 .comic-btn-cyan:hover:not(:disabled) {
-  background: var(--ink-black);
-  color: var(--glitch-cyan);
-  border-color: var(--glitch-cyan);
+  background-color: #ffffff !important;
+  color: #007799 !important;
+  border-color: #00e5ff !important;
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px 0px #000000 !important;
 }
 
+/* PINK BUTTON (END QUIZ / DANGER ACTIONS) */
 .comic-btn-pink {
-  background: var(--gadget-pink);
-  color: var(--ink-black);
-}
-.comic-btn-pink:hover:not(:disabled) {
-  background: var(--ink-black);
-  color: var(--gadget-pink);
-  border-color: var(--gadget-pink);
+  background-color: #ff6ec7 !important;
+  color: #0b0f19 !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 4px 4px 0px 0px #000000 !important;
 }
 
-.comic-btn-yellow {
-  background: var(--comic-yellow);
-  color: var(--ink-black);
+.comic-btn-pink:hover:not(:disabled) {
+  background-color: #ffffff !important;
+  color: #c9006b !important;
+  border-color: #ff6ec7 !important;
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px 0px #000000 !important;
 }
+
+/* YELLOW BUTTON (START / RESTART QUIZ) */
+.comic-btn-yellow {
+  background-color: #facc15 !important;
+  color: #0b0f19 !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 4px 4px 0px 0px #000000 !important;
+}
+
 .comic-btn-yellow:hover:not(:disabled) {
-  background: var(--ink-black);
-  color: var(--comic-yellow);
-  border-color: var(--comic-yellow);
+  background-color: #ffffff !important;
+  color: #9a5b00 !important;
+  border-color: #facc15 !important;
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px 0px #000000 !important;
+}
+
+/* DARK / CANCEL BUTTON */
+.comic-btn-dark,
+.comic-btn.bg-ink-black {
+  background-color: #2b303b !important;
+  color: #ffffff !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 4px 4px 0px 0px #000000 !important;
+}
+
+.comic-btn.bg-ink-black:hover:not(:disabled) {
+  background-color: #ffffff !important;
+  color: #1b1b1c !important;
+  border-color: #ffffff !important;
 }
 
 .display-title {
@@ -492,6 +535,7 @@ html.web-shooter-active textarea {
 ::-webkit-scrollbar-thumb:hover { background: var(--spider-red-dark); }
 
 /* ═══════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    3D PLAYING CARD FLIP ANIMATIONS & STYLES
    ═══════════════════════════════════════════════════ */
 
@@ -526,3 +570,100 @@ html.web-shooter-active textarea {
   transform: rotateY(180deg);
 }
 
+/* ═══════════════════════════════════════════════════
+   VINTAGE BRONZE AGE COMIC PAGE BACKGROUND
+   ═══════════════════════════════════════════════════ */
+.comic-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.comic-bg > * {
+  position: absolute;
+  inset: 0;
+}
+
+.comic-bg__paper {
+  background: #f2e7cf;
+}
+
+.comic-bg__page {
+  background-image: url("/comic-page-bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.27;
+  filter: saturate(0.92) contrast(1.02) sepia(0.12);
+}
+
+.comic-bg__misprint {
+  background-image: url("/comic-page-bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transform: translate(2px, -1.5px) scale(1.004);
+  opacity: 0.09;
+  filter: hue-rotate(-12deg) saturate(1.6) blur(0.6px);
+  mix-blend-mode: multiply;
+}
+
+.comic-bg__halftone {
+  background-image:
+    radial-gradient(circle at 25% 25%, rgba(0, 132, 168, 0.16) 0.8px, transparent 1.1px),
+    radial-gradient(circle at 75% 45%, rgba(200, 30, 90, 0.16) 0.8px, transparent 1.1px),
+    radial-gradient(circle at 50% 80%, rgba(230, 180, 20, 0.18) 0.8px, transparent 1.1px),
+    radial-gradient(circle, rgba(27, 27, 28, 0.14) 0.7px, transparent 1px);
+  background-size:
+    4px 4px,
+    4px 4px,
+    4px 4px,
+    3px 3px;
+  mix-blend-mode: multiply;
+  opacity: 0.85;
+}
+
+.comic-bg__grain {
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(140, 110, 60, 0.1) 0 1px, transparent 2px),
+    radial-gradient(circle at 68% 8%, rgba(140, 110, 60, 0.08) 0 1px, transparent 2px),
+    radial-gradient(circle at 88% 62%, rgba(140, 110, 60, 0.1) 0 1px, transparent 2px),
+    radial-gradient(circle at 34% 88%, rgba(140, 110, 60, 0.08) 0 1px, transparent 2px),
+    radial-gradient(ellipse at 0% 0%, rgba(196, 154, 84, 0.4), transparent 26%),
+    radial-gradient(ellipse at 100% 0%, rgba(196, 154, 84, 0.34), transparent 24%),
+    radial-gradient(ellipse at 0% 100%, rgba(196, 154, 84, 0.38), transparent 26%),
+    radial-gradient(ellipse at 100% 100%, rgba(196, 154, 84, 0.42), transparent 28%);
+  background-size:
+    17px 17px,
+    23px 23px,
+    29px 29px,
+    31px 31px,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%;
+  mix-blend-mode: multiply;
+  opacity: 0.7;
+}
+
+.comic-bg__center-wash {
+  background: radial-gradient(
+    ellipse 62% 58% at 50% 46%,
+    rgba(247, 240, 224, 0.94) 0%,
+    rgba(247, 240, 224, 0.82) 38%,
+    rgba(247, 240, 224, 0.4) 66%,
+    rgba(247, 240, 224, 0) 88%
+  );
+  backdrop-filter: blur(1.6px);
+}
+
+.comic-bg__vignette {
+  background: radial-gradient(
+    ellipse 88% 84% at 50% 50%,
+    rgba(27, 27, 28, 0) 52%,
+    rgba(27, 27, 28, 0.14) 78%,
+    rgba(27, 27, 28, 0.3) 100%
+  );
+}

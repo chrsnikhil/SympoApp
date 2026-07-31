@@ -422,19 +422,28 @@ export default function AdminDashboard() {
                               ▶ Start Puzzle & Reveal Tile 1
                             </button>
                           ) : (
-                            <button
-                              disabled={busy || closed || p.revealedCount >= p.totalImages}
-                              onClick={() => callAdvance({ action: "reveal-next-image", slug: p.slug })}
-                              className={`comic-btn px-3 py-1.5 text-xs font-bold ${
-                                p.revealedCount >= p.totalImages
-                                  ? "bg-paper-white/10 text-paper-white/40 cursor-not-allowed border border-paper-white/10"
-                                  : "comic-btn-cyan"
-                              }`}
-                            >
-                              {p.revealedCount >= p.totalImages
-                                ? "✓ All 4 Tiles Revealed (10s Timer Active)"
-                                : `Reveal Next Tile (Tile ${p.revealedCount + 1} of ${p.totalImages})`}
-                            </button>
+                             <>
+                              <button
+                                disabled={busy || closed || p.revealedCount >= p.totalImages}
+                                onClick={() => callAdvance({ action: "reveal-next-image", slug: p.slug })}
+                                className={`comic-btn px-3 py-1.5 text-xs font-bold ${
+                                  p.revealedCount >= p.totalImages
+                                    ? "bg-paper-white/10 text-paper-white/40 cursor-not-allowed border border-paper-white/10"
+                                    : "comic-btn-cyan"
+                                }`}
+                              >
+                                {p.revealedCount >= p.totalImages
+                                  ? "✓ All 4 Tiles Revealed"
+                                  : `Reveal Next Tile (Tile ${p.revealedCount + 1} of ${p.totalImages})`}
+                              </button>
+                              <button
+                                disabled={busy || closed}
+                                onClick={() => callAdvance({ action: "close-puzzle", slug: p.slug })}
+                                className="comic-btn bg-ink-black px-3 py-1.5 text-xs font-bold"
+                              >
+                                Close & move everyone on
+                              </button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -554,7 +563,7 @@ export default function AdminDashboard() {
                       <button
                         disabled={busy}
                         onClick={() => callAdvance({ action: "unlock-coin", coin: c.coin })}
-                        className="border border-glitch-cyan px-3 py-1 text-xs font-bold text-glitch-cyan hover:bg-glitch-cyan/20 transition-colors flex items-center gap-1"
+                        className="px-2.5 py-1 text-[0.65rem] font-bold border-2 border-glitch-cyan text-glitch-cyan hover:bg-glitch-cyan/20 transition-colors rounded shadow-sm"
                         title="Unlock token login so team can re-enter token on any device without losing team data"
                       >
                         🔓 UNLOCK

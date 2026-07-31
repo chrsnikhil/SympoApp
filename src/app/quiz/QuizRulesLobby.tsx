@@ -35,39 +35,35 @@ export default function QuizRulesLobby({
 
       <div className="relative mx-auto max-w-4xl space-y-8">
         {/* TEAM IDENTITY HEADER CARD */}
-        <header className="halftone panel panel-accent border-2 border-glitch-cyan bg-ink-black/85 p-6 sm:p-8">
+        <header className="relative bg-surface comic-border p-6 sm:p-8 comic-tilt-right overflow-hidden shadow-[8px_8px_0px_0px_rgba(27,27,28,1)]">
+          <div className="absolute inset-0 ben-day pointer-events-none opacity-20" />
           <WebNet colour={persona.colour} originX={95} originY={5} animate={false} />
-          <div className="relative flex flex-wrap items-center justify-between gap-6">
+          <div className="relative z-10 flex flex-wrap items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <span
-                className="grid h-16 w-16 place-items-center font-display text-2xl font-bold shadow-lg"
-                style={{
-                  background: `${persona.colour}22`,
-                  border: `3px solid ${persona.colour}`,
-                  color: persona.colour,
-                  boxShadow: `4px 4px 0 ${persona.colour}44`,
-                }}
+              <div
+                className="w-16 h-16 rounded-full comic-border flex items-center justify-center font-display-xl text-on-primary text-2xl shrink-0"
+                style={{ backgroundColor: persona.colour }}
               >
                 {teamName.slice(0, 1).toUpperCase()}
-              </span>
+              </div>
               <div>
-                <p className="font-comic text-xs uppercase tracking-widest text-glitch-cyan">
+                <p className="font-label-sm text-xs uppercase tracking-widest text-primary font-bold">
                   ASSIGNED MULTIVERSE IDENTITY
                 </p>
-                <h1 className="display-title chromatic text-3xl sm:text-4xl text-paper-white uppercase tracking-wide">
+                <h1 className="font-display-xl text-3xl sm:text-4xl text-on-surface uppercase italic leading-none mt-1">
                   {teamName}
                 </h1>
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="font-comic text-base" style={{ color: persona.colour }}>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="font-headline-lg text-sm uppercase text-primary font-bold">
                     {persona.name}
                   </span>
-                  <span className="text-xs text-paper-white/50">• {persona.tagline}</span>
+                  <span className="font-label-sm text-xs text-on-surface-variant uppercase">• {persona.tagline}</span>
                 </div>
               </div>
             </div>
 
-            <div className="inline-flex items-center gap-2 border border-comic-yellow bg-comic-yellow/10 px-4 py-2 text-comic-yellow text-xs font-bold uppercase tracking-widest rounded">
-              <span className="h-2 w-2 rounded-full bg-comic-yellow animate-ping" />
+            <div className="inline-flex items-center gap-2 bg-tertiary-fixed text-on-tertiary-fixed px-4 py-2 comic-border font-label-sm text-xs uppercase font-bold tracking-widest comic-tilt-left">
+              <span className="h-2.5 w-2.5 rounded-full bg-primary animate-ping" />
               AWAITING EVENT START
             </div>
           </div>
@@ -75,22 +71,22 @@ export default function QuizRulesLobby({
 
         {/* QUIZ RULES AND DIRECTIVES */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between border-b-2 border-paper-white/10 pb-3">
-            <h2 className="display-title chromatic text-2xl text-paper-white uppercase tracking-wider">
+          <div className="flex items-center justify-between border-b-2 border-on-surface/10 pb-3">
+            <h2 className="font-display-xl text-2xl text-on-surface uppercase italic tracking-wider">
               📜 MULTIVERSE QUIZ BRIEFING & RULES
             </h2>
-            <span className="text-xs uppercase tracking-widest text-glitch-cyan font-mono">
+            <span className="font-label-sm text-xs uppercase tracking-widest text-primary font-bold">
               OFFICIAL DIRECTIVES
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* RULE 1 */}
-            <div className="halftone panel border border-paper-white/15 bg-ink-black/75 p-5 space-y-2">
-              <div className="flex items-center gap-2 font-display text-sm text-comic-yellow uppercase">
+            <div className="bg-surface-container-lowest comic-border p-5 space-y-2 comic-tilt-left">
+              <div className="flex items-center gap-2 font-headline-lg text-sm text-primary uppercase">
                 <span>⚡</span> DIRECTIVE 01 — THREE UNIVERSES
               </div>
-              <p className="text-xs text-paper-white/80 leading-relaxed">
+              <p className="font-body-md text-xs text-on-surface-variant leading-relaxed">
                 <strong>Round 1:</strong> 3 Sequential Mini-Games (AI Image Replication, Connections Puzzles, & Memory Match).
                 <br />
                 <strong>Round 2:</strong> Rapid MCQs (6s read + 10s answer).
@@ -100,31 +96,31 @@ export default function QuizRulesLobby({
             </div>
 
             {/* RULE 2 */}
-            <div className="halftone panel border border-paper-white/15 bg-ink-black/75 p-5 space-y-2">
-              <div className="flex items-center gap-2 font-display text-sm text-glitch-cyan uppercase">
+            <div className="bg-surface-container-lowest comic-border p-5 space-y-2 comic-tilt-right">
+              <div className="flex items-center gap-2 font-headline-lg text-sm text-secondary uppercase">
                 <span>⏱️</span> DIRECTIVE 02 — SERVER CLOCK & SPEED
               </div>
-              <p className="text-xs text-paper-white/80 leading-relaxed">
+              <p className="font-body-md text-xs text-on-surface-variant leading-relaxed">
                 Speed matters! Points are awarded for correct answers, while your total response time across all questions serves as the primary tiebreaker.
               </p>
             </div>
 
             {/* RULE 3 */}
-            <div className="halftone panel border border-paper-white/15 bg-ink-black/75 p-5 space-y-2">
-              <div className="flex items-center gap-2 font-display text-sm text-signal-wrong uppercase">
+            <div className="bg-surface-container-lowest comic-border p-5 space-y-2 comic-tilt-right">
+              <div className="flex items-center gap-2 font-headline-lg text-sm text-primary uppercase">
                 <span>🛡️</span> DIRECTIVE 03 — PROCTORING & INTEGRITY
               </div>
-              <p className="text-xs text-paper-white/80 leading-relaxed">
+              <p className="font-body-md text-xs text-on-surface-variant leading-relaxed">
                 Do not switch browser tabs, blur windows, or exit full screen during live quiz rounds. Proctoring flags are logged directly to the coordinator panel.
               </p>
             </div>
 
             {/* RULE 4 */}
-            <div className="halftone panel border border-paper-white/15 bg-ink-black/75 p-5 space-y-2">
-              <div className="flex items-center gap-2 font-display text-sm text-gadget-pink uppercase">
+            <div className="bg-surface-container-lowest comic-border p-5 space-y-2 comic-tilt-left">
+              <div className="flex items-center gap-2 font-headline-lg text-sm text-tertiary uppercase">
                 <span>🕸️</span> DIRECTIVE 04 — HEROIC ELIMINATION
               </div>
-              <p className="text-xs text-paper-white/80 leading-relaxed">
+              <p className="font-body-md text-xs text-on-surface-variant leading-relaxed">
                 If your team is cut after Round 1 or 2, you will seamlessly enter Live Spectator Mode to track the remaining finalists battling for victory.
               </p>
             </div>
@@ -132,12 +128,12 @@ export default function QuizRulesLobby({
         </section>
 
         {/* WAITING ROOM FOOTER BADGE */}
-        <footer className="halftone panel border-2 border-comic-yellow/60 bg-ink-black/90 p-6 text-center space-y-3">
+        <footer className="bg-tertiary-fixed text-on-tertiary-fixed comic-border p-6 text-center space-y-3 comic-tilt-left">
           <div className="text-3xl animate-bounce">📡</div>
-          <h3 className="font-display text-lg uppercase text-comic-yellow tracking-wide">
+          <h3 className="font-display-xl text-lg uppercase tracking-wide">
             STAND BY FOR EVENT INITIALIZATION
           </h3>
-          <p className="text-xs text-paper-white/70 max-w-md mx-auto">
+          <p className="font-body-md text-xs font-bold max-w-md mx-auto">
             Your team is fully registered and ready. This page will automatically start Round 1 as soon as the coordinator clicks <strong>START QUIZ</strong>.
           </p>
         </footer>

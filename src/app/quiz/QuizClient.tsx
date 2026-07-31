@@ -13,6 +13,7 @@ import Round1Games from "./Round1Games";
 import Standings from "./Standings";
 import WebShooter from "./WebShooter";
 import SpiderTimer from "./SpiderTimer";
+import ComicHeader from "@/components/ui/ComicHeader";
 
 const DEFAULT_PERSONA = {
   colour: "#a41616",
@@ -224,41 +225,17 @@ export default function QuizClient({
   }
 
   return (
-    <main className="min-h-full bg-background font-body-md text-on-surface pb-12">
+    <main className="min-h-full bg-transparent font-body-md text-on-surface pb-12">
       <WebShooter colour={persona.colour} webColour={persona.webColour} gloveColour={persona.gloveColour} shape={persona.reticle} />
 
       {/* Header bar */}
-      <header className="relative z-50 pt-gutter px-gutter mb-6">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-panel-gap bg-surface comic-border p-4 comic-tilt-right">
-          <div className="flex items-center gap-4">
-            <div className="bg-primary text-on-primary px-3 py-1 comic-border -rotate-2 font-headline-lg text-headline-lg uppercase tracking-tighter shadow-none">
-              No. 1
-            </div>
-            <span className="font-display-xl text-headline-lg text-on-surface uppercase italic">Action Tales!</span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-full comic-border-sm flex items-center justify-center font-display-xl text-on-primary text-base"
-                style={{ backgroundColor: avatar?.colour ?? "#a41616" }}
-              >
-                {teamName.slice(0, 2).toUpperCase()}
-              </div>
-              <div className="text-left hidden sm:block">
-                <div className="font-headline-lg text-caption-bold uppercase leading-none">{teamName}</div>
-                <div className="font-label-sm text-[10px] text-on-surface-variant uppercase mt-0.5">
-                  {avatar ? `${avatar.name}` : "Spider Hero"}
-                </div>
-              </div>
-            </div>
-
-            <div id="status-stamp" className="bg-tertiary-fixed text-on-tertiary-fixed px-4 py-2 comic-border rotate-1 font-label-sm uppercase text-[12px]">
-              Issue: Round {activeRoundState}
-            </div>
-          </div>
-        </div>
-      </header>
+      <ComicHeader
+        issueTitle="Action Tales!"
+        issueNumber="No. 1"
+        roundStamp={`Issue: Round ${activeRoundState}`}
+        teamName={teamName}
+        avatar={avatar}
+      />
 
       <div className="relative mx-auto max-w-5xl px-5">
         <div className="text-center mb-8">
@@ -361,7 +338,7 @@ function RoundTransition({
   const currentRules = roundRules[round];
 
   return (
-    <main className="relative grid min-h-dvh place-items-center overflow-hidden px-6 py-12 bg-background">
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden px-6 py-12 bg-transparent">
       <WebShooter colour="#a41616" webColour="#41617e" gloveColour="#1b1b1c" shape="classic" />
       <div className="comic-border bg-on-background p-8 md:p-12 comic-tilt-left relative overflow-hidden text-center z-10 max-w-2xl w-full">
         <div className="absolute inset-0 ben-day-light opacity-10 pointer-events-none" />

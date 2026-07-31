@@ -12,8 +12,8 @@ const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-br
 const courier = Courier_Prime({ weight: ["400", "700"], subsets: ["latin"], variable: "--font-courier" });
 
 export const metadata: Metadata = {
-  title: "Spider-Verse Tech Challenge — Symposium Quiz",
-  description: "Spider-Verse Tech Challenge — XPLORE'26 event platform.",
+  title: "Spider Sense — Symposium Quiz",
+  description: "Spider Sense — XPLORE'26 event platform.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -28,10 +28,18 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full flex flex-col bg-background font-body-md text-on-surface selection:bg-primary selection:text-on-primary">
-        <div className="fixed inset-0 pointer-events-none ben-day" id="global-ben-day" />
-        {children}
-        {/* Takes the flatness off large black areas. Fixed, non-interactive. */}
+      <body className="min-h-full flex flex-col bg-background font-body-md text-on-surface selection:bg-primary selection:text-on-primary relative">
+        {/* Vintage Bronze Age comic page background layers */}
+        <div className="comic-bg" aria-hidden="true">
+          <div className="comic-bg__paper" />
+          <div className="comic-bg__page" />
+          <div className="comic-bg__misprint" />
+          <div className="comic-bg__halftone" />
+          <div className="comic-bg__grain" />
+          <div className="comic-bg__center-wash" />
+          <div className="comic-bg__vignette" />
+        </div>
+        <div className="relative z-10 flex-1 flex flex-col">{children}</div>
         <div className="noise-overlay" aria-hidden="true" />
       </body>
     </html>
