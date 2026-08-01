@@ -570,38 +570,61 @@ export default function AdminDashboard() {
           </>
         )}
 
-        {/* PROCTOR FLAGS — rounds 2/3 */}
-        {(round === 2 || round === 3) && data.flags && (
-          <section className="panel p-5">
-            <h2 className="display-title mb-1 text-xl text-glitch-cyan">Proctor flags</h2>
-            <p className="mb-3 text-xs font-semibold text-paper-white/85">
-              Client-reported tab switches, window blurs (alt+tab / ctrl+tab) and fullscreen exits during this round.
-              A signal to review, not an automatic disqualification — a browser can&apos;t police itself.
+        {/* PROCTORING & INTEGRITY FLAGS — ROUND 2 TO FINAL */}
+        {data.flags && (
+          <section className="panel panel-accent border-2 border-red-500/50 p-5 shadow-lg">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+              <h2 className="display-title text-xl text-red-500 flex items-center gap-2">
+                <span>🛡️</span> PROCTORING & INTEGRITY VIOLATION LOG (ROUND 2 TO FINAL)
+              </h2>
+              <span className={`text-xs font-bold px-3 py-1 rounded border ${data.flags.length > 0 ? "border-red-500 bg-red-500/20 text-red-400" : "border-green-500 bg-green-500/20 text-green-400"}`}>
+                {data.flags.length > 0 ? `⚠️ ${data.flags.length} TEAM(S) FLAGGED` : "✓ NO INTEGRITY VIOLATIONS LOGGED"}
+              </span>
+            </div>
+            <p className="mb-4 text-xs font-semibold text-paper-white/85">
+              Live audit trail of teams attempting shortcut keys (Alt + Tab / Ctrl + Tab / Meta), switching browser tabs, or exiting full-screen mode during Round 2 and Final Stage.
             </p>
             {data.flags.length === 0 ? (
-              <p className="text-xs font-bold text-paper-white/70">Nothing flagged.</p>
+              <div className="p-4 border border-dashed border-paper-white/20 bg-ink-black/40 text-center rounded">
+                <p className="text-xs font-bold text-signal-good">✓ All teams are adhering to full-screen proctoring rules.</p>
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      <th>Team</th>
-                      <th>Tab switches</th>
-                      <th>Window blur (alt/ctrl+tab)</th>
-                      <th>Left fullscreen</th>
-                      <th>Last flag</th>
+                      <th>Team Name</th>
+                      <th>Tab Switches</th>
+                      <th>Window Blur (Alt+Tab / Ctrl+Tab)</th>
+                      <th>Left Fullscreen</th>
+                      <th>Total Violations</th>
+                      <th>Last Flagged At</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {data.flags.map((f) => (
-                      <tr key={f.teamId}>
-                        <td className="font-bold">{f.teamName}</td>
-                        <td className={f.tabSwitch > 0 ? "text-signal-wrong" : ""}>{f.tabSwitch}</td>
-                        <td className={f.windowBlur > 0 ? "text-signal-wrong" : ""}>{f.windowBlur}</td>
-                        <td className={f.fullscreenExit > 0 ? "text-signal-wrong" : ""}>{f.fullscreenExit}</td>
-                        <td className="text-paper-white/50">{new Date(f.lastAt).toLocaleTimeString()}</td>
-                      </tr>
-                    ))}
+                    {data.flags.map((f) => {
+                      const total = f.tabSwitch + f.windowBlur + f.fullscreenExit;
+                      return (
+                        <tr key={f.teamId} className="hover:bg-red-500/10 transition-colors">
+                          <td className="font-bold text-paper-white">{f.teamName}</td>
+                          <td className={f.tabSwitch > 0 ? "text-amber-400 font-bold" : "text-paper-white/40"}>
+                            {f.tabSwitch > 0 ? `⚠️ ${f.tabSwitch}x` : "0"}
+                          </td>
+                          <td className={f.windowBlur > 0 ? "text-red-400 font-bold" : "text-paper-white/40"}>
+                            {f.windowBlur > 0 ? `🛑 ${f.windowBlur}x` : "0"}
+                          </td>
+                          <td className={f.fullscreenExit > 0 ? "text-pink-400 font-bold" : "text-paper-white/40"}>
+                            {f.fullscreenExit > 0 ? `🚨 ${f.fullscreenExit}x` : "0"}
+                          </td>
+                          <td>
+                            <span className="px-2 py-0.5 text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/40 rounded">
+                              {total} Flags
+                            </span>
+                          </td>
+                          <td className="text-paper-white/60 font-mono text-xs">{new Date(f.lastAt).toLocaleTimeString()}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

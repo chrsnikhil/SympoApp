@@ -233,23 +233,22 @@ export async function GET(request: Request) {
       }));
     }
 
-    if (round === 2 || round === 3) {
-      const flags = await collections.proctorFlags();
-      const rows = await flags.find({ round }).toArray();
-      const byTeam = new Map<string, { tabSwitch: number; windowBlur: number; fullscreenExit: number; lastAt: string }>();
-      for (const f of rows) {
-        const key = String(f.teamId);
-        const entry = byTeam.get(key) ?? { tabSwitch: 0, windowBlur: 0, fullscreenExit: 0, lastAt: f.at.toISOString() };
-        if (f.kind === "tab-switch") entry.tabSwitch += 1;
-        if (f.kind === "window-blur") entry.windowBlur += 1;
-        if (f.kind === "fullscreen-exit") entry.fullscreenExit += 1;
-        if (f.at.toISOString() > entry.lastAt) entry.lastAt = f.at.toISOString();
-        byTeam.set(key, entry);
-      }
-      payload.flags = [...byTeam.entries()]
-        .map(([teamId, counts]) => ({ teamId, teamName: teamById.get(teamId)?.name ?? "Unknown", ...counts }))
-        .sort((a, b) => b.tabSwitch + b.windowBlur + b.fullscreenExit - (a.tabSwitch + a.windowBlur + a.fullscreenExit));
+    // Proctoring & Integrity Violation Flags — aggregated across rounds 2 & 3
+    const flags = await collections.proctorFlags();
+    const flagRows = await flags.find({}).toArray();
+    const byTeam = new Map<string, { tabSwitch: number; windowBlur: number; fullscreenExit: number; lastAt: string; round: number }>();
+    for (const f of flagRows) {
+      const key = String(f.teamId);
+      const entry = byTeam.get(key) ?? { tabSwitch: 0, windowBlur: 0, fullscreenExit: 0, lastAt: f.at.toISOString(), round: f.round };
+      if (f.kind === "tab-switch") entry.tabSwitch += 1;
+      if (f.kind === "window-blur") entry.windowBlur += 1;
+      if (f.kind === "fullscreen-exit") entry.fullscreenExit += 1;
+      if (f.at.toISOString() > entry.lastAt) entry.lastAt = f.at.toISOString();
+      byTeam.set(key, entry);
     }
+    payload.flags = [...byTeam.entries()]
+      .map(([teamId, counts]) => ({ teamId, teamName: teamById.get(teamId)?.name ?? "Unknown", ...counts }))
+      .sort((a, b) => b.tabSwitch + b.windowBlur + b.fullscreenExit - (a.tabSwitch + a.windowBlur + a.fullscreenExit));
 
     if (round === 3) {
       const comebacks = await collections.comebackStates();
