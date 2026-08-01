@@ -28,27 +28,8 @@ export default function EnterPage() {
             window.location.href = rt;
           } else if (data.role === "admin") {
             window.location.href = "/admin/quiz";
-          } else if (
-            window.location.hostname.includes("localhost") ||
-            window.location.hostname === "127.0.0.1" ||
-            window.location.hostname.endsWith(".loca.lt") ||
-            window.location.hostname.endsWith(".lhr.life") ||
-            window.location.hostname.endsWith(".serveo.net") ||
-            window.location.hostname.endsWith(".serveousercontent.com") ||
-            window.location.hostname.endsWith(".ngrok-free.app") ||
-            window.location.hostname.endsWith(".ngrok.io") ||
-            window.location.hostname.endsWith(".pinggy.link") ||
-            window.location.hostname.endsWith(".trycloudflare.com") ||
-            /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname)
-          ) {
-            window.location.href = "/quiz";
           } else {
-            const quizHost = eventHostFor(window.location.host, "quiz");
-            if (window.location.host === quizHost || window.location.host.startsWith("quiz.")) {
-              window.location.href = "/";
-            } else {
-              window.location.href = `${window.location.protocol}//${quizHost}/`;
-            }
+            window.location.href = "/quiz";
           }
         }
       })
@@ -100,27 +81,8 @@ export default function EnterPage() {
       setTimeout(() => {
         if (data.role === "admin") {
           window.location.href = "/admin/quiz";
-        } else if (
-          window.location.hostname.includes("localhost") ||
-          window.location.hostname === "127.0.0.1" ||
-          window.location.hostname.endsWith(".loca.lt") ||
-          window.location.hostname.endsWith(".lhr.life") ||
-          window.location.hostname.endsWith(".serveo.net") ||
-          window.location.hostname.endsWith(".serveousercontent.com") ||
-          window.location.hostname.endsWith(".ngrok-free.app") ||
-          window.location.hostname.endsWith(".ngrok.io") ||
-          window.location.hostname.endsWith(".pinggy.link") ||
-          window.location.hostname.endsWith(".trycloudflare.com") ||
-          /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname)
-        ) {
-          window.location.href = "/quiz";
         } else {
-          const quizHost = eventHostFor(window.location.host, "quiz");
-          if (window.location.host === quizHost || window.location.host.startsWith("quiz.")) {
-            window.location.href = "/";
-          } else {
-            window.location.href = `${window.location.protocol}//${quizHost}/`;
-          }
+          window.location.href = "/quiz";
         }
       }, 150);
     } catch (err) {
