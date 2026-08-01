@@ -105,9 +105,8 @@ export async function submit(args: SubmitArgs): Promise<SubmitOutcome> {
     )
   );
 
-  // 7 ── Only successful scoring touches the ledger. Zero-point correct
-  //      answers still append, so the history shows the solve.
-  if (result.correct) {
+  // 7 ── Append to score ledger for solves OR non-zero penalties (e.g. wrong answer / timeout penalties)
+  if (result.correct || (result.points !== 0 && !result.pending)) {
     await appendScore({
       teamId,
       event,
