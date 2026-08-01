@@ -14,6 +14,8 @@
  */
 import { ObjectId } from "mongodb";
 import { randomBytes } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { collections, ensureIndexes } from "../src/lib/db/client";
 import { withThrottleRetry } from "../src/lib/db/retry";
 import { hashAnswer, hashCode, normaliseCode } from "../src/lib/auth/session";
@@ -358,6 +360,12 @@ async function main() {
 
   // Round 1, Game 1 — Image Replication. opensAt/closesAt start null; the
   // coordinator opens the 5-minute window on the day with `quiz-admin.ts open`.
+  let refDataUrl: string | undefined;
+  const refFilePath = path.join(process.cwd(), "public", "quiz", "reference-1.jpg");
+  if (fs.existsSync(refFilePath)) {
+    refDataUrl = `data:image/jpeg;base64,${fs.readFileSync(refFilePath).toString("base64")}`;
+  }
+
   docs.push({
     type: "quiz",
     slug: "image-1",
@@ -365,7 +373,13 @@ async function main() {
     points: 10,
     opensAt: null,
     closesAt: null,
-    config: { round: 1, format: "prompt-image", order: 1, referenceImage: "/quiz/reference-1.jpg" },
+    config: {
+      round: 1,
+      format: "prompt-image",
+      order: 1,
+      referenceImage: "/quiz/reference-1.jpg",
+      referenceDataUrl: refDataUrl,
+    },
   });
 
   // Round 1, Game 2 — Connections: 5 puzzles in sequence, played after Image
