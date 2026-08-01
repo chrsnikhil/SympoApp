@@ -693,14 +693,18 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
       if (!res.ok) {
         const body = await res.json();
         setError(body.error ?? "Submission failed");
+        setBusy(false);
+        submittingRef.current = false;
         return;
       }
+      // Keep busy=true so the input stays disabled while onSolved() fetches
+      // fresh data. The next poll will re-render with the updated history.
       setValue("");
       onSolved();
     } catch {
       setError("Submission failed");
-    } finally {
       setBusy(false);
+    } finally {
       submittingRef.current = false;
     }
   }
