@@ -350,6 +350,70 @@ export default function AdminDashboard() {
           </div>
         </section>
 
+        {/* ROUND 1 PER-GAME BREAKDOWN MATRIX */}
+        {round === 1 && data.round1 && (
+          <section className="panel p-5 border-2 border-glitch-cyan/30 bg-ink-black/40">
+            <h2 className="font-display text-sm uppercase tracking-wide text-glitch-cyan font-bold mb-3 flex items-center gap-2">
+              <span>📊</span> Round 1 Per-Game Points Breakdown Matrix
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Team</th>
+                    <th>🖼️ Game 1: Image Replication</th>
+                    <th>🧩 Game 2: Connections</th>
+                    <th>🃏 Game 3: Memory Game</th>
+                    <th>🏆 Total Round 1 Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.round1.perTeam.map((t) => {
+                    const standing = data.standings.find((s) => s.teamId === t.teamId);
+                    return (
+                      <tr key={t.teamId}>
+                        <td className="font-bold text-paper-white">{t.teamName}</td>
+                        <td>
+                          {t.image?.points !== null && t.image?.points !== undefined ? (
+                            <span className="font-mono text-xs font-bold text-comic-yellow bg-ink-black px-2 py-0.5 rounded border border-comic-yellow/40">
+                              +{t.image.points} PTS
+                            </span>
+                          ) : (
+                            <span className="text-xs text-paper-white/40 italic">
+                              {t.image?.status === "running" ? "Queued / Pending" : "Not submitted"}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="text-xs font-mono text-glitch-cyan font-bold">
+                            {t.connections?.solvedPuzzles ?? 0} / {t.connections?.totalPuzzles ?? 5} Puzzles Solved
+                          </span>
+                        </td>
+                        <td>
+                          {t.memory?.points !== null && t.memory?.points !== undefined ? (
+                            <span className="font-mono text-xs font-bold text-gadget-pink bg-ink-black px-2 py-0.5 rounded border border-gadget-pink/40">
+                              +{t.memory.points} PTS
+                            </span>
+                          ) : (
+                            <span className="text-xs text-paper-white/40 italic">
+                              {t.memory?.completed ? "Completed" : "In Progress"}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="font-mono text-sm font-bold text-comic-yellow">
+                            {standing?.points ?? 0} PTS
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
         {/* ROUND 1 — judge queue, connections pacing */}
         {round === 1 && data.round1 && (
           <>
