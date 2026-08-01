@@ -230,7 +230,7 @@ export default function AdminDashboard() {
             {round === 1 && !data.started ? (
               <button
                 disabled={busy}
-                onClick={() => callAdvance({ action: "start-quiz" })}
+                onClick={() => callAdvance({ action: "start-quiz" }, false)}
                 className="comic-btn comic-btn-yellow px-5 py-2.5 text-sm font-bold shadow-lg animate-pulse"
               >
                 ▶ START QUIZ
