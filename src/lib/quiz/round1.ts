@@ -84,11 +84,15 @@ export async function currentConnectionsPuzzle(
   const puzzles = connectionsPuzzles(games);
   if (puzzles.length === 0) return null;
 
-  // 1) Find the puzzle currently open by the coordinator (opensAt <= now and not closed)
-  const openPuzzle = puzzles.find(
+  // 1) Find all puzzles currently open by the coordinator (opensAt <= now and not closed)
+  const activeOpenPuzzles = puzzles.filter(
     (p) => p.opensAt && new Date(p.opensAt) <= now && (!p.closesAt || new Date(p.closesAt) > now)
   );
-  if (openPuzzle) return openPuzzle;
+
+  // Return the LATEST open puzzle in play sequence (e.g. Puzzle 5 when Puzzles 1-5 are open)
+  if (activeOpenPuzzles.length > 0) {
+    return activeOpenPuzzles[activeOpenPuzzles.length - 1];
+  }
 
   // 2) Fallback to latest puzzle that was opened
   const openedPuzzles = puzzles.filter((p) => p.opensAt && new Date(p.opensAt) <= now);
