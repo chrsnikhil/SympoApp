@@ -18,10 +18,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Malformed request" }, { status: 400 });
     }
 
-  try {
-    // ── Access-code path: coordinator (code 1684) ────────────────────────────
-    if (typeof body.code === "string" && body.code.trim()) {
-      const inputCode = body.code.trim();
+    const rawCode = typeof body.code === "string" ? body.code.trim() : "";
+    if (rawCode) {
+      const inputCode = rawCode;
       const codes = await collections.accessCodes();
       const teams = await collections.teams();
       const participants = await collections.participants();
@@ -68,7 +67,7 @@ export async function POST(request: Request) {
           coin: null,
           avatar: null,
         });
-        res.cookies.set({ ...sessionCookieOptions(), value: token });
+        res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
         return res;
       }
 
@@ -97,7 +96,7 @@ export async function POST(request: Request) {
         coin: team?.coin === undefined ? null : formatCoin(team.coin),
         avatar: team?.avatar ? avatarById(team.avatar) : null,
       });
-      res.cookies.set({ ...sessionCookieOptions(), value: token });
+      res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
       return res;
     }
 
@@ -177,115 +176,17 @@ export async function POST(request: Request) {
     const token = await sessionFor(team._id, participant._id, participant.role);
     const res = NextResponse.json({
       ok: true,
-<<<<<<< HEAD
-      token,
-      teamId: record.teamId.toString(),
-      role: record.role,
-      teamName: team?.name ?? null,
-      coin: team?.coin === undefined ? null : formatCoin(team.coin),
-      avatar: team?.avatar ? avatarById(team.avatar) : null,
-=======
       teamId: team._id.toString(),
       role: participant.role,
       teamName: team.name,
-      coin: formatCoin(parsed),
-      avatar: avatarById(team.avatar),
+      coin: team?.coin === undefined ? null : formatCoin(team.coin),
+      avatar: team?.avatar ? avatarById(team.avatar) : null,
       returning: true,
->>>>>>> origin/feature/ui-design
     });
     res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
     return res;
   } catch (err: any) {
-    console.error("Error in POST /api/enter:", err);
-    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
+    console.error("POST /api/enter error:", err);
+    return NextResponse.json({ error: err.message || "Server error" }, { status: 500 });
   }
-<<<<<<< HEAD
-
-  // ── Coin path: how teams get in ───────────────────────────────────────────
-  if (body.coin === undefined || body.coin === null || body.coin === "") {
-    return NextResponse.json({ error: "Enter the number on your coin" }, { status: 400 });
-  }
-
-  const parsed = parseCoin(String(body.coin));
-  if (parsed === null) {
-    return NextResponse.json({ error: "Coins are numbered 01 to 60" }, { status: 400 });
-  }
-
-  const forCoin = avatarForCoin(parsed);
-  if (!forCoin) {
-    return NextResponse.json({ error: "That isn't a valid coin" }, { status: 400 });
-  }
-
-  const coins = await collections.coins();
-  const teams = await collections.teams();
-  const participants = await collections.participants();
-
-  let disc = await coins.findOne({ _id: parsed });
-  if (!disc) {
-    await coins.insertOne({ _id: parsed, teamId: null, claimedAt: null });
-    disc = await coins.findOne({ _id: parsed });
-  }
-
-  if (!disc?.teamId) {
-    const newTeamId = new ObjectId();
-    await teams.insertOne({
-      _id: newTeamId,
-      name: `${forCoin.name} (Team ${formatCoin(parsed)})`,
-      coin: parsed,
-      avatar: forCoin.id,
-      createdAt: new Date(),
-    });
-    await coins.updateOne({ _id: parsed }, { $set: { teamId: newTeamId, claimedAt: new Date(), redeemedAt: new Date() } });
-    disc = await coins.findOne({ _id: parsed });
-  }
-
-  let team = await teams.findOne({ _id: disc!.teamId! });
-  if (!team) {
-    const newTeamId = new ObjectId();
-    await teams.insertOne({
-      _id: newTeamId,
-      name: `${forCoin.name} (Team ${formatCoin(parsed)})`,
-      coin: parsed,
-      avatar: forCoin.id,
-      createdAt: new Date(),
-    });
-    await coins.updateOne({ _id: parsed }, { $set: { teamId: newTeamId, claimedAt: new Date(), redeemedAt: new Date() } });
-    team = (await teams.findOne({ _id: newTeamId }))!;
-  }
-
-  let participant = await participants.findOne({ teamId: team._id! });
-  if (!participant?._id) {
-    const newPartId = new ObjectId();
-    await participants.insertOne({
-      _id: newPartId,
-      teamId: team._id!,
-      name: `${team.name} captain`,
-      role: "participant",
-      createdAt: new Date(),
-    });
-    participant = (await participants.findOne({ _id: newPartId }))!;
-  }
-
-  // Stamp token as redeemed/active on entry
-  await coins.updateOne({ _id: parsed }, { $set: { redeemedAt: new Date() } });
-
-  const token = await sessionFor(team._id!, participant._id, participant.role);
-  const res = NextResponse.json({
-    ok: true,
-    token,
-    teamId: team._id!.toString(),
-    role: participant.role,
-    teamName: team.name,
-    coin: formatCoin(parsed),
-    avatar: avatarById(team.avatar),
-    returning: true,
-  });
-  res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
-  return res;
-  } catch (err) {
-    console.error("[enter] POST error:", err);
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Server error — try again" }, { status: 500 });
-  }
-=======
->>>>>>> origin/feature/ui-design
 }
