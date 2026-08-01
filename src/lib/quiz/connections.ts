@@ -81,18 +81,34 @@ export async function scoreConnections(
     };
   }
 
-  // Check if answer is correct (supports singular, plural, and alias variations)
   const normGuess = guess.trim().toLowerCase();
   const normSingular = normGuess.endsWith("s") && normGuess.length > 3 ? normGuess.slice(0, -1) : normGuess;
-  
+
+  // Comprehensive fallback list of accepted aliases for all 5 puzzles
+  const PUZZLE_ALIASES: Record<string, string[]> = {
+    "connections-1": ["cookie", "cookies", "web cookie", "browser cookie", "http cookie", "session cookie"],
+    "connections-2": ["gpu", "gpus", "graphics card", "graphic card", "graphics processing unit", "nvidia", "nvidia gpu", "fps", "vram", "video card"],
+    "connections-3": ["blockchain", "block chain", "chain", "crypto", "cryptocurrency", "distributed ledger"],
+    "connections-4": ["pytorch", "tensorflow", "neural network", "neural net", "ai framework", "keras", "deep learning framework"],
+    "connections-5": ["api", "apis", "rest api", "web api", "application programming interface", "restful api", "endpoint"],
+  };
+
+  const hardcodedAliases = PUZZLE_ALIASES[challenge.slug] ?? [];
   const targetHashes = (challenge.config.acceptedHashes ?? [challenge.config.answerHash]).filter((h): h is string => Boolean(h));
 
-  const isCorrect = targetHashes.some(
-    (h) =>
-      h === hashAnswer(guess) ||
-      h === hashAnswer(normGuess) ||
-      h === hashAnswer(normSingular)
-  );
+  const isCorrect =
+    targetHashes.some(
+      (h) =>
+        h === hashAnswer(guess) ||
+        h === hashAnswer(normGuess) ||
+        h === hashAnswer(normSingular)
+    ) ||
+    hardcodedAliases.some(
+      (alias) =>
+        normGuess === alias.toLowerCase() ||
+        normSingular === alias.toLowerCase() ||
+        hashAnswer(normGuess) === hashAnswer(alias)
+    );
 
   if (isCorrect) {
     // Count prior correct answers during THIS image stage for timestamp ranking
