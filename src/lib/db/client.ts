@@ -1,4 +1,10 @@
 import { MongoClient, ObjectId, type Db, type Collection } from "mongodb";
+import dns from "dns";
+
+try {
+  dns.setServers(["8.8.8.8", "1.1.1.1"]);
+} catch {}
+
 import { requireEnv } from "@/lib/config";
 import type {
   AccessCode,
@@ -35,8 +41,56 @@ declare global {
   var __mongoIndexesEnsured: boolean | undefined;
 }
 
-function createClient(): Promise<MongoClient> {
-  const uri = requireEnv("MONGODB_URI");
+function fixDns() {
+  try {
+    dns.setServers(["8.8.8.8", "1.1.1.1", "8.8.4.4"]);
+  } catch {}
+}
+
+async function getConnectUri(srvUri: string): Promise<string> {
+  fixDns();
+  if (!srvUri.startsWith("mongodb+srv://")) return srvUri;
+
+  try {
+    const match = srvUri.match(/mongodb\+srv:\/\/([^:]+):([^@]+)@([^/]+)\/([^?]*)\??(.*)/);
+    if (!match) return srvUri;
+    const [, user, pass, host, db, query] = match;
+
+    const srvName = `_mongodb._tcp.${host}`;
+    const addresses = await new Promise<dns.SrvRecord[]>((resolve, reject) => {
+      dns.resolveSrv(srvName, (err, addrs) => {
+        if (err || !addrs || addrs.length === 0) reject(err);
+        else resolve(addrs);
+      });
+    });
+
+    const hostList = addresses.map((a) => `${a.name}:${a.port}`).join(",");
+    const params = new URLSearchParams(query);
+    if (!params.has("ssl") && !params.has("tls")) params.set("ssl", "true");
+    if (!params.has("authSource")) params.set("authSource", "admin");
+
+    return `mongodb://${user}:${pass}@${hostList}/${db}?${params.toString()}`;
+  } catch {
+    // If SRV lookup fails via local ISP DNS, use Google DNS resolved Atlas shards
+    try {
+      const match = srvUri.match(/mongodb\+srv:\/\/([^:]+):([^@]+)@([^/]+)\/([^?]*)\??(.*)/);
+      if (match) {
+        const [, user, pass, host, db, query] = match;
+        const domain = host.split(".").slice(1).join(".");
+        const hostList = `ac-vjjprmc-shard-00-00.${domain}:27017,ac-vjjprmc-shard-00-01.${domain}:27017,ac-vjjprmc-shard-00-02.${domain}:27017`;
+        const params = new URLSearchParams(query);
+        if (!params.has("ssl") && !params.has("tls")) params.set("ssl", "true");
+        if (!params.has("authSource")) params.set("authSource", "admin");
+        return `mongodb://${user}:${pass}@${hostList}/${db}?${params.toString()}`;
+      }
+    } catch {}
+    return srvUri;
+  }
+}
+
+async function createClient(): Promise<MongoClient> {
+  const rawUri = requireEnv("MONGODB_URI");
+  const uri = await getConnectUri(rawUri);
   return new MongoClient(uri, {
     maxPoolSize: 20,
     minPoolSize: 0,

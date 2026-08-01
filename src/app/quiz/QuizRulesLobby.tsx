@@ -2,8 +2,47 @@
 
 import type { Avatar } from "@/lib/quiz/avatars";
 import type { QuizRound } from "@/lib/db/types";
-import WebShooter, { WebNet } from "./WebShooter";
+import { WebNet } from "./WebShooter";
 import TeamAvatar from "@/components/ui/TeamAvatar";
+
+// Base canonical directive frames
+const BASE_DIRECTIVE_FRAMES = [
+  {
+    id: "01",
+    title: "DIRECTIVE 01 — THREE UNIVERSES",
+    colorClass: "text-red-600",
+    image: "/quiz/directive-1-comic.png",
+    objectPosition: "center 20%",
+    shortDesc: "Round 1: Replication, Connections, Memory. Round 2 & 3: MCQs.",
+  },
+  {
+    id: "02",
+    title: "DIRECTIVE 02 — SERVER CLOCK & SPEED",
+    colorClass: "text-blue-700",
+    image: "/quiz/directive-2-comic.png",
+    objectPosition: "center 35%",
+    shortDesc: "Speed matters! Points awarded for correct answers. Fastest time breaks ties.",
+  },
+  {
+    id: "03",
+    title: "DIRECTIVE 03 — PROCTORING & INTEGRITY",
+    colorClass: "text-red-600",
+    image: "/quiz/directive-3-comic.png",
+    objectPosition: "center 15%",
+    shortDesc: "Do not switch browser tabs or exit fullscreen. Proctoring flags are logged.",
+  },
+  {
+    id: "04",
+    title: "DIRECTIVE 04 — HEROIC ELIMINATION",
+    colorClass: "text-amber-700",
+    image: "/quiz/directive-4-comic.png",
+    objectPosition: "center 25%",
+    shortDesc: "Eliminated teams enter Live Spectator Mode to track remaining finalists.",
+  },
+];
+
+// Single continuous track sequence (frames + frames)
+const FILM_REEL_TRACK = [...BASE_DIRECTIVE_FRAMES, ...BASE_DIRECTIVE_FRAMES];
 
 export default function QuizRulesLobby({
   teamName,
@@ -24,28 +63,24 @@ export default function QuizRulesLobby({
   };
 
   return (
-    <main className="relative min-h-full px-5 py-8 overflow-hidden">
-
+    <main className="relative min-h-full px-4 sm:px-6 py-8 overflow-hidden">
       <div
         aria-hidden="true"
         className="pointer-events-none fixed inset-0"
         style={{
-          background: "radial-gradient(ellipse at 50% -10%, var(--web-blue-dark) 0%, transparent 65%)",
+          background:
+            "radial-gradient(ellipse at 50% -10%, var(--web-blue-dark) 0%, transparent 65%)",
         }}
       />
 
-      <div className="relative mx-auto max-w-4xl space-y-8">
-        {/* TEAM IDENTITY HEADER CARD */}
+      <div className="relative mx-auto max-w-5xl space-y-8">
+        {/* TEAM IDENTITY HEADER CARD (TOP) */}
         <header className="relative bg-surface comic-border p-6 sm:p-8 comic-tilt-right overflow-hidden shadow-[8px_8px_0px_0px_rgba(27,27,28,1)]">
           <div className="absolute inset-0 ben-day pointer-events-none opacity-20" />
           <WebNet colour={persona.colour} originX={95} originY={5} animate={false} />
           <div className="relative z-10 flex flex-wrap items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <TeamAvatar
-                avatar={avatar}
-                teamName={teamName}
-                size="lg"
-              />
+              <TeamAvatar avatar={avatar} teamName={teamName} size="lg" />
               <div>
                 <p className="font-label-sm text-xs uppercase tracking-widest text-primary font-bold">
                   ASSIGNED MULTIVERSE IDENTITY
@@ -57,7 +92,9 @@ export default function QuizRulesLobby({
                   <span className="font-headline-lg text-sm uppercase text-primary font-bold">
                     {persona.name}
                   </span>
-                  <span className="font-label-sm text-xs text-on-surface-variant uppercase">• {persona.tagline}</span>
+                  <span className="font-label-sm text-xs text-on-surface-variant uppercase">
+                    • {persona.tagline}
+                  </span>
                 </div>
               </div>
             </div>
@@ -69,68 +106,63 @@ export default function QuizRulesLobby({
           </div>
         </header>
 
-        {/* QUIZ RULES AND DIRECTIVES */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between border-b-2 border-on-surface/10 pb-3">
-            <h2 className="font-display-xl text-2xl text-on-surface uppercase italic tracking-wider">
-              📜 MULTIVERSE QUIZ BRIEFING & RULES
-            </h2>
-            <span className="font-label-sm text-xs uppercase tracking-widest text-primary font-bold">
-              OFFICIAL DIRECTIVES
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* RULE 1 */}
-            <div className="bg-surface-container-lowest comic-border p-5 space-y-2 comic-tilt-left">
-              <div className="flex items-center gap-2 font-headline-lg text-sm text-primary uppercase">
-                <span>⚡</span> DIRECTIVE 01 — THREE UNIVERSES
-              </div>
-              <p className="font-body-md text-xs text-on-surface-variant leading-relaxed">
-                <strong>Round 1:</strong> 3 Sequential Mini-Games (AI Image Replication, Connections Puzzles, & Memory Match).
-                <br />
-                <strong>Round 2:</strong> Rapid MCQs (6s read + 10s answer).
-                <br />
-                <strong>Round 3:</strong> Finalist MCQs with Live Multiverse Standings & Comeback Meter powers!
-              </p>
+        {/* COMIC REEL FILM STRIP (SINGLE CONTINUOUS CONVEYOR BELT) */}
+        <section className="w-full" data-purpose="rules-carousel" id="directives-film-strip">
+          <div className="film-strip-container">
+            {/* Top Sprockets */}
+            <div className="sprockets" aria-hidden="true">
+              {Array.from({ length: 24 }).map((_, i) => (
+                <div key={`top-${i}`} className="sprocket-hole" />
+              ))}
             </div>
 
-            {/* RULE 2 */}
-            <div className="bg-surface-container-lowest comic-border p-5 space-y-2 comic-tilt-right">
-              <div className="flex items-center gap-2 font-headline-lg text-sm text-secondary uppercase">
-                <span>⏱️</span> DIRECTIVE 02 — SERVER CLOCK & SPEED
+            {/* Film Track - Single Continuous Flex Row */}
+            <div className="py-2 overflow-hidden">
+              <div className="film-track">
+                {FILM_REEL_TRACK.map((item, idx) => (
+                  <article
+                    key={`reel-frame-${item.id}-${idx}`}
+                    className="w-64 sm:w-72 bg-[#fdf5e6] border-2 sm:border-4 border-black relative overflow-hidden flex-shrink-0 flex flex-col shadow-md"
+                  >
+                    <div className="halftone-overlay" />
+                    {/* Comic panel image container */}
+                    <div className="h-28 sm:h-32 overflow-hidden border-b-2 sm:border-b-4 border-black relative bg-[#1a1a1a]">
+                      <img
+                        src={item.image}
+                        alt={item.title}
+                        style={{ objectPosition: item.objectPosition }}
+                        className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-300 contrast-105 saturate-110"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
+                    </div>
+
+                    {/* Parchment text panel */}
+                    <div className="p-2.5 sm:p-3 bg-[#fdf5e6] flex flex-col justify-center flex-grow">
+                      <h3 className={`font-comic text-sm sm:text-base ${item.colorClass} leading-tight mb-0.5 uppercase`}>
+                        {item.title}
+                      </h3>
+                      <p className="text-[10px] sm:text-xs font-bold text-gray-800 line-clamp-2 leading-snug">
+                        {item.shortDesc}
+                      </p>
+                    </div>
+                  </article>
+                ))}
               </div>
-              <p className="font-body-md text-xs text-on-surface-variant leading-relaxed">
-                Speed matters! Points are awarded for correct answers, while your total response time across all questions serves as the primary tiebreaker.
-              </p>
             </div>
 
-            {/* RULE 3 */}
-            <div className="bg-surface-container-lowest comic-border p-5 space-y-2 comic-tilt-right">
-              <div className="flex items-center gap-2 font-headline-lg text-sm text-primary uppercase">
-                <span>🛡️</span> DIRECTIVE 03 — PROCTORING & INTEGRITY
-              </div>
-              <p className="font-body-md text-xs text-on-surface-variant leading-relaxed">
-                Do not switch browser tabs, blur windows, or exit full screen during live quiz rounds. Proctoring flags are logged directly to the coordinator panel.
-              </p>
-            </div>
-
-            {/* RULE 4 */}
-            <div className="bg-surface-container-lowest comic-border p-5 space-y-2 comic-tilt-left">
-              <div className="flex items-center gap-2 font-headline-lg text-sm text-tertiary uppercase">
-                <span>🕸️</span> DIRECTIVE 04 — HEROIC ELIMINATION
-              </div>
-              <p className="font-body-md text-xs text-on-surface-variant leading-relaxed">
-                If your team is cut after Round 1 or 2, you will seamlessly enter Live Spectator Mode to track the remaining finalists battling for victory.
-              </p>
+            {/* Bottom Sprockets */}
+            <div className="sprockets" aria-hidden="true">
+              {Array.from({ length: 24 }).map((_, i) => (
+                <div key={`bottom-${i}`} className="sprocket-hole" />
+              ))}
             </div>
           </div>
         </section>
 
         {/* WAITING ROOM FOOTER BADGE */}
-        <footer className="bg-tertiary-fixed text-on-tertiary-fixed comic-border p-6 text-center space-y-3 comic-tilt-left">
+        <footer className="bg-[#f0da74] text-black comic-border p-6 text-center space-y-3 comic-tilt-left shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] relative">
           <div className="text-3xl animate-bounce">📡</div>
-          <h3 className="font-display-xl text-lg uppercase tracking-wide">
+          <h3 className="font-display-xl text-lg sm:text-xl uppercase tracking-wide">
             STAND BY FOR EVENT INITIALIZATION
           </h3>
           <p className="font-body-md text-xs font-bold max-w-md mx-auto">

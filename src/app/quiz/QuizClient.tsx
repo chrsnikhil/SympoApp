@@ -162,7 +162,12 @@ export default function QuizClient({
   }
 
   /* PRE-QUIZ LOBBY & RULES SCREEN — SHOWS TEAM DETAILS AND RULES BEFORE START */
-  if (!startedState && !isAdmin) {
+  const forceRulesView =
+    typeof window !== "undefined" &&
+    (new URLSearchParams(window.location.search).get("view") === "rules" ||
+      new URLSearchParams(window.location.search).has("rules"));
+
+  if (forceRulesView || (!startedState && !isAdmin)) {
     return <QuizRulesLobby teamName={teamName} avatar={avatar} round={activeRoundState} />;
   }
 
