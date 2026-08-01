@@ -614,6 +614,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const submittingRef = useRef(false);
 
   const images = game.images ?? [];
   const totalImages = game.totalImages ?? 4;
@@ -673,12 +674,13 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
   }, [allTilesRevealed, disabled, hasSubmittedForCurrentTile, isCompleted, handleTimeout]);
 
   async function submit() {
-    if (busy || disabled || hasSubmittedForCurrentTile || isCompleted) return;
+    if (submittingRef.current || busy || disabled || hasSubmittedForCurrentTile || isCompleted) return;
     if (!value.trim()) {
       setError("Please type your answer in the box first!");
       inputRef.current?.focus();
       return;
     }
+    submittingRef.current = true;
     const submittedVal = value.trim();
     setBusy(true);
     setError(null);
@@ -699,6 +701,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
       setError("Submission failed");
     } finally {
       setBusy(false);
+      submittingRef.current = false;
     }
   }
 
