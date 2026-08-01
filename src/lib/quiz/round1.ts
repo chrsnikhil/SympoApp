@@ -114,17 +114,23 @@ export async function round1Phase(teamId: ObjectId, games: Challenge[], now: Dat
   const quizState = await stateCol.findOne({ _id: "quiz" });
   const round1Start = quizState?.round1StartedAt ?? quizState?.startedAt;
 
-  if (imageGame) {
+  // Check if coordinator has opened ANY Connections puzzle live on stage
+  const anyConnectionsOpened = puzzles.some((p) => p.opensAt && new Date(p.opensAt) <= now);
+
+  if (imageGame && !anyConnectionsOpened) {
+    const subs = await collections.submissions();
+    const hasImageSub = await subs.findOne({ challengeId: imageGame._id, teamId });
     const isClosedGlobal = imageGame.closesAt ? now > imageGame.closesAt : false;
     const startMs = imageGame.opensAt
       ? new Date(imageGame.opensAt).getTime()
       : round1Start
         ? new Date(round1Start).getTime()
         : 0;
-    const DEFAULT_IMAGE_DURATION_MS = 270_000; // 4.5 minutes
+    const DEFAULT_IMAGE_DURATION_MS = 210_000; // 3.5 minutes
     const isTimedOut = startMs > 0 ? now.getTime() - startMs >= DEFAULT_IMAGE_DURATION_MS : false;
 
-    if (!isClosedGlobal && !isTimedOut) {
+    // Stay in Game 1 ONLY if: not closed, not timed out, team hasn't submitted an image, AND coordinator hasn't opened Connections
+    if (!isClosedGlobal && !isTimedOut && !hasImageSub) {
       return "image";
     }
   }
