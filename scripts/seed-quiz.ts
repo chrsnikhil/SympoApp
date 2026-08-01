@@ -47,31 +47,31 @@ const CONNECTIONS_PUZZLES: ConnectionsPuzzle[] = [
   {
     title: "Puzzle 1: Four pictures. One shared technical term.",
     clue: "One is delicious. The other knows everything about you.",
-    answer: "recursion",
+    answer: "cookie",
     images: ["/quiz/p1-a.png", "/quiz/p1-b.png", "/quiz/p1-c.png", "/quiz/p1-d.png"],
   },
   {
     title: "Puzzle 2: Three pictures. One shared technical term.",
     clue: "Gamers chase it. AI depends on it.",
-    answer: "single responsibility",
+    answer: "gpu",
     images: ["/quiz/p2-a.png", "/quiz/p2-b.png", "/quiz/p2-c.png"],
   },
   {
     title: "Puzzle 3: Three pictures. One shared technical term.",
     clue: "A digital chain that remembers everything.",
-    answer: "fetch",
+    answer: "blockchain",
     images: ["/quiz/p3-a.png", "/quiz/p3-b.png", "/quiz/p3-c.png"],
   },
   {
     title: "Puzzle 4: Three pictures. One shared technical term.",
     clue: "A framework where mathematics meets AI.",
-    answer: "race condition",
+    answer: "pytorch",
     images: ["/quiz/p4-a.png", "/quiz/p4-b.png", "/quiz/p4-c.png"],
   },
   {
     title: "Puzzle 5: Three pictures. One shared technical term.",
     clue: "Different apps. One common language.",
-    answer: "hierarchy",
+    answer: "api",
     images: ["/quiz/p5-a.png", "/quiz/p5-b.png", "/quiz/p5-c.png"],
   },
 ];

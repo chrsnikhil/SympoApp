@@ -74,8 +74,13 @@ export async function scoreConnections(
     };
   }
 
-  // Check if answer is correct
-  const isCorrect = hashAnswer(guess) === challenge.config.answerHash;
+  // Check if answer is correct (supports both singular and plural forms)
+  const normGuess = guess.trim().toLowerCase();
+  const normSingular = normGuess.endsWith("s") && normGuess.length > 3 ? normGuess.slice(0, -1) : normGuess;
+  
+  const isCorrect =
+    hashAnswer(guess) === challenge.config.answerHash ||
+    hashAnswer(normSingular) === challenge.config.answerHash;
 
   if (isCorrect) {
     // Count prior correct answers during THIS image stage for timestamp ranking
