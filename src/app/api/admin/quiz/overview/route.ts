@@ -130,7 +130,9 @@ export async function GET(request: Request) {
 
         for (const s of doneSubs) {
           const teamId = String(s.teamId);
-          const dataUrl = s.payload ? `/api/admin/quiz/image?id=${s.payload}` : null;
+          const img = promptImgByTeam.get(teamId);
+          const imgId = s.payload || img?._id?.toString() || null;
+          const dataUrl = imgId ? `/api/admin/quiz/image?id=${imgId}` : null;
           const meta = s.verdict?.meta as Record<string, unknown> | undefined;
           const simNum = typeof meta?.similarity === "number" ? meta.similarity : undefined;
           const sumStr = typeof meta?.summary === "string" ? meta.summary : undefined;
