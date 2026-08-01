@@ -62,13 +62,21 @@ export async function scoreConnections(
 
   // Handle No Answer / Timer Expiry
   if (guess === "__timeout__" || !guess) {
+    const attemptedCount = await subs.countDocuments({
+      challengeId: challenge._id,
+      teamId,
+      payload: { $ne: "__timeout__" },
+    });
+    // -2 pts penalty only if team made 0 attempts across the whole puzzle; 0 penalty if they tried earlier
+    const timeoutPenalty = attemptedCount === 0 ? -2 : 0;
+
     return {
       correct: false,
-      points: stageRules.noAnswerPenalty,
+      points: timeoutPenalty,
       meta: {
         reason: "no-answer",
         imageIndex,
-        penalty: stageRules.noAnswerPenalty,
+        penalty: timeoutPenalty,
       },
     };
   }

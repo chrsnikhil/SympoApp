@@ -804,7 +804,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
             </p>
           )}
           <p className="text-xs text-glitch-cyan font-mono animate-pulse">
-            Moving to next puzzle…
+            ⏳ Locked in! Waiting for the coordinator to open the next puzzle for all teams…
           </p>
         </div>
       )}
