@@ -173,17 +173,15 @@ export async function resolvePromptImage(slug: string, similarityByTeam: Record<
   const [challenges, subs] = await Promise.all([collections.challenges(), collections.submissions()]);
 
   const challenge = await challenges.findOne({ type: "quiz", slug });
-  if (!challenge?._id) throw new Error(`No such quiz challenge: ${slug}`);
-
+  if (!challenge?._id) throw new Error(`No such challenge: ${slug}`);
   const awards: ResolvedAward[] = [];
 
   for (const [teamIdStr, raw] of Object.entries(similarityByTeam)) {
     if (raw === undefined || raw === null) continue;
-
     const teamId = new ObjectId(teamIdStr);
-    const percentage = raw > 1 ? raw : raw * 100;
-    const points = Math.min(100, Math.max(0, Math.round(percentage)));
-    const similarity = Math.min(1, Math.max(0, points / 100));
+    const maxPoints = challenge.points ?? 10;
+    const similarity = Math.min(1, Math.max(0, raw > 1 ? raw / 100 : raw));
+    const points = Math.min(maxPoints, Math.max(0, Math.round(similarity * maxPoints)));
 
     // Find existing submission or insert one
     let sub = await subs.findOne({ challengeId: challenge._id, teamId, status: { $ne: "done" } });
