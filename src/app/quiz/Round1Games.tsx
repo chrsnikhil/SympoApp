@@ -190,12 +190,29 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
   const openMs = game.opensAt ? new Date(game.opensAt).getTime() : phaseStartMs;
   const closeMs = game.closesAt ? new Date(game.closesAt).getTime() : openMs + DEFAULT_GAME_SECONDS * 1000;
 
-  // 10-second pre-game rules gate shown ONCE per phase
-  const RULES_GATE_MS = 10_000;
-  const rulesGateStartMs = phase === "connections" ? phaseStartMs : openMs;
-  const rulesGateEndsAt = rulesGateStartMs + RULES_GATE_MS;
-  const rulesSecondsLeft = Math.max(0, Math.ceil((rulesGateEndsAt - currentNow) / 1000));
-  const isRulesShowing = phase !== "done" && rulesSecondsLeft > 0 && (phase !== "connections" || (game.puzzleIndex ?? 1) === 1);
+  // Dedicated 10-second pre-game rules gate shown for 10s on entering each game phase
+  const [seenRules, setSeenRules] = useState<Record<string, boolean>>({});
+  const [rulesTimer, setRulesTimer] = useState<number>(10);
+
+  useEffect(() => {
+    if (phase === "done") return;
+    if (!seenRules[phase]) {
+      setRulesTimer(10);
+      const timer = setInterval(() => {
+        setRulesTimer((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            setSeenRules((s) => ({ ...s, [phase]: true }));
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [phase, seenRules]);
+
+  const isRulesShowing = phase !== "done" && !seenRules[phase];
 
   const notOpenYet = game.opensAt && currentNow < new Date(game.opensAt).getTime();
   const closed = !!(game.closesAt && currentNow > new Date(game.closesAt).getTime());
@@ -221,13 +238,13 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
     }
   }, [isRulesShowing, secondsLeft, closed, phase, game.status, game.uploadedImage, game.slug, onChanged]);
 
-  /* DEDICATED PRE-GAME RULES GATE — SYNCHRONIZED SERVER-WIDE COUNTDOWN */
+  /* DEDICATED PRE-GAME RULES GATE — 10-SECOND BRIEFING COUNTDOWN */
   if (isRulesShowing) {
     return (
       <PreGameRulesGate
         phase={phase}
         points={game.points}
-        secondsLeft={rulesSecondsLeft}
+        secondsLeft={rulesTimer}
       />
     );
   }
