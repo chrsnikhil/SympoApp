@@ -751,15 +751,13 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
       {/* ANSWER INPUT FORM */}
       {!isCompleted ? (
         <div className="space-y-3 pt-2">
-          {hasSubmittedForCurrentTile ? (
+          {hasSubmittedForCurrentTile || (allTilesRevealed && finalSecondsLeft === 0) || hasTimedOutRef.current ? (
             <div className="border-2 border-comic-yellow/50 bg-ink-black/80 p-4 text-center rounded space-y-1">
               <p className="font-comic text-sm text-comic-yellow">
-                🔒 Attempt {history.length} Submitted: &quot;{lastAttempt?.payload === "__timeout__" ? "No Answer" : lastAttempt?.payload}&quot;
+                🔒 {allTilesRevealed && finalSecondsLeft === 0 ? "Time's Up! Attempt Window Closed." : `Attempt ${history.length} Submitted: "${lastAttempt?.payload === "__timeout__" ? "No Answer" : lastAttempt?.payload}"`}
               </p>
               <p className="text-xs text-paper-white/70">
-                {revealedCount < totalImages
-                  ? `Wait for Tile ${revealedCount + 1} to be revealed by the coordinator for your next attempt!`
-                  : `Evaluation in progress for final window!`}
+                ⏳ Waiting for the coordinator to open the next puzzle for all teams…
               </p>
             </div>
           ) : (
