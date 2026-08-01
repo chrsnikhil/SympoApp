@@ -630,19 +630,19 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
   // Final 10-second countdown once ALL tiles are revealed by the coordinator
   const allTilesRevealed = revealedCount >= totalImages;
   const [finalSecondsLeft, setFinalSecondsLeft] = useState(10);
-  const hasTimedOutRef = useRef(false);
+  const [hasTimedOut, setHasTimedOut] = useState(false);
 
   useEffect(() => {
     setValue("");
     setBusy(false);
     setError(null);
-    hasTimedOutRef.current = false;
+    setHasTimedOut(false);
     setFinalSecondsLeft(10);
   }, [game.slug]);
 
   const handleTimeout = useCallback(async () => {
-    if (hasTimedOutRef.current || isCompleted || disabled) return;
-    hasTimedOutRef.current = true;
+    if (hasTimedOut || isCompleted || disabled) return;
+    setHasTimedOut(true);
     try {
       await fetch("/api/submit", {
         method: "POST",
@@ -652,12 +652,12 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
     } finally {
       onSolved();
     }
-  }, [game.slug, isCompleted, disabled, onSolved]);
+  }, [game.slug, isCompleted, disabled, onSolved, hasTimedOut]);
 
   useEffect(() => {
     if (!allTilesRevealed || disabled || hasSubmittedForCurrentTile || isCompleted) return;
     setFinalSecondsLeft(10);
-    hasTimedOutRef.current = false;
+    setHasTimedOut(false);
 
     const timer = setInterval(() => {
       setFinalSecondsLeft((s) => {
@@ -783,7 +783,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
       {/* ANSWER INPUT FORM */}
       {!isCompleted ? (
         <div className="space-y-3 pt-2">
-          {hasSubmittedForCurrentTile || (allTilesRevealed && finalSecondsLeft === 0) || hasTimedOutRef.current ? (
+          {hasSubmittedForCurrentTile || (allTilesRevealed && finalSecondsLeft === 0) || hasTimedOut ? (
             <div className="border-2 border-comic-yellow/50 bg-ink-black/80 p-4 text-center rounded space-y-1">
               <p className="font-comic text-sm text-comic-yellow">
                 🔒 {allTilesRevealed && finalSecondsLeft === 0 ? "Time's Up! Attempt Window Closed." : `Attempt ${history.length} Submitted: "${lastAttempt?.payload === "__timeout__" ? "No Answer" : lastAttempt?.payload}"`}
