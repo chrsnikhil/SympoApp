@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ObjectId } from "mongodb";
 import { ForbiddenError, requireAdmin, UnauthorizedError } from "@/lib/auth/guard";
 import { collections } from "@/lib/db/client";
 import { avatarById, avatarForCoin, formatCoin } from "@/lib/quiz/avatars";
@@ -73,8 +74,9 @@ export async function GET(request: Request) {
       const allMemory = memoryGame ? await memoryStates.find({ challengeSlug: memoryGame.slug }).toArray() : [];
       const memoryByTeam = new Map(allMemory.map((m) => [String(m.teamId), m]));
 
-      const judgeQueue: Array<{ teamId: string; teamName: string; submittedAt: string; imageId: string | null }> = [];
+      const judgeQueue: Array<{ teamId: string; teamName: string; submittedAt: string; imageId: string | null; dataUrl: string | null }> = [];
       if (imageGame) {
+        const promptImagesCol = await collections.promptImages();
         const latestByTeam = new Map<string, (typeof allSubs)[number]>();
         for (const s of allSubs) {
           if (String(s.challengeId) !== String(imageGame._id) || s.status !== "running") continue;
@@ -85,11 +87,17 @@ export async function GET(request: Request) {
           }
         }
         for (const [teamId, s] of latestByTeam) {
+          let dataUrl: string | null = null;
+          if (s.payload && ObjectId.isValid(s.payload)) {
+            const imgDoc = await promptImagesCol.findOne({ _id: new ObjectId(s.payload) });
+            dataUrl = imgDoc?.dataUrl ?? null;
+          }
           judgeQueue.push({
             teamId,
             teamName: teamById.get(teamId)?.name ?? "Unknown",
             submittedAt: s.receivedAt.toISOString(),
             imageId: s.payload ?? null,
+            dataUrl,
           });
         }
         judgeQueue.sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());

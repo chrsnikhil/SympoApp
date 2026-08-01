@@ -44,7 +44,7 @@ interface Overview {
       memory: { flipsUsed: number; flipCap: number; matchedPairs: number; totalPairs: number; completed: boolean; points: number | null } | null;
     }>;
   };
-  judgeQueue?: Array<{ teamId: string; teamName: string; submittedAt: string; imageId: string | null }>;
+  judgeQueue?: Array<{ teamId: string; teamName: string; submittedAt: string; imageId: string | null; dataUrl?: string | null }>;
   connectionsPuzzles?: ConnectionsPuzzleInfo[];
   comeback?: Array<{ teamId: string; teamName: string; bottomStreak: number; ability: string | null; usableOnSlug: string | null; used: boolean }>;
   flags?: Array<{ teamId: string; teamName: string; tabSwitch: number; windowBlur: number; fullscreenExit: number; lastAt: string }>;
@@ -66,6 +66,7 @@ export default function AdminDashboard() {
   const [assignCoin, setAssignCoin] = useState("");
   const [assignTeamName, setAssignTeamName] = useState("");
   const [customCount, setCustomCount] = useState("");
+  const [previewModal, setPreviewModal] = useState<{ teamName: string; dataUrl: string } | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/admin/quiz/overview?round=${round}`, { cache: "no-store" });
@@ -373,14 +374,30 @@ export default function AdminDashboard() {
                       <thead>
                         <tr>
                           <th>Team</th>
-                          <th>Submitted</th>
+                          <th>Uploaded Image Preview</th>
+                          <th>Submitted Time</th>
                         </tr>
                       </thead>
                       <tbody>
                         {data.judgeQueue.map((q) => (
                           <tr key={q.teamId}>
-                            <td>{q.teamName}</td>
-                            <td>{new Date(q.submittedAt).toLocaleTimeString()}</td>
+                            <td className="font-bold text-paper-white">{q.teamName}</td>
+                            <td>
+                              {q.dataUrl ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewModal({ teamName: q.teamName, dataUrl: q.dataUrl! })}
+                                  className="group flex items-center gap-2.5 border border-paper-white/20 bg-ink-black/60 p-1.5 rounded hover:border-glitch-cyan transition-colors"
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={q.dataUrl} alt={q.teamName} className="h-12 w-12 object-cover rounded border border-paper-white/20 bg-ink-black" />
+                                  <span className="text-xs text-glitch-cyan font-bold group-hover:underline">🔍 View Full Image</span>
+                                </button>
+                              ) : (
+                                <span className="text-xs text-paper-white/40 italic">No image data</span>
+                              )}
+                            </td>
+                            <td className="font-mono text-xs">{new Date(q.submittedAt).toLocaleTimeString()}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -611,6 +628,36 @@ export default function AdminDashboard() {
                   <span className="font-mono text-2xl font-bold text-comic-yellow">{s.points} PTS</span>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {previewModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-ink-black/90 p-4 backdrop-blur-md anim-pop">
+          <div className="halftone panel border-2 border-glitch-cyan max-w-2xl w-full p-6 space-y-4 relative shadow-[0_0_30px_rgba(0,229,255,0.3)]">
+            <div className="flex items-center justify-between border-b border-paper-white/10 pb-3">
+              <h3 className="font-display text-lg text-glitch-cyan uppercase tracking-wider">
+                🖼️ Uploaded Image Preview: <span className="text-paper-white">{previewModal.teamName}</span>
+              </h3>
+              <button
+                onClick={() => setPreviewModal(null)}
+                className="comic-btn comic-btn-pink px-3 py-1 text-xs"
+              >
+                ✕ Close
+              </button>
+            </div>
+            <div className="flex justify-center p-2 bg-ink-black/80 border border-paper-white/20 rounded">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewModal.dataUrl} alt={previewModal.teamName} className="max-h-[70vh] object-contain rounded" />
+            </div>
+            <div className="text-center">
+              <button
+                onClick={() => setPreviewModal(null)}
+                className="comic-btn comic-btn-cyan px-6 py-2 text-xs font-bold"
+              >
+                Close Preview
+              </button>
             </div>
           </div>
         </div>
