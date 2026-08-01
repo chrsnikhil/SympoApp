@@ -24,7 +24,7 @@ export default function EnterPage() {
         if (res.ok) {
           const data = await res.json();
           const rt = new URLSearchParams(window.location.search).get("rt");
-          if (rt && !rt.includes("/enter")) {
+          if (rt && !rt.endsWith("/") && !rt.includes("/enter") && !rt.endsWith("/enter")) {
             window.location.href = rt;
           } else if (data.role === "admin") {
             window.location.href = "/admin/quiz";
@@ -73,7 +73,7 @@ export default function EnterPage() {
       }
 
       const rt = new URLSearchParams(window.location.search).get("rt");
-      if (rt) {
+      if (rt && !rt.endsWith("/") && !rt.includes("/enter") && !rt.endsWith("/enter")) {
         window.location.href = rt;
         return;
       }
