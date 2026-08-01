@@ -113,30 +113,44 @@ export async function POST(request: Request) {
     disc = await coins.findOne({ _id: parsed });
   }
 
-  // Require coordinator token assignment in Admin Token Management before team login
   if (!disc?.teamId) {
-    return NextResponse.json(
-      { error: `Token #${formatCoin(parsed)} is not assigned to any team yet. Ask your coordinator to assign Token #${formatCoin(parsed)} in Admin Token Management!` },
-      { status: 403 }
-    );
+    const newTeamId = new ObjectId();
+    await teams.insertOne({
+      _id: newTeamId,
+      name: `${forCoin.name} (Team ${formatCoin(parsed)})`,
+      coin: parsed,
+      avatar: forCoin.id,
+      createdAt: new Date(),
+    });
+    await coins.updateOne({ _id: parsed }, { $set: { teamId: newTeamId, claimedAt: new Date() } });
+    disc = await coins.findOne({ _id: parsed });
   }
 
-  const team = await teams.findOne({ _id: disc.teamId });
-  let participant = await participants.findOne({ teamId: disc.teamId });
+  let team = await teams.findOne({ _id: disc!.teamId! });
+  if (!team) {
+    const newTeamId = new ObjectId();
+    await teams.insertOne({
+      _id: newTeamId,
+      name: `${forCoin.name} (Team ${formatCoin(parsed)})`,
+      coin: parsed,
+      avatar: forCoin.id,
+      createdAt: new Date(),
+    });
+    await coins.updateOne({ _id: parsed }, { $set: { teamId: newTeamId, claimedAt: new Date() } });
+    team = (await teams.findOne({ _id: newTeamId }))!;
+  }
+
+  let participant = await participants.findOne({ teamId: team._id! });
   if (!participant?._id) {
     const newPartId = new ObjectId();
     await participants.insertOne({
       _id: newPartId,
-      teamId: disc.teamId,
-      name: `${team?.name ?? "Team"} captain`,
+      teamId: team._id!,
+      name: `${team.name} captain`,
       role: "participant",
       createdAt: new Date(),
     });
     participant = (await participants.findOne({ _id: newPartId }))!;
-  }
-
-  if (!team) {
-    return NextResponse.json({ error: "That coin's team is missing — tell a coordinator" }, { status: 409 });
   }
 
   // Stamp token as redeemed/active on entry
