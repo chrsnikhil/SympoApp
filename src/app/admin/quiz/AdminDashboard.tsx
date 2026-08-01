@@ -360,7 +360,7 @@ export default function AdminDashboard() {
                         <button
                           disabled={busy}
                           onClick={async () => {
-                            await callAdvance({ action: "restore-team", teamId: s.teamId });
+                            await callAdvance({ action: "restore-team", teamId: s.teamId }, false);
                           }}
                           className="px-2.5 py-1 text-[0.65rem] font-bold border border-signal-good bg-signal-good/20 text-signal-good hover:bg-signal-good hover:text-ink-black transition-colors rounded"
                           title="Restore team back into the round"
@@ -371,7 +371,7 @@ export default function AdminDashboard() {
                         <button
                           disabled={busy}
                           onClick={async () => {
-                            await callAdvance({ action: "eliminate-team", teamId: s.teamId });
+                            await callAdvance({ action: "eliminate-team", teamId: s.teamId }, false);
                           }}
                           className="px-2.5 py-1 text-[0.65rem] font-bold border border-spider-red bg-spider-red/20 text-spider-red hover:bg-spider-red hover:text-paper-white transition-colors rounded"
                           title="Eliminate team instantly"
@@ -541,7 +541,7 @@ export default function AdminDashboard() {
                           {notOpen ? (
                             <button
                               disabled={busy}
-                              onClick={() => callAdvance({ action: "open", slug: p.slug, minutes: 30 })}
+                              onClick={() => callAdvance({ action: "open", slug: p.slug, minutes: 30 }, false)}
                               className="comic-btn comic-btn-cyan px-3 py-1.5 text-xs font-bold"
                             >
                               ▶ Start Puzzle & Reveal Tile 1
@@ -554,7 +554,7 @@ export default function AdminDashboard() {
                           ) : (
                             <button
                               disabled={busy || closed}
-                              onClick={() => callAdvance({ action: "reveal-next-image", slug: p.slug })}
+                              onClick={() => callAdvance({ action: "reveal-next-image", slug: p.slug }, false)}
                               className="comic-btn comic-btn-cyan px-3 py-1.5 text-xs font-bold"
                             >
                               ▶ Reveal Next Tile (Tile {p.revealedCount + 1} of {p.totalImages})
