@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { collections } from "@/lib/db/client";
+import { SESSION_COOKIE } from "@/lib/config";
 import { hashCode, normaliseCode, signSession, sessionCookieOptions } from "@/lib/auth/session";
 import { avatarById, avatarForCoin, formatCoin, parseCoin } from "@/lib/quiz/avatars";
 

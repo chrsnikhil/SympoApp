@@ -75,7 +75,7 @@ export default function EnterPage() {
         body: JSON.stringify(body),
       });
       const text = await res.text();
-      let data: { error?: string; role?: string } = {};
+      let data: { error?: string; role?: string; token?: string } = {};
       try {
         data = text ? JSON.parse(text) : {};
       } catch {
