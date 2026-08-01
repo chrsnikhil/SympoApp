@@ -632,6 +632,14 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
   const [finalSecondsLeft, setFinalSecondsLeft] = useState(10);
   const hasTimedOutRef = useRef(false);
 
+  useEffect(() => {
+    setValue("");
+    setBusy(false);
+    setError(null);
+    hasTimedOutRef.current = false;
+    setFinalSecondsLeft(10);
+  }, [game.slug]);
+
   const handleTimeout = useCallback(async () => {
     if (hasTimedOutRef.current || isCompleted || disabled) return;
     hasTimedOutRef.current = true;
