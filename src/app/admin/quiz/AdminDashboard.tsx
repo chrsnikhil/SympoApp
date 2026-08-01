@@ -45,6 +45,7 @@ interface Overview {
     }>;
   };
   judgeQueue?: Array<{ teamId: string; teamName: string; submittedAt: string; imageId: string | null; dataUrl?: string | null }>;
+  judgedImages?: Array<{ teamId: string; teamName: string; points: number; similarity: number | null; summary: string | null; dataUrl: string | null; judgedAt: string }>;
   connectionsPuzzles?: ConnectionsPuzzleInfo[];
   comeback?: Array<{ teamId: string; teamName: string; bottomStreak: number; ability: string | null; usableOnSlug: string | null; used: boolean }>;
   flags?: Array<{ teamId: string; teamName: string; tabSwitch: number; windowBlur: number; fullscreenExit: number; lastAt: string }>;
@@ -404,6 +405,67 @@ export default function AdminDashboard() {
                     </table>
                   </div>
                 )}
+              </section>
+            )}
+
+            {data.judgedImages && data.judgedImages.length > 0 && (
+              <section className="panel p-5 border-2 border-signal-good/40 bg-signal-good/5">
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="font-display text-sm uppercase tracking-wide text-signal-good font-bold flex items-center gap-2">
+                    <span>🏆</span> Judged Image Replication Results ({data.judgedImages.length} teams scored)
+                  </h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Rank / Team</th>
+                        <th>Uploaded Image</th>
+                        <th>Awarded Score</th>
+                        <th>Similarity</th>
+                        <th>AI Feedback / Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.judgedImages.map((j, i) => (
+                        <tr key={j.teamId}>
+                          <td>
+                            <span className="font-display text-glitch-cyan mr-2 font-bold">#{i + 1}</span>
+                            <span className="font-bold text-paper-white">{j.teamName}</span>
+                          </td>
+                          <td>
+                            {j.dataUrl ? (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewModal({ teamName: j.teamName, dataUrl: j.dataUrl! })}
+                                className="group flex items-center gap-2.5 border border-paper-white/20 bg-ink-black/60 p-1.5 rounded hover:border-glitch-cyan transition-colors"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={j.dataUrl} alt={j.teamName} className="h-12 w-12 object-cover rounded border border-paper-white/20 bg-ink-black" />
+                                <span className="text-xs text-glitch-cyan font-bold group-hover:underline">🔍 View Full Image</span>
+                              </button>
+                            ) : (
+                              <span className="text-xs text-paper-white/40 italic">No image data</span>
+                            )}
+                          </td>
+                          <td>
+                            <span className="font-mono text-sm font-bold text-comic-yellow bg-ink-black/80 px-2.5 py-1 border border-comic-yellow/40 rounded">
+                              +{j.points} PTS
+                            </span>
+                          </td>
+                          <td>
+                            <span className="font-mono text-xs text-glitch-cyan font-bold">
+                              {j.similarity !== null ? `${j.similarity}% Match` : "Graded"}
+                            </span>
+                          </td>
+                          <td className="text-xs text-paper-white/80 max-w-md truncate">
+                            {j.summary ?? "Graded automatically"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </section>
             )}
 

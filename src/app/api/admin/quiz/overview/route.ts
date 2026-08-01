@@ -103,6 +103,45 @@ export async function GET(request: Request) {
         judgeQueue.sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
       }
 
+      const judgedImages: Array<{
+        teamId: string;
+        teamName: string;
+        points: number;
+        similarity: number | null;
+        summary: string | null;
+        dataUrl: string | null;
+        judgedAt: string;
+      }> = [];
+
+      if (imageGame) {
+        const promptImagesCol = await collections.promptImages();
+        const doneSubs = allSubs.filter(
+          (s) => String(s.challengeId) === String(imageGame._id) && s.status === "done"
+        );
+        for (const s of doneSubs) {
+          const teamId = String(s.teamId);
+          let dataUrl: string | null = null;
+          if (s.payload && ObjectId.isValid(s.payload)) {
+            const imgDoc = await promptImagesCol.findOne({ _id: new ObjectId(s.payload) });
+            dataUrl = imgDoc?.dataUrl ?? null;
+          }
+          const meta = s.verdict?.meta as Record<string, unknown> | undefined;
+          const simNum = typeof meta?.similarity === "number" ? meta.similarity : undefined;
+          const sumStr = typeof meta?.summary === "string" ? meta.summary : undefined;
+
+          judgedImages.push({
+            teamId,
+            teamName: teamById.get(teamId)?.name ?? "Unknown",
+            points: s.verdict?.points ?? 0,
+            similarity: simNum !== undefined ? Math.round(simNum * 100) : null,
+            summary: sumStr ?? null,
+            dataUrl,
+            judgedAt: s.receivedAt.toISOString(),
+          });
+        }
+        judgedImages.sort((a, b) => b.points - a.points);
+      }
+
       // Solved-count per puzzle, for the coordinator's reveal panel — how many
       // teams have already cleared the puzzle currently being paced.
       const solvedByPuzzle = new Map<string, number>();
@@ -155,6 +194,7 @@ export async function GET(request: Request) {
 
       payload.round1 = { games: games.map((g) => ({ slug: g.slug, title: g.title, format: g.config.format, points: g.points })), perTeam };
       payload.judgeQueue = judgeQueue;
+      payload.judgedImages = judgedImages;
       payload.connectionsPuzzles = puzzles.map((p) => ({
         slug: p.slug,
         title: p.title,
