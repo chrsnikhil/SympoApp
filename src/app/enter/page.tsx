@@ -67,7 +67,7 @@ export default function EnterPage() {
       }
 
       if (!res.ok) {
-        setError(data.error ?? "That didn't work");
+        setError(data.error || "Connection error — please try again");
         return;
       }
 
