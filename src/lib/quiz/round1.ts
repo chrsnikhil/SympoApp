@@ -61,7 +61,13 @@ async function connectionsCleared(teamId: ObjectId, challenge: Challenge, now: D
     teamId,
     payload: "__timeout__",
   });
-  return !!timedOut;
+  if (timedOut) return true;
+
+  const totalImages = challenge.config.connectionsImages?.length ?? 4;
+  const attemptsCount = await subs.countDocuments({ challengeId: challenge._id, teamId });
+  if (attemptsCount >= totalImages) return true;
+
+  return false;
 }
 
 /** The specific puzzle a team is currently on, or null once every puzzle in
