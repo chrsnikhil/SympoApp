@@ -113,6 +113,34 @@ export default function AdminDashboard() {
         setRound(1);
         setData((prev) => (prev ? { ...prev, started: false, ended: false } : prev));
       }
+      if (body.action === "reveal-next-image" && body.slug) {
+        setData((prev) => {
+          if (!prev || !prev.connectionsPuzzles) return prev;
+          return {
+            ...prev,
+            connectionsPuzzles: prev.connectionsPuzzles.map((p) => {
+              if (p.slug === body.slug) {
+                return { ...p, revealedCount: Math.min(p.totalImages, p.revealedCount + 1) };
+              }
+              return p;
+            }),
+          };
+        });
+      }
+      if (body.action === "open" && body.slug) {
+        setData((prev) => {
+          if (!prev || !prev.connectionsPuzzles) return prev;
+          return {
+            ...prev,
+            connectionsPuzzles: prev.connectionsPuzzles.map((p) => {
+              if (p.slug === body.slug) {
+                return { ...p, opensAt: new Date().toISOString(), revealedCount: Math.max(1, p.revealedCount) };
+              }
+              return p;
+            }),
+          };
+        });
+      }
       const res = await fetch("/api/quiz/advance", {
         method: "POST",
         headers: { "content-type": "application/json" },

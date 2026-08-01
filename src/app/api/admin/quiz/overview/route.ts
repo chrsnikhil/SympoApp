@@ -75,6 +75,15 @@ export async function GET(request: Request) {
       const memoryByTeam = new Map(allMemory.map((m) => [String(m.teamId), m]));
 
       const judgeQueue: Array<{ teamId: string; teamName: string; submittedAt: string; imageId: string | null; dataUrl: string | null }> = [];
+      const judgedImages: Array<{
+        teamId: string;
+        teamName: string;
+        points: number;
+        similarity: number | null;
+        summary: string | null;
+        dataUrl: string | null;
+        judgedAt: string;
+      }> = [];
       if (imageGame) {
         const promptImagesCol = await collections.promptImages();
         const latestByTeam = new Map<string, (typeof allSubs)[number]>();
@@ -86,12 +95,20 @@ export async function GET(request: Request) {
             latestByTeam.set(key, s);
           }
         }
+        // Collect all image ObjectIds for a single batch query
+        const doneSubs = allSubs.filter((s) => String(s.challengeId) === String(imageGame._id) && s.status === "done");
+        const allImageIds = [
+          ...Array.from(latestByTeam.values()).map((s) => s.payload),
+          ...doneSubs.map((s) => s.payload),
+        ]
+          .filter((p): p is string => Boolean(p && ObjectId.isValid(p)))
+          .map((id) => new ObjectId(id));
+
+        const imageDocs = allImageIds.length > 0 ? await promptImagesCol.find({ _id: { $in: allImageIds } }).toArray() : [];
+        const imageMap = new Map(imageDocs.map((img) => [String(img._id), img.dataUrl]));
+
         for (const [teamId, s] of latestByTeam) {
-          let dataUrl: string | null = null;
-          if (s.payload && ObjectId.isValid(s.payload)) {
-            const imgDoc = await promptImagesCol.findOne({ _id: new ObjectId(s.payload) });
-            dataUrl = imgDoc?.dataUrl ?? null;
-          }
+          const dataUrl = s.payload ? imageMap.get(s.payload) ?? null : null;
           judgeQueue.push({
             teamId,
             teamName: teamById.get(teamId)?.name ?? "Unknown",
@@ -101,30 +118,10 @@ export async function GET(request: Request) {
           });
         }
         judgeQueue.sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
-      }
 
-      const judgedImages: Array<{
-        teamId: string;
-        teamName: string;
-        points: number;
-        similarity: number | null;
-        summary: string | null;
-        dataUrl: string | null;
-        judgedAt: string;
-      }> = [];
-
-      if (imageGame) {
-        const promptImagesCol = await collections.promptImages();
-        const doneSubs = allSubs.filter(
-          (s) => String(s.challengeId) === String(imageGame._id) && s.status === "done"
-        );
         for (const s of doneSubs) {
           const teamId = String(s.teamId);
-          let dataUrl: string | null = null;
-          if (s.payload && ObjectId.isValid(s.payload)) {
-            const imgDoc = await promptImagesCol.findOne({ _id: new ObjectId(s.payload) });
-            dataUrl = imgDoc?.dataUrl ?? null;
-          }
+          const dataUrl = s.payload ? imageMap.get(s.payload) ?? null : null;
           const meta = s.verdict?.meta as Record<string, unknown> | undefined;
           const simNum = typeof meta?.similarity === "number" ? meta.similarity : undefined;
           const sumStr = typeof meta?.summary === "string" ? meta.summary : undefined;
