@@ -89,7 +89,15 @@ export function normaliseCode(code: string): string {
   return code.trim().toUpperCase().replace(/\s+/g, "");
 }
 
+export function normaliseAnswer(answer: string): string {
+  return answer
+    .trim()
+    .toLowerCase()
+    .replace(/^(a|an|the)\s+/i, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
 /** Constant-time-ish compare for answer/flag hashes. */
 export function hashAnswer(answer: string): string {
-  return createHash("sha256").update(answer.trim().toLowerCase()).digest("hex");
+  return createHash("sha256").update(normaliseAnswer(answer)).digest("hex");
 }

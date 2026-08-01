@@ -74,13 +74,18 @@ export async function scoreConnections(
     };
   }
 
-  // Check if answer is correct (supports both singular and plural forms)
+  // Check if answer is correct (supports singular, plural, and alias variations)
   const normGuess = guess.trim().toLowerCase();
   const normSingular = normGuess.endsWith("s") && normGuess.length > 3 ? normGuess.slice(0, -1) : normGuess;
   
-  const isCorrect =
-    hashAnswer(guess) === challenge.config.answerHash ||
-    hashAnswer(normSingular) === challenge.config.answerHash;
+  const targetHashes = (challenge.config.acceptedHashes ?? [challenge.config.answerHash]).filter((h): h is string => Boolean(h));
+
+  const isCorrect = targetHashes.some(
+    (h) =>
+      h === hashAnswer(guess) ||
+      h === hashAnswer(normGuess) ||
+      h === hashAnswer(normSingular)
+  );
 
   if (isCorrect) {
     // Count prior correct answers during THIS image stage for timestamp ranking

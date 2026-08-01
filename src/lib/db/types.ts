@@ -121,6 +121,8 @@ export interface Challenge {
     connectionsPuzzleIndex?: number;
     /** quiz connections: one-line clue shown alongside the tiles. */
     connectionsClue?: string;
+    /** quiz connections: list of acceptable answer hashes for aliases. */
+    acceptedHashes?: string[];
     /**
      * quiz connections: how many tiles are currently revealed to every team —
      * admin-paced (coordinator clicks "reveal next image" live on stage),
