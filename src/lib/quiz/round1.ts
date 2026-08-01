@@ -71,10 +71,9 @@ async function connectionsCleared(teamId: ObjectId, challenge: Challenge, now: D
 }
 
 /**
- * Connections is coordinator-paced live on stage: all teams see whichever
- * puzzle the coordinator currently has open (`opensAt <= now` and not closed).
- * Correct guesses lock in points and show a success banner, but teams stay
- * locked on screen waiting for the coordinator to open the next puzzle.
+ * The specific Connections puzzle a team is currently on, or null once every
+ * puzzle in the sequence has been cleared for that team (or closed by coordinator),
+ * which signals round1Phase to advance the team to Game 3: Memory Game.
  */
 export async function currentConnectionsPuzzle(
   teamId: ObjectId,
@@ -84,22 +83,14 @@ export async function currentConnectionsPuzzle(
   const puzzles = connectionsPuzzles(games);
   if (puzzles.length === 0) return null;
 
-  // 1) Find all puzzles currently open by the coordinator (opensAt <= now and not closed)
-  const activeOpenPuzzles = puzzles.filter(
-    (p) => p.opensAt && new Date(p.opensAt) <= now && (!p.closesAt || new Date(p.closesAt) > now)
-  );
-
-  // Return the LATEST open puzzle in play sequence (e.g. Puzzle 5 when Puzzles 1-5 are open)
-  if (activeOpenPuzzles.length > 0) {
-    return activeOpenPuzzles[activeOpenPuzzles.length - 1];
+  for (const puzzle of puzzles) {
+    if (!(await connectionsCleared(teamId, puzzle, now))) {
+      return puzzle;
+    }
   }
 
-  // 2) Fallback to latest puzzle that was opened
-  const openedPuzzles = puzzles.filter((p) => p.opensAt && new Date(p.opensAt) <= now);
-  if (openedPuzzles.length > 0) return openedPuzzles[openedPuzzles.length - 1];
-
-  // 3) Default to first puzzle
-  return puzzles[0];
+  // All Connections puzzles cleared for this team!
+  return null;
 }
 
 export async function round1Phase(teamId: ObjectId, games: Challenge[], now: Date = new Date()): Promise<Round1Phase> {
