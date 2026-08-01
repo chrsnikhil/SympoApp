@@ -284,6 +284,7 @@ async function handlePOST(request: Request) {
         }
         if (disc?.teamId) {
           await teams.updateOne({ _id: disc.teamId }, { $set: { name: teamName, avatar: forCoin.id } });
+          await participants.updateOne({ teamId: disc.teamId }, { $set: { name: teamName } });
           return NextResponse.json({ ok: true, coin: formatCoin(parsed), teamId: disc.teamId.toString(), teamName, avatar: forCoin.name });
         }
 
