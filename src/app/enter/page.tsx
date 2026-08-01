@@ -28,7 +28,19 @@ export default function EnterPage() {
             window.location.href = rt;
           } else if (data.role === "admin") {
             window.location.href = "/admin/quiz";
-          } else if (window.location.hostname.includes("localhost") || window.location.hostname === "127.0.0.1") {
+          } else if (
+            window.location.hostname.includes("localhost") ||
+            window.location.hostname === "127.0.0.1" ||
+            window.location.hostname.endsWith(".loca.lt") ||
+            window.location.hostname.endsWith(".lhr.life") ||
+            window.location.hostname.endsWith(".serveo.net") ||
+            window.location.hostname.endsWith(".serveousercontent.com") ||
+            window.location.hostname.endsWith(".ngrok-free.app") ||
+            window.location.hostname.endsWith(".ngrok.io") ||
+            window.location.hostname.endsWith(".pinggy.link") ||
+            window.location.hostname.endsWith(".trycloudflare.com") ||
+            /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname)
+          ) {
             window.location.href = "/quiz";
           } else {
             const quizHost = eventHostFor(window.location.host, "quiz");
@@ -49,6 +61,10 @@ export default function EnterPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!value.trim()) {
+      setError("Please enter your token number or access code");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -71,25 +87,42 @@ export default function EnterPage() {
         return;
       }
 
+      if (data.token) {
+        document.cookie = `xplore_session=${data.token}; path=/; max-age=86400; SameSite=Lax`;
+      }
+
       const rt = new URLSearchParams(window.location.search).get("rt");
       if (rt) {
         window.location.href = rt;
         return;
       }
 
-      // Send participants on to the quiz subdomain explicitly; admins go to /admin/quiz
-      if (data.role === "admin") {
-        window.location.href = "/admin/quiz";
-      } else if (window.location.hostname.includes("localhost") || window.location.hostname === "127.0.0.1") {
-        window.location.href = "/quiz";
-      } else {
-        const quizHost = eventHostFor(window.location.host, "quiz");
-        if (window.location.host === quizHost || window.location.host.startsWith("quiz.")) {
-          window.location.href = "/";
+      setTimeout(() => {
+        if (data.role === "admin") {
+          window.location.href = "/admin/quiz";
+        } else if (
+          window.location.hostname.includes("localhost") ||
+          window.location.hostname === "127.0.0.1" ||
+          window.location.hostname.endsWith(".loca.lt") ||
+          window.location.hostname.endsWith(".lhr.life") ||
+          window.location.hostname.endsWith(".serveo.net") ||
+          window.location.hostname.endsWith(".serveousercontent.com") ||
+          window.location.hostname.endsWith(".ngrok-free.app") ||
+          window.location.hostname.endsWith(".ngrok.io") ||
+          window.location.hostname.endsWith(".pinggy.link") ||
+          window.location.hostname.endsWith(".trycloudflare.com") ||
+          /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname)
+        ) {
+          window.location.href = "/quiz";
         } else {
-          window.location.href = `${window.location.protocol}//${quizHost}/`;
+          const quizHost = eventHostFor(window.location.host, "quiz");
+          if (window.location.host === quizHost || window.location.host.startsWith("quiz.")) {
+            window.location.href = "/";
+          } else {
+            window.location.href = `${window.location.protocol}//${quizHost}/`;
+          }
         }
-      }
+      }, 150);
     } catch (err) {
       console.error("[enter] onSubmit error:", err);
       setError(err instanceof Error ? err.message : "Network error — try again");
@@ -185,7 +218,7 @@ export default function EnterPage() {
             <ComicButton
               type="submit"
               data-web-target=""
-              disabled={busy || (!looksLikeCode && !preview)}
+              disabled={busy}
               variant="primary"
               tilt="right"
               size="lg"

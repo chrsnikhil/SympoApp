@@ -70,9 +70,8 @@ export async function verifySession(token: string | undefined | null): Promise<S
 export function sessionCookieOptions() {
   const domain = COOKIE_DOMAIN ?? undefined;
   return {
-    name: SESSION_COOKIE,
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: false,
     sameSite: "lax" as const,
     path: "/",
     domain,

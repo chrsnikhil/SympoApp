@@ -311,6 +311,21 @@ async function main() {
   const scoreEvents = await collections.scoreEvents();
   const proctorFlags = await collections.proctorFlags();
 
+  const isIfEmpty = process.argv.includes("--if-empty");
+  const existingCount = await challenges.countDocuments({ type: "quiz" });
+  if (isIfEmpty && existingCount > 0) {
+    console.log("Database already seeded — preserving all existing assigned teams and coins.");
+    const adminCodeRecord = await codes.findOne({ role: "admin" });
+    if (!adminCodeRecord) {
+      const adminTeamId = new ObjectId();
+      await teams.insertOne({ _id: adminTeamId, name: "Quiz Control", createdAt: new Date() });
+      const adminId = new ObjectId();
+      await participants.insertOne({ _id: adminId, teamId: adminTeamId, name: "Quiz coordinator", role: "admin", createdAt: new Date() });
+      await codes.insertOne({ codeHash: hashCode("1684"), teamId: adminTeamId, participantId: adminId, role: "admin", redeemedAt: null });
+    }
+    return;
+  }
+
   console.log("Clearing previous quiz state…");
   await withThrottleRetry(() => participants.deleteMany({}));
   await withThrottleRetry(() => codes.deleteMany({}));

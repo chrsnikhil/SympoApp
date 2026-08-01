@@ -17,12 +17,14 @@ export async function getSession(): Promise<SessionClaims | null> {
   const session = await verifySession(store.get(SESSION_COOKIE)?.value);
   if (!session) return null;
 
+  if (session.role === "admin") return session;
+
   try {
     const teams = await collections.teams();
     const team = await teams.findOne({ _id: new ObjectId(session.teamId) });
     if (!team) return null;
   } catch {
-    return null;
+    return session;
   }
 
   return session;

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
-    "seed:quiz": "tsx --env-file=.env.local scripts/seed-quiz.ts"
+    "seed:quiz": "tsx --env-file=.env.local scripts/seed-quiz.ts",
+    "db:local": "tsx scripts/dev-db.ts"
   },
   "dependencies": {
     "gsap": "^3.15.0",

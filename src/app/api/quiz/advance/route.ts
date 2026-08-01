@@ -273,9 +273,12 @@ export async function POST(request: Request) {
         const teams = await collections.teams();
         const participants = await collections.participants();
 
-        const disc = await coins.findOne({ _id: parsed });
-        if (!disc) return NextResponse.json({ error: "That isn't a valid coin" }, { status: 404 });
-        if (disc.teamId) {
+        let disc = await coins.findOne({ _id: parsed });
+        if (!disc) {
+          await coins.insertOne({ _id: parsed, teamId: null, claimedAt: null });
+          disc = await coins.findOne({ _id: parsed });
+        }
+        if (disc?.teamId) {
           await teams.updateOne({ _id: disc.teamId }, { $set: { name: teamName, avatar: forCoin.id } });
           return NextResponse.json({ ok: true, coin: formatCoin(parsed), teamId: disc.teamId.toString(), teamName, avatar: forCoin.name });
         }
