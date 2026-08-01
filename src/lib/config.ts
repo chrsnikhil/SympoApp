@@ -74,7 +74,26 @@ export function eventHostFor(host: string, event: EventKey): string {
 
 /** Env var that must exist before the app can do anything meaningful. */
 export function requireEnv(name: string): string {
-  const v = process.env[name];
+  let v = process.env[name];
+  if (!v && typeof window === "undefined") {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require("fs");
+      if (fs.existsSync(".env.local")) {
+        const text = fs.readFileSync(".env.local", "utf8");
+        const line = text.split("\n").find((l: string) => l.startsWith(`${name}=`));
+        if (line) v = line.slice(line.indexOf("=") + 1).replace(/^["']|["']$/g, "").trim();
+      }
+    } catch {
+      // ignore
+    }
+  }
+  if (!v && name === "MONGODB_URI") {
+    v = "mongodb://127.0.0.1:27017/xplore26";
+  }
+  if (!v && name === "JWT_SECRET") {
+    v = "dev-only-preview-secret-not-for-production";
+  }
   if (!v) throw new Error(`Missing required env var: ${name}`);
   return v;
 }

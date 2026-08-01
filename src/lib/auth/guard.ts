@@ -15,7 +15,8 @@ import { verifySession, type SessionClaims } from "./session";
  */
 export async function getSession(): Promise<SessionClaims | null> {
   const store = await cookies();
-  const session = await verifySession(store.get(SESSION_COOKIE)?.value);
+  const token = store.get(SESSION_COOKIE)?.value || store.get("xplore_session")?.value;
+  const session = await verifySession(token);
   if (!session) return null;
 
   if (session.role === "admin") return session;

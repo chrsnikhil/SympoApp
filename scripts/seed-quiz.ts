@@ -12,10 +12,26 @@
  * claiming a coin, quiz challenges, serves, memory/comeback state) and leaves
  * hunt/ctf/code untouched.
  */
-import { ObjectId } from "mongodb";
-import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+
+// Auto-load .env.local into process.env if not already loaded
+if (fs.existsSync(".env.local")) {
+  const envText = fs.readFileSync(".env.local", "utf8");
+  for (const line of envText.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIdx = trimmed.indexOf("=");
+    if (eqIdx > 0) {
+      const key = trimmed.slice(0, eqIdx).trim();
+      const val = trimmed.slice(eqIdx + 1).replace(/^["']|["']$/g, "").trim();
+      if (!process.env[key]) process.env[key] = val;
+    }
+  }
+}
+
+import { ObjectId } from "mongodb";
+import { randomBytes } from "node:crypto";
 import { collections, ensureIndexes } from "../src/lib/db/client";
 import { withThrottleRetry } from "../src/lib/db/retry";
 import { hashAnswer, hashCode, normaliseCode } from "../src/lib/auth/session";

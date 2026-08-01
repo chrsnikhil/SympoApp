@@ -69,7 +69,10 @@ export default function EnterPage() {
       }
 
       if (data.token) {
-        document.cookie = `xplore_session=${data.token}; path=/; max-age=86400; SameSite=Lax`;
+        const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
+        const secureFlag = isHttps ? "; Secure" : "";
+        document.cookie = `session=${data.token}; path=/; max-age=86400; SameSite=Lax${secureFlag}`;
+        document.cookie = `xplore_session=${data.token}; path=/; max-age=86400; SameSite=Lax${secureFlag}`;
       }
 
       const rt = new URLSearchParams(window.location.search).get("rt");

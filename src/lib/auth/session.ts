@@ -69,9 +69,10 @@ export async function verifySession(token: string | undefined | null): Promise<S
  */
 export function sessionCookieOptions() {
   const domain = COOKIE_DOMAIN ?? undefined;
+  const secure = process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
   return {
     httpOnly: true,
-    secure: false,
+    secure,
     sameSite: "lax" as const,
     path: "/",
     domain,

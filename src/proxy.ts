@@ -49,8 +49,8 @@ export async function proxy(request: NextRequest) {
   // Not an event subdomain (app.*, www.*, localhost) — serve as-is.
   if (!event) return NextResponse.next();
 
-  // Optimistic session check. No DB read: just a signature verification.
-  const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
+  const token = request.cookies.get(SESSION_COOKIE)?.value || request.cookies.get("xplore_session")?.value;
+  const session = await verifySession(token);
   if (!session) {
     // Built from the real Host header, not request.nextUrl.origin — the latter
     // collapses to the bare "localhost" origin regardless of which subdomain

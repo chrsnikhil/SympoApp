@@ -173,6 +173,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "That coin's team is missing — tell a coordinator" }, { status: 409 });
     }
 
+    // Block entry if token is currently in use (locked) until coordinator unlocks it
+    if (disc.redeemedAt) {
+      return NextResponse.json(
+        { error: "🔒 This token is currently in use! Ask the coordinator to unlock it." },
+        { status: 403 }
+      );
+    }
+
+    // Stamp token as in-use (redeemed) on successful login
+    await coins.updateOne({ _id: parsed }, { $set: { redeemedAt: new Date() } });
+
     const token = await sessionFor(team._id, participant._id, participant.role);
     const res = NextResponse.json({
       ok: true,
