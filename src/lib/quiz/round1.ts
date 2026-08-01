@@ -120,13 +120,15 @@ export async function currentConnectionsPuzzle(
     return puzzles[0];
   }
 
-  // The latest puzzle opened by the coordinator on stage (e.g. Puzzle 1, Puzzle 2, etc.)
   const latestOpened = openedPuzzles[openedPuzzles.length - 1];
+  const lastPuzzle = puzzles[puzzles.length - 1];
+  const isLastPuzzle = latestOpened._id?.toString() === lastPuzzle._id?.toString();
 
-  // If Puzzle 5 (the last puzzle) has been closed globally, advance to Game 3 Memory!
-  const isLastPuzzle = latestOpened.slug === puzzles[puzzles.length - 1].slug;
-  if (isLastPuzzle && latestOpened.closesAt && now > latestOpened.closesAt) {
-    return null;
+  // If Puzzle 5 (the last puzzle) has been closed globally OR cleared by team, advance to Game 3 Memory!
+  if (isLastPuzzle) {
+    if (latestOpened.closesAt && now > latestOpened.closesAt) return null;
+    const isCleared = await connectionsCleared(teamId, latestOpened, now, teamSubmissions);
+    if (isCleared) return null;
   }
 
   return latestOpened;

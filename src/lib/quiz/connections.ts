@@ -62,6 +62,15 @@ export async function scoreConnections(
 
   // Handle No Answer / Timer Expiry
   if (guess === "__timeout__" || !guess) {
+    const existingTimeout = await subs.findOne({
+      challengeId: challenge._id,
+      teamId,
+      payload: "__timeout__",
+    });
+    if (existingTimeout) {
+      return { correct: false, points: 0, meta: { reason: "already-timed-out" } };
+    }
+
     const attemptedCount = await subs.countDocuments({
       challengeId: challenge._id,
       teamId,
