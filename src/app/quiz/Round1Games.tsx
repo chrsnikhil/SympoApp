@@ -795,7 +795,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
       ) : (
         <div className="border-2 border-signal-good bg-signal-good/10 p-5 text-center rounded space-y-2">
           <p className="font-display-xl text-xl text-signal-good uppercase tracking-wider">
-            {isSolved ? "🎉 PUZZLE COMPLETED!" : "🏁 PUZZLE CONCLUDED"}
+            {isSolved ? "🎉 CORRECT ANSWER LOCKED IN!" : "🏁 PUZZLE ATTEMPTS CONCLUDED"}
           </p>
           {game.solvedVerdict && (
             <p className="font-headline-lg text-sm text-paper-white">
@@ -803,7 +803,9 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
               {game.solvedVerdict.rank && ` • Rank #${game.solvedVerdict.rank}`}
             </p>
           )}
-          <p className="text-xs text-paper-white/60">Moving to next puzzle...</p>
+          <p className="text-xs text-glitch-cyan font-mono animate-pulse">
+            ⏳ Locked in! Waiting for the coordinator to open the next puzzle for all teams…
+          </p>
         </div>
       )}
 

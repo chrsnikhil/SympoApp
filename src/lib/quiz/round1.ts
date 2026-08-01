@@ -70,13 +70,32 @@ async function connectionsCleared(teamId: ObjectId, challenge: Challenge, now: D
   return false;
 }
 
-/** The specific puzzle a team is currently on, or null once every puzzle in
- *  the sequence has been cleared. */
-export async function currentConnectionsPuzzle(teamId: ObjectId, games: Challenge[], now: Date): Promise<Challenge | null> {
-  for (const puzzle of connectionsPuzzles(games)) {
-    if (!(await connectionsCleared(teamId, puzzle, now))) return puzzle;
-  }
-  return null;
+/**
+ * Connections is coordinator-paced live on stage: all teams see whichever
+ * puzzle the coordinator currently has open (`opensAt <= now` and not closed).
+ * Correct guesses lock in points and show a success banner, but teams wait for
+ * the coordinator to open the next puzzle rather than jumping ahead.
+ */
+export async function currentConnectionsPuzzle(
+  teamId: ObjectId,
+  games: Challenge[],
+  now: Date = new Date()
+): Promise<Challenge | null> {
+  const puzzles = connectionsPuzzles(games);
+  if (puzzles.length === 0) return null;
+
+  // 1) Puzzle currently open by coordinator
+  const openPuzzle = puzzles.find(
+    (p) => p.opensAt && new Date(p.opensAt) <= now && (!p.closesAt || new Date(p.closesAt) > now)
+  );
+  if (openPuzzle) return openPuzzle;
+
+  // 2) Latest puzzle that was opened
+  const openedPuzzles = puzzles.filter((p) => p.opensAt && new Date(p.opensAt) <= now);
+  if (openedPuzzles.length > 0) return openedPuzzles[openedPuzzles.length - 1];
+
+  // 3) Default to first puzzle in sequence
+  return puzzles[0];
 }
 
 export async function round1Phase(teamId: ObjectId, games: Challenge[], now: Date = new Date()): Promise<Round1Phase> {
@@ -104,8 +123,8 @@ export async function round1Phase(teamId: ObjectId, games: Challenge[], now: Dat
   }
 
   if (puzzles.length > 0) {
-    const current = await currentConnectionsPuzzle(teamId, games, now);
-    if (current) return "connections";
+    const allPuzzlesClosed = puzzles.every((p) => p.closesAt && now > p.closesAt);
+    if (!allPuzzlesClosed) return "connections";
   }
 
   if (memoryGame) {
