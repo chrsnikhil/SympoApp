@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
-import { collections } from "@/lib/db/client";
-import { ROUNDS, isQualified, getActiveQuizRound, isTeamEliminated, isQuizEnded, isQuizStarted } from "@/lib/quiz/rounds";
+import { ROUNDS, isQualified, getActiveQuizRound, isTeamEliminated, isQuizEnded, isQuizStarted, getCachedQuizState } from "@/lib/quiz/rounds";
 import type { QuizRound } from "@/lib/db/types";
 
 /**
@@ -21,8 +20,7 @@ export async function GET() {
     const ended = await isQuizEnded();
     const started = await isQuizStarted();
 
-    const stateCol = await collections.quizState();
-    const quizState = await stateCol.findOne({ _id: "quiz" });
+    const quizState = await getCachedQuizState();
 
     let round: QuizRound = 1;
     if (await isQualified(teamId, 2)) round = 2;
@@ -37,10 +35,10 @@ export async function GET() {
         ended,
         started,
         role: session.role,
-        startedAt: quizState?.startedAt ? quizState.startedAt.toISOString() : null,
-        round1StartedAt: quizState?.round1StartedAt ? quizState.round1StartedAt.toISOString() : null,
-        round2StartedAt: quizState?.round2StartedAt ? quizState.round2StartedAt.toISOString() : null,
-        round3StartedAt: quizState?.round3StartedAt ? quizState.round3StartedAt.toISOString() : null,
+        startedAt: quizState?.startedAt ?? null,
+        round1StartedAt: quizState?.round1StartedAt ?? null,
+        round2StartedAt: quizState?.round2StartedAt ?? null,
+        round3StartedAt: quizState?.round3StartedAt ?? null,
         title: ROUNDS[round].title,
       },
       { headers: { "Cache-Control": "no-store" } }

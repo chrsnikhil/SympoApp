@@ -1,6 +1,7 @@
 import type { ObjectId } from "mongodb";
 import { collections } from "@/lib/db/client";
 import type { Challenge } from "@/lib/db/types";
+import { getCachedQuizState } from "./rounds";
 
 /**
  * Round 1 "Final Universe" is played in a fixed sequence per team — Image
@@ -44,8 +45,33 @@ export function gameForPhase(games: Challenge[], phase: "image" | "memory"): Cha
  * they move on; getting permanently stuck on one puzzle would take the rest
  * of Round 1 down with it.
  */
-async function connectionsCleared(teamId: ObjectId, challenge: Challenge, now: Date): Promise<boolean> {
+async function connectionsCleared(
+  teamId: ObjectId,
+  challenge: Challenge,
+  now: Date,
+  teamSubmissions?: any[]
+): Promise<boolean> {
   if (challenge.closesAt && now > challenge.closesAt) return true;
+
+  if (teamSubmissions) {
+    const solved = teamSubmissions.some(
+      (s) => String(s.challengeId) === String(challenge._id) && s.status === "done" && s.verdict?.correct
+    );
+    if (solved) return true;
+
+    const timedOut = teamSubmissions.some(
+      (s) => String(s.challengeId) === String(challenge._id) && s.payload === "__timeout__"
+    );
+    if (timedOut) return true;
+
+    const totalImages = challenge.config.connectionsImages?.length ?? 4;
+    const attemptsCount = teamSubmissions.filter(
+      (s) => String(s.challengeId) === String(challenge._id)
+    ).length;
+    if (attemptsCount >= totalImages) return true;
+
+    return false;
+  }
 
   const subs = await collections.submissions();
   const solved = await subs.findOne({
@@ -80,7 +106,8 @@ async function connectionsCleared(teamId: ObjectId, challenge: Challenge, now: D
 export async function currentConnectionsPuzzle(
   teamId: ObjectId,
   games: Challenge[],
-  now: Date = new Date()
+  now: Date = new Date(),
+  teamSubmissions?: any[]
 ): Promise<Challenge | null> {
   const puzzles = connectionsPuzzles(games);
   if (puzzles.length === 0) return null;
@@ -98,20 +125,24 @@ export async function currentConnectionsPuzzle(
 
   // If Puzzle 5 (the last puzzle) has been cleared/timed out for this team or closed globally, advance to Game 3 Memory!
   const isLastPuzzle = latestOpened.slug === puzzles[puzzles.length - 1].slug;
-  if (isLastPuzzle && (await connectionsCleared(teamId, latestOpened, now))) {
+  if (isLastPuzzle && (await connectionsCleared(teamId, latestOpened, now, teamSubmissions))) {
     return null;
   }
 
   return latestOpened;
 }
 
-export async function round1Phase(teamId: ObjectId, games: Challenge[], now: Date = new Date()): Promise<Round1Phase> {
+export async function round1Phase(
+  teamId: ObjectId,
+  games: Challenge[],
+  now: Date = new Date(),
+  teamSubmissions?: any[]
+): Promise<Round1Phase> {
   const imageGame = games.find((g) => g.config.format === "prompt-image");
   const memoryGame = games.find((g) => g.config.format === "memory");
   const puzzles = connectionsPuzzles(games);
 
-  const stateCol = await collections.quizState();
-  const quizState = await stateCol.findOne({ _id: "quiz" });
+  const quizState = await getCachedQuizState();
   const round1Start = quizState?.round1StartedAt ?? quizState?.startedAt;
   // Check if coordinator has opened ANY Connections puzzle live on stage
   const anyConnectionsOpened = puzzles.some((p) => p.opensAt && new Date(p.opensAt) <= now);
@@ -129,7 +160,7 @@ export async function round1Phase(teamId: ObjectId, games: Challenge[], now: Dat
   }
 
   if (puzzles.length > 0) {
-    const current = await currentConnectionsPuzzle(teamId, games, now);
+    const current = await currentConnectionsPuzzle(teamId, games, now, teamSubmissions);
     if (current) return "connections";
   }
 

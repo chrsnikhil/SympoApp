@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { ObjectId } from "mongodb";
 import { SESSION_COOKIE } from "@/lib/config";
 import { collections } from "@/lib/db/client";
+import { getCached } from "@/lib/cache";
 import { verifySession, type SessionClaims } from "./session";
 
 /**
@@ -20,9 +21,12 @@ export async function getSession(): Promise<SessionClaims | null> {
   if (session.role === "admin") return session;
 
   try {
-    const teams = await collections.teams();
-    const team = await teams.findOne({ _id: new ObjectId(session.teamId) });
-    if (!team) return null;
+    const hasTeam = await getCached(`team-exists:${session.teamId}`, 30000, async () => {
+      const teams = await collections.teams();
+      const team = await teams.findOne({ _id: new ObjectId(session.teamId) });
+      return team !== null;
+    });
+    if (!hasTeam) return null;
   } catch {
     return session;
   }

@@ -192,6 +192,7 @@ export async function judgeImage(challenge: Challenge, referenceImage: ImageData
         const response = await fetch(GROQ_URL, {
           method: "POST",
           headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+          signal: AbortSignal.timeout(6000),
           body: JSON.stringify({
             model,
             response_format: { type: "json_object" },

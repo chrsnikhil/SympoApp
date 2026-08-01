@@ -4,6 +4,7 @@ import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
 import { collections } from "@/lib/db/client";
 import { revealedImages } from "@/lib/quiz/connections";
 import { connectionsPuzzles, currentConnectionsPuzzle, gameForPhase, round1Phase } from "@/lib/quiz/round1";
+import { getCachedQuizState } from "@/lib/quiz/rounds";
 
 /**
  * Round 1 status — ONE phase at a time. "Final Universe" is Image
@@ -12,17 +13,25 @@ import { connectionsPuzzles, currentConnectionsPuzzle, gameForPhase, round1Phase
  * never the other two, so the client has nothing to render early even if it
  * wanted to.
  */
+import { getCached } from "@/lib/cache";
+
 export async function GET() {
   try {
     const session = await requireSession();
     const teamId = new ObjectId(session.teamId);
     const now = new Date();
 
-    const challenges = await collections.challenges();
-    const games = await challenges.find({ type: "quiz", "config.round": 1 }).toArray();
-    games.sort((a, b) => (a.config.order ?? 0) - (b.config.order ?? 0));
+    const games = await getCached("round1-challenges", 30000, async () => {
+      const challenges = await collections.challenges();
+      const list = await challenges.find({ type: "quiz", "config.round": 1 }).toArray();
+      list.sort((a, b) => (a.config.order ?? 0) - (b.config.order ?? 0));
+      return list;
+    });
 
-    const phase = await round1Phase(teamId, games, now);
+    const subs = await collections.submissions();
+    const teamSubmissions = await subs.find({ teamId, challengeId: { $in: games.map((g) => g._id!) } }).toArray();
+
+    const phase = await round1Phase(teamId, games, now, teamSubmissions);
     const completedPhases: string[] = [];
     if (phase !== "image") completedPhases.push("image");
     if (phase === "memory" || phase === "done") completedPhases.push("connections");
@@ -32,15 +41,16 @@ export async function GET() {
 
     if (phase === "connections") {
       const puzzles = connectionsPuzzles(games);
-      const challenge = await currentConnectionsPuzzle(teamId, games, now);
+      const challenge = await currentConnectionsPuzzle(teamId, games, now, teamSubmissions);
       if (!challenge) {
         // Cleared between the phase check and here (a concurrent guess) — the
         // next poll will pick up "memory". Nothing to render this instant.
         return NextResponse.json({ serverTime, phase, completedPhases, game: null }, { headers: { "Cache-Control": "no-store" } });
       }
 
-      const subs = await collections.submissions();
-      const allSubs = await subs.find({ challengeId: challenge._id, teamId }).sort({ receivedAt: 1 }).toArray();
+      const allSubs = teamSubmissions
+        .filter((s) => String(s.challengeId) === String(challenge._id))
+        .sort((a, b) => a.receivedAt.getTime() - b.receivedAt.getTime());
       const solved = allSubs.find((s) => s.status === "done" && s.verdict?.correct);
 
       const attemptsHistory = allSubs.map((s, idx) => ({
@@ -89,9 +99,12 @@ export async function GET() {
       return NextResponse.json({ serverTime, phase, completedPhases, game: null }, { headers: { "Cache-Control": "no-store" } });
     }
 
-    const stateCol = await collections.quizState();
-    const quizState = await stateCol.findOne({ _id: "quiz" });
-    const round1Start = quizState?.round1StartedAt ?? quizState?.startedAt ?? now;
+    const quizState = await getCachedQuizState();
+    const round1Start = quizState?.round1StartedAt
+      ? new Date(quizState.round1StartedAt)
+      : quizState?.startedAt
+        ? new Date(quizState.startedAt)
+        : now;
 
     const baseOpensAt = challenge.opensAt ?? round1Start;
     const baseClosesAt = challenge.closesAt ?? new Date(baseOpensAt.getTime() + 270_000);
@@ -106,11 +119,9 @@ export async function GET() {
     };
 
     if (phase === "image") {
-      const [subs, promptImages] = await Promise.all([collections.submissions(), collections.promptImages()]);
-      const [sub, userImg] = await Promise.all([
-        subs.findOne({ challengeId: challenge._id, teamId }),
-        promptImages.findOne({ teamId, challengeSlug: challenge.slug }),
-      ]);
+      const promptImages = await collections.promptImages();
+      const sub = teamSubmissions.find((s) => String(s.challengeId) === String(challenge._id));
+      const userImg = await promptImages.findOne({ teamId, challengeSlug: challenge.slug });
       return NextResponse.json(
         {
           serverTime,

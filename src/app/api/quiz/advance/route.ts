@@ -28,7 +28,9 @@ import type { QuizRound } from "@/lib/db/types";
  * All are idempotent: advancing twice rewrites the same cut, resolving twice
  * finds nothing left queued.
  */
-export async function POST(request: Request) {
+import { invalidateCache } from "@/lib/cache";
+
+async function handlePOST(request: Request) {
   try {
     await requireAdmin();
 
@@ -137,17 +139,19 @@ export async function POST(request: Request) {
         }
 
         // Run image evaluation in the background non-blockingly so the UI stays responsive
-        void (async () => {
-          try {
-            const { judged } = await judgeAll(challenge, reference, entries);
-            const scores = Object.fromEntries(judged.map((j) => [j.teamId, j.similarity]));
-            if (judged.length > 0) {
-              await resolvePromptImage(body.slug!, scores);
+        setTimeout(() => {
+          void (async () => {
+            try {
+              const { judged } = await judgeAll(challenge, reference, entries);
+              const scores = Object.fromEntries(judged.map((j) => [j.teamId, j.similarity]));
+              if (judged.length > 0) {
+                await resolvePromptImage(body.slug!, scores);
+              }
+            } catch (err) {
+              console.error("Background judge error:", err);
             }
-          } catch (err) {
-            console.error("Background judge error:", err);
-          }
-        })();
+          })();
+        }, 0);
 
         return NextResponse.json({ ok: true, slug: body.slug, note: "Image evaluation started in background!" });
       }
@@ -424,4 +428,12 @@ export async function POST(request: Request) {
     console.error("[quiz/advance] unexpected", err);
     return NextResponse.json({ error: err instanceof Error ? err.message : "Something went wrong" }, { status: 500 });
   }
+}
+
+export async function POST(request: Request) {
+  const res = await handlePOST(request);
+  if (res.status === 200) {
+    invalidateCache();
+  }
+  return res;
 }

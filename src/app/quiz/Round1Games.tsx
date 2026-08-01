@@ -100,13 +100,14 @@ export default function Round1Games() {
       if (!cancelled) await load();
     }
     void run();
-    const id = setInterval(load, 2000);
+    const pollInterval = data?.phase === "connections" ? 1000 : 2000;
+    const id = setInterval(load, pollInterval);
     return () => {
       cancelled = true;
       clearInterval(id);
       if (transitionTimer.current) window.clearTimeout(transitionTimer.current);
     };
-  }, [load]);
+  }, [load, data?.phase]);
 
   // Drives open/close gates and the reveal countdown using server-synchronized time offset
   useEffect(() => {
@@ -612,6 +613,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const images = game.images ?? [];
   const totalImages = game.totalImages ?? 4;
@@ -663,7 +665,12 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
   }, [allTilesRevealed, disabled, hasSubmittedForCurrentTile, isCompleted, handleTimeout]);
 
   async function submit() {
-    if (!value.trim() || busy || disabled || hasSubmittedForCurrentTile || isCompleted) return;
+    if (busy || disabled || hasSubmittedForCurrentTile || isCompleted) return;
+    if (!value.trim()) {
+      setError("Please type your answer in the box first!");
+      inputRef.current?.focus();
+      return;
+    }
     const submittedVal = value.trim();
     setBusy(true);
     setError(null);
@@ -780,9 +787,13 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
           ) : (
             <div className="flex gap-2">
               <input
+                ref={inputRef}
                 type="text"
                 value={value}
-                onChange={(e) => setValue(e.target.value)}
+                onChange={(e) => {
+                  setValue(e.target.value);
+                  if (error) setError(null);
+                }}
                 placeholder={
                   revealedCount === 0
                     ? "Waiting for coordinator to reveal Tile 1..."
@@ -797,7 +808,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
                 type="button"
                 data-web-target=""
                 onClick={submit}
-                disabled={busy || disabled || !value.trim() || revealedCount === 0}
+                disabled={busy || disabled || revealedCount === 0}
                 className="comic-btn comic-btn-cyan shrink-0"
               >
                 {busy ? "…" : "Lock it in"}

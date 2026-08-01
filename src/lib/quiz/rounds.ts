@@ -1,5 +1,6 @@
 import { ObjectId } from "mongodb";
 import { collections } from "@/lib/db/client";
+import { getCached } from "@/lib/cache";
 import type { QuizRound } from "@/lib/db/types";
 
 /**
@@ -33,14 +34,25 @@ export const ROUNDS: Record<QuizRound, RoundSpec> = {
 };
 
 /**
+ * Cache round qualification sets for 3 seconds.
+ */
+export async function getCachedQualifications(round: QuizRound): Promise<Set<string>> {
+  return getCached(`quals:${round}`, 3000, async () => {
+    const quals = await collections.roundQualifications();
+    const list = await quals.find({ round }).toArray();
+    return new Set(list.map((q) => String(q.teamId)));
+  });
+}
+
+/**
  * Round 1 is open to every registered team — there's no qualification doc for
  * it, and requiring one would mean a registration step that can silently fail
  * and lock a team out of the event they turned up for.
  */
 export async function isQualified(teamId: ObjectId, round: QuizRound): Promise<boolean> {
   if (round === 1) return true;
-  const quals = await collections.roundQualifications();
-  return (await quals.findOne({ round, teamId })) !== null;
+  const set = await getCachedQualifications(round);
+  return set.has(String(teamId));
 }
 
 export interface Standing {
@@ -64,6 +76,10 @@ export async function slugsUpToRound(round: QuizRound): Promise<string[]> {
  * Standings within a round, ranked by cumulative points from Round 1 up to current round then by tie-break.
  */
 export async function standings(round: QuizRound): Promise<Standing[]> {
+  return getCached(`standings:${round}`, 3000, () => computeStandings(round));
+}
+
+export async function computeStandings(round: QuizRound): Promise<Standing[]> {
   const [teamsCol, scores, subs] = await Promise.all([
     collections.teams(),
     collections.scoreEvents(),
@@ -188,25 +204,53 @@ export async function standings(round: QuizRound): Promise<Standing[]> {
   }));
 }
 
+/** Cache quiz state document for 2 seconds. */
+export async function getCachedQuizState() {
+  return getCached("quiz-state", 2000, async () => {
+    const state = await (await collections.quizState()).findOne({ _id: "quiz" });
+    return state
+      ? {
+          started: Boolean(state.started),
+          ended: Boolean(state.ended),
+          startedAt: state.startedAt ? state.startedAt.toISOString() : null,
+          round1StartedAt: state.round1StartedAt ? state.round1StartedAt.toISOString() : null,
+          round2StartedAt: state.round2StartedAt ? state.round2StartedAt.toISOString() : null,
+          round3StartedAt: state.round3StartedAt ? state.round3StartedAt.toISOString() : null,
+        }
+      : null;
+  });
+}
+
+/** Cache all eliminated team IDs for 2 seconds. */
+export async function getCachedEliminatedTeamIds(): Promise<Set<string>> {
+  return getCached("eliminated-teams", 2000, async () => {
+    const elims = await collections.roundEliminations();
+    const list = await elims.find({}).toArray();
+    return new Set(list.map((e) => String(e.teamId)));
+  });
+}
+
 /** Get current active global round of the quiz event (1, 2, or 3). */
 export async function getActiveQuizRound(): Promise<QuizRound> {
-  const quals = await collections.roundQualifications();
-  const count3 = await quals.countDocuments({ round: 3 });
-  if (count3 > 0) return 3;
-  const count2 = await quals.countDocuments({ round: 2 });
-  if (count2 > 0) return 2;
-  return 1;
+  return getCached("active-quiz-round", 2000, async () => {
+    const quals = await collections.roundQualifications();
+    const count3 = await quals.countDocuments({ round: 3 });
+    if (count3 > 0) return 3;
+    const count2 = await quals.countDocuments({ round: 2 });
+    if (count2 > 0) return 2;
+    return 1;
+  });
 }
 
 /** Check if the coordinator has ended the quiz event. */
 export async function isQuizEnded(): Promise<boolean> {
-  const state = await (await collections.quizState()).findOne({ _id: "quiz" });
+  const state = await getCachedQuizState();
   return Boolean(state?.ended);
 }
 
 /** Check if the coordinator has started the quiz event. */
 export async function isQuizStarted(): Promise<boolean> {
-  const state = await (await collections.quizState()).findOne({ _id: "quiz" });
+  const state = await getCachedQuizState();
   return Boolean(state?.started);
 }
 
@@ -228,9 +272,8 @@ export async function restoreTeam(teamIdStr: string): Promise<void> {
 
 /** Check if a team is currently eliminated. */
 export async function isTeamEliminated(teamId: ObjectId): Promise<boolean> {
-  const elims = await collections.roundEliminations();
-  const found = await elims.findOne({ teamId });
-  if (found) return true;
+  const elimSet = await getCachedEliminatedTeamIds();
+  if (elimSet.has(String(teamId))) return true;
 
   const activeRound = await getActiveQuizRound();
   if (activeRound > 1) {

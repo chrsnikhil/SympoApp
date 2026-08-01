@@ -102,8 +102,8 @@ export default function AdminDashboard() {
     return () => clearTimeout(timer);
   }, [message]);
 
-  async function callAdvance(body: Record<string, unknown>) {
-    setBusy(true);
+  async function callAdvance(body: Record<string, unknown>, setBusyState = true) {
+    if (setBusyState) setBusy(true);
     setMessage(null);
     try {
       if (body.action === "start-quiz") {
@@ -148,10 +148,10 @@ export default function AdminDashboard() {
       });
       const json = await res.json();
       setMessage(res.ok ? (json.note ?? "Done.") : (json.error ?? "Action failed."));
-      await load();
       return json;
     } finally {
-      setBusy(false);
+      if (setBusyState) setBusy(false);
+      void load();
     }
   }
 
@@ -401,9 +401,9 @@ export default function AdminDashboard() {
                     onClick={async () => {
                       setJudging(true);
                       try {
-                        await callAdvance({ action: "judge-image", slug: "image-1" });
+                        await callAdvance({ action: "judge-image", slug: "image-1" }, false);
                       } finally {
-                        setJudging(false);
+                        setTimeout(() => setJudging(false), 3000);
                       }
                     }}
                     className="comic-btn comic-btn-cyan px-4 py-2 text-xs disabled:opacity-50"

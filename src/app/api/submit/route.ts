@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
 import { eventFromHost, EVENTS, type EventKey } from "@/lib/config";
 import { submit } from "@/lib/submission/pipeline";
+import { invalidateCache } from "@/lib/cache";
 
 /**
  * The single submission endpoint for all four events.
@@ -39,6 +40,10 @@ export async function POST(request: Request) {
     if (!outcome.ok) {
       return NextResponse.json({ error: outcome.error }, { status: outcome.status });
     }
+    
+    // Invalidate local in-memory cache to propagate submission changes instantly
+    invalidateCache();
+
     return NextResponse.json(outcome, { status: outcome.status });
   } catch (err) {
     if (err instanceof UnauthorizedError) {

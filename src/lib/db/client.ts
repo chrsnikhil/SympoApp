@@ -32,29 +32,25 @@ import type {
 
 declare global {
   var __mongoClientPromise: Promise<MongoClient> | undefined;
+  var __mongoIndexesEnsured: boolean | undefined;
 }
 
 function createClient(): Promise<MongoClient> {
   const uri = requireEnv("MONGODB_URI");
   return new MongoClient(uri, {
-    // Keep the pool modest per replica: ACA scales out horizontally, so many
-    // small pools beat one large one, and Cosmos vCore has per-account limits.
     maxPoolSize: 20,
     minPoolSize: 0,
-    // Fail fast rather than hanging a request for 30s if the DB is unreachable.
     serverSelectionTimeoutMS: 5_000,
-    // retryWrites is deliberately NOT set here. Cosmos DB's RU-based Mongo API
-    // rejects retryable writes outright ("Retryable writes are not supported"),
-    // and its connection string carries retrywrites=false to say so. An explicit
-    // driver option overrides the URI, so hardcoding `true` breaks every write
-    // against Cosmos while looking harmless. Leaving it unset lets the URI
-    // decide: false on Cosmos, the driver's default true on a plain mongod.
   }).connect();
 }
 
 function clientPromise(): Promise<MongoClient> {
   if (!global.__mongoClientPromise) {
     global.__mongoClientPromise = createClient();
+    if (!global.__mongoIndexesEnsured) {
+      global.__mongoIndexesEnsured = true;
+      void global.__mongoClientPromise.then(() => ensureIndexes().catch(() => {}));
+    }
   }
   return global.__mongoClientPromise;
 }

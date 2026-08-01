@@ -85,7 +85,6 @@ export async function GET(request: Request) {
         judgedAt: string;
       }> = [];
       if (imageGame) {
-        const promptImagesCol = await collections.promptImages();
         const latestByTeam = new Map<string, (typeof allSubs)[number]>();
         for (const s of allSubs) {
           if (String(s.challengeId) !== String(imageGame._id) || s.status !== "running") continue;
@@ -95,20 +94,10 @@ export async function GET(request: Request) {
             latestByTeam.set(key, s);
           }
         }
-        // Collect all image ObjectIds for a single batch query
         const doneSubs = allSubs.filter((s) => String(s.challengeId) === String(imageGame._id) && s.status === "done");
-        const allImageIds = [
-          ...Array.from(latestByTeam.values()).map((s) => s.payload),
-          ...doneSubs.map((s) => s.payload),
-        ]
-          .filter((p): p is string => Boolean(p && ObjectId.isValid(p)))
-          .map((id) => new ObjectId(id));
-
-        const imageDocs = allImageIds.length > 0 ? await promptImagesCol.find({ _id: { $in: allImageIds } }).toArray() : [];
-        const imageMap = new Map(imageDocs.map((img) => [String(img._id), img.dataUrl]));
 
         for (const [teamId, s] of latestByTeam) {
-          const dataUrl = s.payload ? imageMap.get(s.payload) ?? null : null;
+          const dataUrl = s.payload ? `/api/admin/quiz/image?id=${s.payload}` : null;
           judgeQueue.push({
             teamId,
             teamName: teamById.get(teamId)?.name ?? "Unknown",
@@ -121,7 +110,7 @@ export async function GET(request: Request) {
 
         for (const s of doneSubs) {
           const teamId = String(s.teamId);
-          const dataUrl = s.payload ? imageMap.get(s.payload) ?? null : null;
+          const dataUrl = s.payload ? `/api/admin/quiz/image?id=${s.payload}` : null;
           const meta = s.verdict?.meta as Record<string, unknown> | undefined;
           const simNum = typeof meta?.similarity === "number" ? meta.similarity : undefined;
           const sumStr = typeof meta?.summary === "string" ? meta.summary : undefined;
@@ -151,43 +140,62 @@ export async function GET(request: Request) {
 
       const now = new Date();
       const nonControlTeams = teamDocs.filter((t) => t.name !== "Quiz Control");
-      const perTeam = await Promise.all(
-        nonControlTeams.map(async (t) => {
-          const key = String(t._id);
-          const imageSub = imageGame ? subByTeamChallenge.get(`${key}:${imageGame._id}`) : undefined;
-          const memory = memoryByTeam.get(key);
-          const currentPuzzle = puzzles.length > 0 ? await currentConnectionsPuzzle(t._id!, games, now) : null;
-          const solvedPuzzles = puzzles.filter((p) =>
-            allSubs.some((s) => String(s.challengeId) === String(p._id) && String(s.teamId) === key && s.status === "done" && s.verdict?.correct)
-          ).length;
-          return {
-            teamId: key,
-            teamName: t.name,
-            image: imageGame
-              ? { status: imageSub?.status ?? "not-started", points: imageSub?.verdict?.points ?? null }
-              : null,
-            connections:
-              puzzles.length > 0
-                ? {
-                    puzzleIndex: currentPuzzle?.config.connectionsPuzzleIndex ?? puzzles.length,
-                    totalPuzzles: puzzles.length,
-                    solvedPuzzles,
-                    doneWithAll: currentPuzzle === null,
-                  }
-                : null,
-            memory: memory
+
+      const openedPuzzles = puzzles.filter((p) => p.opensAt && new Date(p.opensAt) <= now);
+      const latestOpened = openedPuzzles.length > 0 ? openedPuzzles[openedPuzzles.length - 1] : puzzles[0] ?? null;
+      const isLastPuzzle = latestOpened && puzzles.length > 0 && latestOpened.slug === puzzles[puzzles.length - 1].slug;
+      const lastTotalImages = latestOpened?.config.connectionsImages?.length ?? 4;
+
+      const perTeam = nonControlTeams.map((t) => {
+        const key = String(t._id);
+        const imageSub = imageGame ? subByTeamChallenge.get(`${key}:${imageGame._id}`) : undefined;
+        const memory = memoryByTeam.get(key);
+
+        let currentPuzzle: typeof latestOpened | null = latestOpened;
+        if (isLastPuzzle && latestOpened) {
+          const isClosedGlobal = latestOpened.closesAt ? now > latestOpened.closesAt : false;
+          const teamSubsForLast = allSubs.filter(
+            (s) => String(s.challengeId) === String(latestOpened._id) && String(s.teamId) === key
+          );
+          const solved = teamSubsForLast.some((s) => s.status === "done" && s.verdict?.correct);
+          const timedOut = teamSubsForLast.some((s) => s.payload === "__timeout__");
+          const exhausted = teamSubsForLast.length >= lastTotalImages;
+          if (isClosedGlobal || solved || timedOut || exhausted) {
+            currentPuzzle = null;
+          }
+        }
+
+        const solvedPuzzles = puzzles.filter((p) =>
+          allSubs.some((s) => String(s.challengeId) === String(p._id) && String(s.teamId) === key && s.status === "done" && s.verdict?.correct)
+        ).length;
+
+        return {
+          teamId: key,
+          teamName: t.name,
+          image: imageGame
+            ? { status: imageSub?.status ?? "not-started", points: imageSub?.verdict?.points ?? null }
+            : null,
+          connections:
+            puzzles.length > 0
               ? {
-                  flipsUsed: memory.flipsUsed,
-                  flipCap: memory.flipCap,
-                  matchedPairs: memory.matched.length / 2,
-                  totalPairs: memory.grid.length / 2,
-                  completed: memory.completedAt !== null,
-                  points: memory.scoredPoints,
+                  puzzleIndex: currentPuzzle?.config.connectionsPuzzleIndex ?? puzzles.length,
+                  totalPuzzles: puzzles.length,
+                  solvedPuzzles,
+                  doneWithAll: currentPuzzle === null,
                 }
               : null,
-          };
-        })
-      );
+          memory: memory
+            ? {
+                flipsUsed: memory.flipsUsed,
+                flipCap: memory.flipCap,
+                matchedPairs: memory.matched.length / 2,
+                totalPairs: memory.grid.length / 2,
+                completed: memory.completedAt !== null,
+                points: memory.scoredPoints,
+              }
+            : null,
+        };
+      });
 
       payload.round1 = { games: games.map((g) => ({ slug: g.slug, title: g.title, format: g.config.format, points: g.points })), perTeam };
       payload.judgeQueue = judgeQueue;
