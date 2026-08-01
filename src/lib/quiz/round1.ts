@@ -71,9 +71,11 @@ async function connectionsCleared(teamId: ObjectId, challenge: Challenge, now: D
 }
 
 /**
- * The specific Connections puzzle a team is currently on, or null once every
- * puzzle in the sequence has been cleared for that team (or closed by coordinator),
- * which signals round1Phase to advance the team to Game 3: Memory Game.
+ * Connections is coordinator-paced live on stage: all teams see whichever
+ * puzzle the coordinator currently has open (`opensAt <= now` and not closed).
+ * Correct guesses lock in points and show a success banner, but teams stay
+ * locked on screen showing their completed score until all images are revealed
+ * and the 10s stage timer finishes (and the coordinator opens the next puzzle).
  */
 export async function currentConnectionsPuzzle(
   teamId: ObjectId,
@@ -83,14 +85,24 @@ export async function currentConnectionsPuzzle(
   const puzzles = connectionsPuzzles(games);
   if (puzzles.length === 0) return null;
 
-  for (const puzzle of puzzles) {
-    if (!(await connectionsCleared(teamId, puzzle, now))) {
-      return puzzle;
-    }
+  // 1) Find all puzzles opened by the coordinator (opensAt <= now)
+  const openedPuzzles = puzzles.filter((p) => p.opensAt && new Date(p.opensAt) <= now);
+
+  // If no puzzle opened yet, stay on Puzzle 1
+  if (openedPuzzles.length === 0) {
+    return puzzles[0];
   }
 
-  // All Connections puzzles cleared for this team!
-  return null;
+  // The latest puzzle opened by the coordinator on stage (e.g. Puzzle 1, Puzzle 2, etc.)
+  const latestOpened = openedPuzzles[openedPuzzles.length - 1];
+
+  // If Puzzle 5 (the last puzzle) has been cleared/timed out for this team or closed globally, advance to Game 3 Memory!
+  const isLastPuzzle = latestOpened.slug === puzzles[puzzles.length - 1].slug;
+  if (isLastPuzzle && (await connectionsCleared(teamId, latestOpened, now))) {
+    return null;
+  }
+
+  return latestOpened;
 }
 
 export async function round1Phase(teamId: ObjectId, games: Challenge[], now: Date = new Date()): Promise<Round1Phase> {
