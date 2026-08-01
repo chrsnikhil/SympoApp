@@ -57,11 +57,13 @@ export async function submit(args: SubmitArgs): Promise<SubmitOutcome> {
   const challenge = await withThrottleRetry(() => challenges.findOne({ type: event, slug: challengeSlug }));
   if (!challenge?._id) return { ok: false, status: 404, error: "Challenge not found" };
 
-  if (challenge.opensAt && receivedAt < challenge.opensAt) {
-    return { ok: false, status: 403, error: "Not open yet" };
-  }
-  if (challenge.closesAt && receivedAt > challenge.closesAt) {
-    return { ok: false, status: 403, error: "Closed" };
+  if (challenge.config?.format !== "prompt-image") {
+    if (challenge.opensAt && receivedAt < challenge.opensAt) {
+      return { ok: false, status: 403, error: "Not open yet" };
+    }
+    if (challenge.closesAt && receivedAt > challenge.closesAt) {
+      return { ok: false, status: 403, error: "Closed" };
+    }
   }
 
   if (challenge.config?.format === "prompt-image") {
