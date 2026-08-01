@@ -85,6 +85,10 @@ export async function GET(request: Request) {
         judgedAt: string;
       }> = [];
       if (imageGame) {
+        const promptImagesCol = await collections.promptImages();
+        const allPromptImages = await promptImagesCol.find({ challengeSlug: imageGame.slug }).toArray();
+        const promptImgByTeam = new Map(allPromptImages.map((img) => [String(img.teamId), img]));
+
         const latestByTeam = new Map<string, (typeof allSubs)[number]>();
         for (const s of allSubs) {
           if (String(s.challengeId) !== String(imageGame._id) || s.status !== "running") continue;
@@ -96,7 +100,9 @@ export async function GET(request: Request) {
         }
         const doneSubs = allSubs.filter((s) => String(s.challengeId) === String(imageGame._id) && s.status === "done");
 
+        const queuedTeamIds = new Set<string>();
         for (const [teamId, s] of latestByTeam) {
+          queuedTeamIds.add(teamId);
           const dataUrl = s.payload ? `/api/admin/quiz/image?id=${s.payload}` : null;
           judgeQueue.push({
             teamId,
@@ -105,6 +111,20 @@ export async function GET(request: Request) {
             imageId: s.payload ?? null,
             dataUrl,
           });
+        }
+
+        const judgedTeamIds = new Set(doneSubs.map((s) => String(s.teamId)));
+        for (const [teamId, img] of promptImgByTeam) {
+          if (!queuedTeamIds.has(teamId) && !judgedTeamIds.has(teamId)) {
+            const imgId = img._id.toString();
+            judgeQueue.push({
+              teamId,
+              teamName: teamById.get(teamId)?.name ?? "Unknown",
+              submittedAt: (img.uploadedAt ?? new Date()).toISOString(),
+              imageId: imgId,
+              dataUrl: `/api/admin/quiz/image?id=${imgId}`,
+            });
+          }
         }
         judgeQueue.sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
 

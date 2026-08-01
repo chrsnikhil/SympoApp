@@ -54,6 +54,13 @@ export async function gradeQuiz(input: GradeInput): Promise<GradeResult> {
   // stops a team submitting repeatedly until it lands on the right answer.
   if (format === "estimate" || format === "prompt-image") {
     const subs = await collections.submissions();
+
+    if (format === "prompt-image") {
+      // Allow teams to replace their uploaded image before judging / game closure
+      await subs.deleteMany({ challengeId: challenge._id, teamId, status: "running" });
+      return acceptPromptImage(payload, teamId, challenge.slug);
+    }
+
     const prior = await subs.findOne({
       challengeId: challenge._id,
       teamId,
@@ -61,9 +68,7 @@ export async function gradeQuiz(input: GradeInput): Promise<GradeResult> {
     });
     if (prior) return { correct: false, points: 0, meta: { reason: "already-answered" } };
 
-    if (format === "estimate") return acceptEstimate(payload);
-
-    return acceptPromptImage(payload, teamId, challenge.slug);
+    return acceptEstimate(payload);
   }
 
   // Connections allows retries — a wrong guess shouldn't cost a team the rest
