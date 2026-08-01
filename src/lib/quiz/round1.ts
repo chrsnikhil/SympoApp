@@ -118,15 +118,11 @@ export async function round1Phase(teamId: ObjectId, games: Challenge[], now: Dat
 
   if (imageGame && !anyConnectionsOpened) {
     const isClosedGlobal = imageGame.closesAt ? now > imageGame.closesAt : false;
-    const startMs = imageGame.opensAt
-      ? new Date(imageGame.opensAt).getTime()
-      : round1Start
-        ? new Date(round1Start).getTime()
-        : 0;
-    const DEFAULT_IMAGE_DURATION_MS = 210_000; // 3.5 minutes
+    const startMs = imageGame.opensAt ? new Date(imageGame.opensAt).getTime() : 0;
+    const DEFAULT_IMAGE_DURATION_MS = 270_000; // 4.5 minutes (270 seconds)
     const isTimedOut = startMs > 0 ? now.getTime() - startMs >= DEFAULT_IMAGE_DURATION_MS : false;
 
-    // Stay in Game 1 until: closed globally, timed out (3.5 mins), OR coordinator opens Connections
+    // Stay in Game 1 until: closed globally, timed out (4.5 mins), OR coordinator opens Connections
     if (!isClosedGlobal && !isTimedOut) {
       return "image";
     }

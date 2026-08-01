@@ -175,39 +175,50 @@ export async function resolvePromptImage(slug: string, similarityByTeam: Record<
   const challenge = await challenges.findOne({ type: "quiz", slug });
   if (!challenge?._id) throw new Error(`No such quiz challenge: ${slug}`);
 
-  // "running", not "queued" — see the note in lib/quiz/judge.ts.
-  const attempts = await subs.find({ challengeId: challenge._id, status: "running" }).toArray();
   const awards: ResolvedAward[] = [];
 
-  for (const sub of attempts) {
-    const teamId = String(sub.teamId);
-    const raw = similarityByTeam[teamId];
-    if (raw === undefined) continue; // not judged yet — leave it queued
+  for (const [teamIdStr, raw] of Object.entries(similarityByTeam)) {
+    if (raw === undefined || raw === null) continue;
 
-    // Match percentage (0..1 or 0..100) converted directly to 0-100 points (e.g. 89% -> 89 points)
+    const teamId = new ObjectId(teamIdStr);
     const percentage = raw > 1 ? raw : raw * 100;
     const points = Math.min(100, Math.max(0, Math.round(percentage)));
     const similarity = Math.min(1, Math.max(0, points / 100));
 
-    await withThrottleRetry(() =>
-      subs.updateOne(
-        { _id: sub._id },
-        { $set: { status: "done", verdict: { correct: points > 0, points, meta: { similarity } } } }
-      )
-    );
+    // Find existing submission or insert one
+    let sub = await subs.findOne({ challengeId: challenge._id, teamId, status: { $ne: "done" } });
+    if (!sub) {
+      const ins = await subs.insertOne({
+        type: "quiz",
+        challengeId: challenge._id,
+        teamId,
+        participantId: teamId,
+        receivedAt: new Date(),
+        status: "done",
+        verdict: { correct: points > 0, points, meta: { similarity } },
+      });
+      sub = { _id: ins.insertedId, receivedAt: new Date() } as any;
+    } else {
+      await withThrottleRetry(() =>
+        subs.updateOne(
+          { _id: sub!._id },
+          { $set: { status: "done", verdict: { correct: points > 0, points, meta: { similarity } } } }
+        )
+      );
+    }
 
-    if (points > 0) {
+    if (points > 0 && sub?._id) {
       await appendScore({
-        teamId: sub.teamId,
+        teamId,
         event: "quiz",
         points,
         reason: `quiz:${slug}`,
         submissionId: sub._id,
-        at: sub.receivedAt,
+        at: sub.receivedAt ?? new Date(),
       });
     }
 
-    awards.push({ teamId, points, detail: { similarity } });
+    awards.push({ teamId: teamIdStr, points, detail: { similarity } });
   }
 
   return awards;

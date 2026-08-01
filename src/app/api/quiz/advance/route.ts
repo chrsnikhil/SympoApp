@@ -119,37 +119,28 @@ export async function POST(request: Request) {
           );
         }
 
-        // "running", not "queued" — see the note in lib/quiz/judge.ts.
-        const pending = await subs.find({ challengeId: challenge._id, status: "running" }).toArray();
-        if (pending.length === 0) {
-          return NextResponse.json({ ok: true, slug: body.slug, judged: [], failed: [], note: "Nothing outstanding." });
-        }
-
-        const latestByTeam = new Map<string, (typeof pending)[number]>();
-        for (const s of [...pending].sort((a, b) => b.receivedAt.getTime() - a.receivedAt.getTime())) {
-          const key = String(s.teamId);
-          if (!latestByTeam.has(key)) latestByTeam.set(key, s);
+        // Find all uploaded prompt images for this challenge
+        const allPromptImages = await images.find({ challengeSlug: body.slug }).toArray();
+        const latestPromptImageByTeam = new Map<string, (typeof allPromptImages)[number]>();
+        for (const img of [...allPromptImages].sort((a, b) => b._id.getTimestamp().getTime() - a._id.getTimestamp().getTime())) {
+          const key = String(img.teamId);
+          if (!latestPromptImageByTeam.has(key)) latestPromptImageByTeam.set(key, img);
         }
 
         const entries: Array<{ teamId: string; image: string }> = [];
-        const missing: Array<{ teamId: string; reason: string }> = [];
-        for (const [teamId, sub] of latestByTeam) {
-          const image = sub.payload ? await images.findOne({ _id: new ObjectId(sub.payload) }) : null;
-          if (!image) missing.push({ teamId, reason: "No uploaded image found" });
-          else entries.push({ teamId, image: image.dataUrl });
+        for (const [teamId, img] of latestPromptImageByTeam) {
+          entries.push({ teamId, image: img.dataUrl });
+        }
+
+        if (entries.length === 0) {
+          return NextResponse.json({ ok: true, slug: body.slug, judged: [], failed: [], note: "No uploaded images found." });
         }
 
         const { judged, failed } = await judgeAll(challenge, reference, entries);
-        const allFailed = [...missing, ...failed];
-
-        if (allFailed.length > 0) {
-          await subs.deleteMany({ challengeId: challenge._id, teamId: { $in: allFailed.map((f) => new ObjectId(f.teamId)) } });
-        }
-
         const scores = Object.fromEntries(judged.map((j) => [j.teamId, j.similarity]));
         const awards = judged.length > 0 ? await resolvePromptImage(body.slug, scores) : [];
 
-        return NextResponse.json({ ok: true, slug: body.slug, judged, failed: allFailed, awards });
+        return NextResponse.json({ ok: true, slug: body.slug, judged, failed, awards });
       }
 
       case "open": {
