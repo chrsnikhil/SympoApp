@@ -88,8 +88,8 @@ export async function scoreConnections(
   const PUZZLE_ALIASES: Record<string, string[]> = {
     "connections-1": ["cookie", "cookies", "web cookie", "browser cookie", "http cookie", "session cookie"],
     "connections-2": ["nvidia", "nvidia gpu"],
-    "connections-3": ["blockchain", "block chain", "chain", "crypto", "cryptocurrency", "distributed ledger"],
-    "connections-4": ["pytorch", "tensorflow", "neural network", "neural net", "ai framework", "keras", "deep learning framework"],
+    "connections-3": ["blockchain", "block chain"],
+    "connections-4": ["tensorflow", "tensor flow"],
     "connections-5": ["api", "apis", "rest api", "web api", "application programming interface", "restful api", "endpoint"],
   };
 
@@ -103,7 +103,7 @@ export async function scoreConnections(
         normSingular === alias.toLowerCase() ||
         hashAnswer(normGuess) === hashAnswer(alias)
     ) ||
-    (challenge.slug !== "connections-2" &&
+    (!["connections-2", "connections-3", "connections-4"].includes(challenge.slug) &&
       targetHashes.some(
         (h) =>
           h === hashAnswer(guess) ||
