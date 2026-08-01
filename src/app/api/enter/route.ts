@@ -122,7 +122,7 @@ export async function POST(request: Request) {
       avatar: forCoin.id,
       createdAt: new Date(),
     });
-    await coins.updateOne({ _id: parsed }, { $set: { teamId: newTeamId, claimedAt: new Date() } });
+    await coins.updateOne({ _id: parsed }, { $set: { teamId: newTeamId, claimedAt: new Date(), redeemedAt: new Date() } });
     disc = await coins.findOne({ _id: parsed });
   }
 
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
       avatar: forCoin.id,
       createdAt: new Date(),
     });
-    await coins.updateOne({ _id: parsed }, { $set: { teamId: newTeamId, claimedAt: new Date() } });
+    await coins.updateOne({ _id: parsed }, { $set: { teamId: newTeamId, claimedAt: new Date(), redeemedAt: new Date() } });
     team = (await teams.findOne({ _id: newTeamId }))!;
   }
 
