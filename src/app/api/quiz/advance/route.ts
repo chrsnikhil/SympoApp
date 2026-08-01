@@ -136,11 +136,20 @@ export async function POST(request: Request) {
           return NextResponse.json({ ok: true, slug: body.slug, judged: [], failed: [], note: "No uploaded images found." });
         }
 
-        const { judged, failed } = await judgeAll(challenge, reference, entries);
-        const scores = Object.fromEntries(judged.map((j) => [j.teamId, j.similarity]));
-        const awards = judged.length > 0 ? await resolvePromptImage(body.slug, scores) : [];
+        // Run image evaluation in the background non-blockingly so the UI stays responsive
+        void (async () => {
+          try {
+            const { judged } = await judgeAll(challenge, reference, entries);
+            const scores = Object.fromEntries(judged.map((j) => [j.teamId, j.similarity]));
+            if (judged.length > 0) {
+              await resolvePromptImage(body.slug!, scores);
+            }
+          } catch (err) {
+            console.error("Background judge error:", err);
+          }
+        })();
 
-        return NextResponse.json({ ok: true, slug: body.slug, judged, failed, awards });
+        return NextResponse.json({ ok: true, slug: body.slug, note: "Image evaluation started in background!" });
       }
 
       case "open": {

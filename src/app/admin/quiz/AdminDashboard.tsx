@@ -58,6 +58,7 @@ export default function AdminDashboard() {
   const [round, setRound] = useState(1);
   const [data, setData] = useState<Overview | null>(null);
   const [busy, setBusy] = useState(false);
+  const [judging, setJudging] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [resetTarget, setResetTarget] = useState("");
   const [advanceConfirm, setAdvanceConfirm] = useState(false);
@@ -70,8 +71,16 @@ export default function AdminDashboard() {
   const [previewModal, setPreviewModal] = useState<{ teamName: string; dataUrl: string } | null>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/admin/quiz/overview?round=${round}`, { cache: "no-store" });
-    if (res.ok) setData(await res.json());
+    try {
+      const res = await fetch(`/api/admin/quiz/overview?round=${round}`, { cache: "no-store" });
+      if (res.ok) {
+        setData(await res.json());
+      } else if (res.status === 401 || res.status === 403) {
+        window.location.href = "/enter";
+      }
+    } catch {
+      // Ignore network glitch on loop
+    }
   }, [round]);
 
   useEffect(() => {
@@ -360,11 +369,18 @@ export default function AdminDashboard() {
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="font-display text-sm uppercase tracking-wide text-paper-white font-bold">Image Replication judge queue ({data.judgeQueue.length})</h2>
                   <button
-                    disabled={busy || data.judgeQueue.length === 0}
-                    onClick={() => callAdvance({ action: "judge-image", slug: "image-1" })}
-                    className="comic-btn comic-btn-cyan px-4 py-2 text-xs"
+                    disabled={judging || data.judgeQueue.length === 0}
+                    onClick={async () => {
+                      setJudging(true);
+                      try {
+                        await callAdvance({ action: "judge-image", slug: "image-1" });
+                      } finally {
+                        setJudging(false);
+                      }
+                    }}
+                    className="comic-btn comic-btn-cyan px-4 py-2 text-xs disabled:opacity-50"
                   >
-                    Judge remaining now
+                    {judging ? "EVALUATING IN BACKGROUND…" : "Judge remaining now"}
                   </button>
                 </div>
                 <p className="mb-3 text-xs font-semibold text-paper-white/85">

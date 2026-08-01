@@ -221,3 +221,4 @@ export async function resolvePromptImage(slug: string, similarityByTeam: Record<
 
   return awards;
 }
+

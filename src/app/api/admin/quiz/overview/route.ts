@@ -256,7 +256,7 @@ export async function GET(request: Request) {
           coin: formatCoin(c._id),
           character: avatarForCoin(c._id)?.name ?? "?",
           team: teamById.get(String(c.teamId))?.name ?? "?",
-          isLocked: !!(c.redeemedAt || c.claimedAt || c.teamId),
+          isLocked: !!c.redeemedAt,
         })),
     };
 
