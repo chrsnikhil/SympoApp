@@ -120,39 +120,11 @@ export async function POST(request: Request) {
     const participants = await collections.participants();
 
     let disc = await coins.findOne({ _id: parsed });
-    if (!disc) {
-      await coins.insertOne({ _id: parsed, teamId: null, claimedAt: null });
-      disc = (await coins.findOne({ _id: parsed }))!;
-    }
-
-    // Auto-assign coin token to character team if not pre-assigned by coordinator
-    if (!disc.teamId) {
-      const defaultTeamName = `${forCoin.name} #${formatCoin(parsed)}`;
-      let team = await teams.findOne({ name: defaultTeamName });
-      if (!team) {
-        const teamId = new ObjectId();
-        await teams.insertOne({
-          _id: teamId,
-          name: defaultTeamName,
-          avatar: forCoin.id,
-          coin: parsed,
-          createdAt: new Date(),
-        });
-        team = (await teams.findOne({ _id: teamId }))!;
-      }
-      let participant = await participants.findOne({ teamId: team._id });
-      if (!participant) {
-        const partId = new ObjectId();
-        await participants.insertOne({
-          _id: partId,
-          teamId: team._id,
-          name: defaultTeamName,
-          role: "participant",
-          createdAt: new Date(),
-        });
-      }
-      await coins.updateOne({ _id: parsed }, { $set: { teamId: team._id, claimedAt: new Date() } });
-      disc.teamId = team._id;
+    if (!disc || !disc.teamId) {
+      return NextResponse.json(
+        { error: "🔒 This token has not been assigned to a team yet. Please register with a coordinator!" },
+        { status: 403 }
+      );
     }
 
     const team = await teams.findOne({ _id: disc.teamId });
