@@ -173,9 +173,9 @@ export default function QuizClient({
 
   const isTransitionActive =
     (showCountdown || incoming !== null) &&
-    (!startedAtState || Date.now() - new Date(startedAtState).getTime() < 15_000);
+    (!startedAtState || Date.now() - new Date(startedAtState).getTime() < 20_000);
 
-  /* 15-SECOND COUNTDOWN INTERLUDE ON START & ROUND ADVANCE — SYNCHRONIZED ACROSS SCREENS */
+  /* 20-SECOND COUNTDOWN INTERLUDE ON START & ROUND ADVANCE — SYNCHRONIZED ACROSS SCREENS */
   if (isTransitionActive) {
     return (
       <RoundTransition
@@ -292,7 +292,7 @@ function RoundTransition({
   const currentNow = serverNow > 0 ? serverNow : Date.now();
   const fallbackStartRef = useRef(currentNow);
   const startMs = startedAt ? new Date(startedAt).getTime() : fallbackStartRef.current;
-  const TRANSITION_DURATION_MS = 15_000;
+  const TRANSITION_DURATION_MS = 20_000;
   const endsAt = startMs + TRANSITION_DURATION_MS;
   const secondsLeft = Math.max(0, Math.ceil((endsAt - currentNow) / 1000));
 
@@ -348,11 +348,11 @@ function RoundTransition({
         <div className="absolute inset-0 ben-day-light opacity-10 pointer-events-none" />
         <Celebration />
 
-        {/* 15-SECOND COUNTDOWN HEADER */}
+        {/* 20-SECOND COUNTDOWN HEADER */}
         <div className="flex justify-center mb-6">
           <SpiderTimer
             secondsLeft={secondsLeft}
-            totalSeconds={15}
+            totalSeconds={20}
             urgent={secondsLeft <= 5}
             size={90}
             format="seconds"

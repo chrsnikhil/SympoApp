@@ -393,9 +393,10 @@ async function handlePOST(request: Request) {
         await state.updateOne({ _id: "quiz" }, { $set: { started: true, startedAt: now, round1StartedAt: now } }, { upsert: true });
 
         const challenges = await collections.challenges();
+        const opensAt = new Date(now.getTime() + 20_000);
         await challenges.updateOne(
           { type: "quiz", slug: "image-1" },
-          { $set: { opensAt: now, closesAt: null } }
+          { $set: { opensAt, closesAt: null } }
         );
         return NextResponse.json({ ok: true, started: true, note: "Quiz started!" });
       }
