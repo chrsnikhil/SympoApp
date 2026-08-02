@@ -58,6 +58,15 @@ export default function ProctorGate({ round, children }: { round: QuizRound; chi
     if (fullscreen) armed.current = true;
   }, [fullscreen]);
 
+  // Attempt automatic fullscreen on mount (will silently fail if browser requires user gesture)
+  useEffect(() => {
+    if (!fullscreen && supported && !justExited && !armed.current) {
+      document.documentElement.requestFullscreen().catch(() => {
+        // Browser blocked automatic fullscreen; user will have to click the manual button
+      });
+    }
+  }, [fullscreen, supported, justExited]);
+
   // Authoritative freeze check — catches a freeze that happened before a
   // reload (the strikes hook's own state resets on mount) and one triggered
   // by the 10-second background timer while this tab was hidden.
