@@ -39,13 +39,22 @@ export async function GET() {
 
     const serverTime = now.toISOString();
 
+    // Tab-switch strike/freeze state — never armed during "image" (teams are
+    // expected to tab out to an AI generator there), but always reported so
+    // the client can drop the freeze screen the instant a coordinator clears
+    // it without waiting on a separate poll.
+    const freezes = await collections.proctorFreezes();
+    const freezeState = await freezes.findOne({ teamId, round: 1 });
+    const frozen = freezeState?.frozen ?? false;
+    const frozenReason = freezeState?.frozenReason ?? null;
+
     if (phase === "connections") {
       const puzzles = connectionsPuzzles(games);
       const challenge = await currentConnectionsPuzzle(teamId, games, now, teamSubmissions);
       if (!challenge) {
         // Cleared between the phase check and here (a concurrent guess) — the
         // next poll will pick up "memory". Nothing to render this instant.
-        return NextResponse.json({ serverTime, phase, completedPhases, game: null }, { headers: { "Cache-Control": "no-store" } });
+        return NextResponse.json({ serverTime, phase, completedPhases, frozen, frozenReason, game: null }, { headers: { "Cache-Control": "no-store" } });
       }
 
       const allSubs = teamSubmissions
@@ -68,6 +77,8 @@ export async function GET() {
           serverTime,
           phase,
           completedPhases,
+          frozen,
+          frozenReason,
           game: {
             slug: challenge.slug,
             title: challenge.title,
@@ -91,12 +102,12 @@ export async function GET() {
     }
 
     if (phase === "done") {
-      return NextResponse.json({ serverTime, phase, completedPhases, game: null }, { headers: { "Cache-Control": "no-store" } });
+      return NextResponse.json({ serverTime, phase, completedPhases, frozen, frozenReason, game: null }, { headers: { "Cache-Control": "no-store" } });
     }
 
     const challenge = gameForPhase(games, phase);
     if (!challenge) {
-      return NextResponse.json({ serverTime, phase, completedPhases, game: null }, { headers: { "Cache-Control": "no-store" } });
+      return NextResponse.json({ serverTime, phase, completedPhases, frozen, frozenReason, game: null }, { headers: { "Cache-Control": "no-store" } });
     }
 
     const quizState = await getCachedQuizState();
@@ -127,6 +138,8 @@ export async function GET() {
           serverTime,
           phase,
           completedPhases,
+          frozen,
+          frozenReason,
           game: {
             ...base,
             referenceImage: challenge.config.referenceImage ?? null,
@@ -140,7 +153,7 @@ export async function GET() {
     }
 
     // phase === "memory" — MemoryGrid fetches its own state via /api/quiz/memory.
-    return NextResponse.json({ serverTime, phase, completedPhases, game: base }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ serverTime, phase, completedPhases, frozen, frozenReason, game: base }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });

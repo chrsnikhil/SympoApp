@@ -70,6 +70,29 @@ async function handlePOST(request: Request) {
         });
       }
 
+      case "unfreeze-team": {
+        // Clears a team's proctoring freeze — the only way one lifts, per
+        // `ProctorFreeze`'s design. Resets the strike count too: this is the
+        // coordinator saying "start clean," not "forgive one violation."
+        const teamIdStr = body.teamId as string;
+        const round = Number(body.round) as QuizRound;
+        if (!teamIdStr) return NextResponse.json({ error: "Missing teamId" }, { status: 400 });
+        if (![1, 2, 3].includes(round)) return NextResponse.json({ error: "round must be 1, 2 or 3" }, { status: 400 });
+
+        const teamId = new ObjectId(teamIdStr);
+        const freezes = await collections.proctorFreezes();
+        const now = new Date();
+        await freezes.updateOne(
+          { teamId, round },
+          { $set: { teamId, round, strikes: 0, frozen: false, frozenAt: null, frozenReason: null, updatedAt: now } },
+          { upsert: true }
+        );
+        const flags = await collections.proctorFlags();
+        await flags.insertOne({ teamId, round, kind: "unfreeze", at: now });
+
+        return NextResponse.json({ ok: true, note: "Team unfrozen — they can continue." });
+      }
+
       case "eliminate-team": {
         const teamIdStr = (body.teamId || body.slug) as string;
         if (!teamIdStr) return NextResponse.json({ error: "Missing teamId" }, { status: 400 });
@@ -212,7 +235,7 @@ async function handlePOST(request: Request) {
         const slugs = quizChallenges.map((c) => `quiz:${c.slug}`);
         const challengeIds = quizChallenges.map((c) => c._id!);
 
-        const [serves, subs, scores, quals, memoryStates, comebacks, coins] = await Promise.all([
+        const [serves, subs, scores, quals, memoryStates, comebacks, coins, proctorFreezes] = await Promise.all([
           collections.quizServes(),
           collections.submissions(),
           collections.scoreEvents(),
@@ -220,6 +243,7 @@ async function handlePOST(request: Request) {
           collections.memoryStates(),
           collections.comebackStates(),
           collections.coins(),
+          collections.proctorFreezes(),
         ]);
 
         const result = {
@@ -229,6 +253,7 @@ async function handlePOST(request: Request) {
           qualifications: (await quals.deleteMany({ teamId: { $in: ids } })).deletedCount,
           memoryStates: (await memoryStates.deleteMany({ teamId: { $in: ids } })).deletedCount,
           comebackStates: (await comebacks.deleteMany({ teamId: { $in: ids } })).deletedCount,
+          proctorFreezes: (await proctorFreezes.deleteMany({ teamId: { $in: ids } })).deletedCount,
         };
         await coins.updateMany({ teamId: { $in: ids } }, { $set: { teamId: null, claimedAt: null } });
         await teams.updateMany({ _id: { $in: ids } }, { $unset: { avatar: "", coin: "" } });
@@ -412,6 +437,9 @@ async function handlePOST(request: Request) {
         const proctorFlags = await collections.proctorFlags();
         await proctorFlags.deleteMany({});
 
+        const proctorFreezes = await collections.proctorFreezes();
+        await proctorFreezes.deleteMany({});
+
         const challenges = await collections.challenges();
         await challenges.updateMany(
           { type: "quiz" },
@@ -433,7 +461,7 @@ async function handlePOST(request: Request) {
         return NextResponse.json(
           {
             error:
-              "action must be advance, resolve-estimate, resolve-image, judge-image, open, reset, reveal-next-image, close-puzzle, assign-coin, revoke-coin, end-quiz or resume-quiz",
+              "action must be advance, resolve-estimate, resolve-image, judge-image, open, reset, reveal-next-image, close-puzzle, assign-coin, revoke-coin, unfreeze-team, end-quiz or resume-quiz",
           },
           { status: 400 }
         );

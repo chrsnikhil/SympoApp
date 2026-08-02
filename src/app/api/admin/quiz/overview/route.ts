@@ -252,6 +252,22 @@ export async function GET(request: Request) {
       .map(([teamId, counts]) => ({ teamId, teamName: teamById.get(teamId)?.name ?? "Unknown", ...counts }))
       .sort((a, b) => b.tabSwitch + b.windowBlur + b.fullscreenExit - (a.tabSwitch + a.windowBlur + a.fullscreenExit));
 
+    // Teams currently frozen out by the tab-switch strike system — across all
+    // rounds, since the coordinator needs to see and clear these regardless of
+    // which round tab they happen to have the dashboard open on.
+    const freezes = await collections.proctorFreezes();
+    const frozenDocs = await freezes.find({ frozen: true }).toArray();
+    payload.freezes = frozenDocs
+      .map((f) => ({
+        teamId: String(f.teamId),
+        teamName: teamById.get(String(f.teamId))?.name ?? "Unknown",
+        round: f.round,
+        strikes: f.strikes,
+        reason: f.frozenReason,
+        frozenAt: f.frozenAt ? f.frozenAt.toISOString() : null,
+      }))
+      .sort((a, b) => new Date(b.frozenAt ?? 0).getTime() - new Date(a.frozenAt ?? 0).getTime());
+
     if (round === 3) {
       const comebacks = await collections.comebackStates();
       const rows2 = await comebacks.find({ round: 3 }).toArray();
