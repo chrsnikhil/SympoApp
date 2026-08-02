@@ -30,7 +30,84 @@ export interface SubmitArgs {
   payload: string;
   session: SessionClaims;
 }
+async function checkSectionBonus(
+  teamId: ObjectId,
+  difficulty: string,
+  receivedAt: Date,
+  event: EventKey
+) {
+  const challenges = await collections.challenges();
+  const submissions = await collections.submissions();
+  const scoreEvents = await collections.scoreEvents();
 
+  // Bonus only for CTF
+  if (event !== "ctf") return;
+
+  // Already received any section bonus?
+  const alreadyBonus = await scoreEvents.findOne({
+    teamId,
+    reason: {
+      $in: [
+        "easy-section-bonus",
+        "medium-section-bonus",
+        "hard-section-bonus",
+      ],
+    },
+  });
+
+  if (alreadyBonus) return;
+
+  const diff = difficulty.toLowerCase();
+
+  const limits: Record<string, number> = {
+    easy: 15,
+    medium: 25,
+    hard: 30,
+  };
+
+  const limit = limits[diff];
+  if (!limit) return;
+
+  // All challenges of this difficulty
+  const challengeList = await challenges
+    .find({
+      type: "ctf",
+      "config.difficulty": difficulty,
+    })
+    .toArray();
+
+  const ids = challengeList.map((c) => c._id);
+
+  // Correct solves by this team
+  const solves = await submissions
+    .find({
+      teamId,
+      challengeId: { $in: ids },
+      "verdict.correct": true,
+    })
+    .sort({ receivedAt: 1 })
+    .toArray();
+
+  // Haven't solved every challenge yet
+  if (solves.length !== challengeList.length) return;
+
+  const start = solves[0].receivedAt.getTime();
+  const end = solves[solves.length - 1].receivedAt.getTime();
+
+  const minutes = (end - start) / 60000;
+
+  if (minutes <= limit) {
+    await appendScore({
+      teamId,
+      event: "ctf",
+      points: 50,
+      reason: `${diff}-section-bonus`,
+      at: receivedAt,
+    });
+
+    console.log(`Awarded ${diff} bonus to ${teamId}`);
+  }
+}
 export async function submit(args: SubmitArgs): Promise<SubmitOutcome> {
   // 1 ── FAIRNESS ANCHOR. Nothing above this line touches the network.
   const receivedAt = new Date();
@@ -111,6 +188,12 @@ export async function submit(args: SubmitArgs): Promise<SubmitOutcome> {
       at: receivedAt,
     });
     // Immediately re-materialize the leaderboard so score updates live for the team
+    await checkSectionBonus(
+      teamId,
+      challenge.config?.difficulty as "Easy" | "Medium" | "Hard",
+      receivedAt,
+      event
+    );
     try {
       await materialize(event);
     } catch (e) {
