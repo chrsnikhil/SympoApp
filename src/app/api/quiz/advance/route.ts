@@ -441,6 +441,9 @@ async function handlePOST(request: Request) {
         const proctorFreezes = await collections.proctorFreezes();
         await proctorFreezes.deleteMany({});
 
+        const rankCounters = await collections.rankCounters();
+        await rankCounters.deleteMany({});
+
         const challenges = await collections.challenges();
         await challenges.updateMany(
           { type: "quiz" },

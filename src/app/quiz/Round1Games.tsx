@@ -580,6 +580,7 @@ function ImageReplication({
                 alt="The reference image to recreate"
                 teamName={teamName}
                 className="border-2 border-paper-white/20 bg-ink-black/80"
+                protectFocusLoss
               />
               <p className="text-[10px] text-paper-white/50 text-center">
                 🔒 Watermarked with your team name — screenshots or photos of this image are traceable.

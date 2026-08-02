@@ -140,7 +140,7 @@ int main() {
   { q: "Which Kollywood movie best matches the Spider-Verse concept of alternate realities?", options: ["Maanaadu", "VIP", "Thani Oruvan", "Beast"], correct: 0 },
 ];
 
-// ── Round 3 — Multiverse Abilities (21 questions, each carries a hint the ───
+// ── Round 3 — Multiverse Abilities (20 questions, each carries a hint the ───
 // ── comeback meter's "Goblin Intel" ability can unlock) ─────────────────────
 const ROUND_3: Mcq[] = [
   {
@@ -302,13 +302,6 @@ const ROUND_3: Mcq[] = [
     correct: 1,
     hint: "'Samsung' translates to 'three stars' in Korean.",
   },
-  {
-    q: "This spinning top is a \"totem\" used by the protagonist to distinguish dreams from reality in which movie?",
-    image: "/quiz/r3-inception.png",
-    options: ["A) The Matrix", "B) Inception", "C) Interstellar", "D) Shutter Island"],
-    correct: 1,
-    hint: "Directed by Christopher Nolan, starring Leonardo DiCaprio.",
-  },
 ];
 
 async function main() {
@@ -437,12 +430,18 @@ async function main() {
     config: { round: 1, format: "memory", order: 3, memoryPairs: 8, memoryFlipCap: 14 },
   });
 
+  // Questions 15-20 in rounds 2 and 3 are the lighter/pop-culture-adjacent
+  // ones mixed in with the technical set — worth less than the core
+  // questions, per the coordinator's call.
+  const FUN_QUESTION_POINTS = 25;
+  const isFunQuestionIndex = (i: number) => i >= 14 && i <= 19; // 0-indexed positions of questions 15-20
+
   ROUND_2.forEach((m, i) => {
     docs.push({
       type: "quiz",
       slug: `r2-q${i + 1}`,
       title: m.q,
-      points: 100,
+      points: isFunQuestionIndex(i) ? FUN_QUESTION_POINTS : 100,
       opensAt: null,
       closesAt: null,
       config: { round: 2, format: "mcq", order: i + 1, options: m.options, correctIndex: m.correct },
@@ -454,7 +453,7 @@ async function main() {
       type: "quiz",
       slug: `r3-q${i + 1}`,
       title: m.q,
-      points: 100,
+      points: isFunQuestionIndex(i) ? FUN_QUESTION_POINTS : 100,
       opensAt: null,
       closesAt: null,
       config: { round: 3, format: "mcq", order: i + 1, options: m.options, correctIndex: m.correct, hint: m.hint, image: m.image },

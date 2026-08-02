@@ -409,6 +409,21 @@ export interface ProctorFreeze {
 }
 
 /**
+ * Atomic "next number please" counter, keyed by an arbitrary caller-chosen
+ * string. Backs rank-by-arrival scoring (Connections' per-stage rank,
+ * Memory's completion-order bonus) that used to be computed by counting
+ * existing documents and adding one — a read-then-write with no atomicity
+ * between the two, so two teams finishing in the same instant could both
+ * read the same count and both get awarded the same rank. `$inc` on a single
+ * document is atomic in Mongo regardless of how many requests hit it at
+ * once, which a count-then-insert never is.
+ */
+export interface RankCounter {
+  _id: string;
+  count: number;
+}
+
+/**
  * One well-known document (`_id: "quiz"`), not a per-round record — the
  * coordinator's single "the event is over" switch. Checked by `gradeQuiz`
  * so nothing scores after the coordinator hits End Quiz, regardless of which

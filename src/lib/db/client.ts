@@ -20,6 +20,7 @@ import type {
   PromptImage,
   QuizServe,
   QuizState,
+  RankCounter,
   RoundQualification,
   ScoreEvent,
   Submission,
@@ -95,12 +96,12 @@ async function getConnectUri(srvUri: string): Promise<string> {
  * `MONGODB_URI`. Defaults to false when unset, so any deployment that only
  * ever sets `MONGODB_URI` (every one so far) is unaffected.
  */
-function useLocalDb(): boolean {
+function localDbEnabled(): boolean {
   return (process.env.USE_LOCAL_DB ?? "false").trim().toLowerCase() === "true";
 }
 
 async function createClient(): Promise<MongoClient> {
-  const rawUri = useLocalDb() ? requireEnv("MONGODB_URI_LOCAL") : requireEnv("MONGODB_URI");
+  const rawUri = localDbEnabled() ? requireEnv("MONGODB_URI_LOCAL") : requireEnv("MONGODB_URI");
   const uri = await getConnectUri(rawUri);
   return new MongoClient(uri, {
     maxPoolSize: 20,
@@ -159,6 +160,8 @@ export const collections = {
     (await getDb()).collection<ProctorFlag>("proctor_flags"),
   proctorFreezes: async (): Promise<Collection<ProctorFreeze>> =>
     (await getDb()).collection<ProctorFreeze>("proctor_freezes"),
+  rankCounters: async (): Promise<Collection<RankCounter>> =>
+    (await getDb()).collection<RankCounter>("rank_counters"),
   quizState: async (): Promise<Collection<QuizState>> =>
     (await getDb()).collection<QuizState>("quiz_state"),
 };

@@ -118,7 +118,11 @@ export async function GET() {
         : now;
 
     const baseOpensAt = challenge.opensAt ?? round1Start;
-    const baseClosesAt = challenge.closesAt ?? new Date(baseOpensAt.getTime() + 270_000);
+    // Image Replication is 3m30s (matches the rules text and the reference's
+    // reveal schedule — see `round1Phase`'s matching constant); the Memory
+    // Game has no stated duration, so it keeps the longer default.
+    const defaultDurationMs = phase === "image" ? 210_000 : 270_000;
+    const baseClosesAt = challenge.closesAt ?? new Date(baseOpensAt.getTime() + defaultDurationMs);
 
     const base = {
       slug: challenge.slug,

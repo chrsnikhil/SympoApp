@@ -56,8 +56,16 @@ export async function gradeQuiz(input: GradeInput): Promise<GradeResult> {
     const subs = await collections.submissions();
 
     if (format === "prompt-image") {
-      // Allow teams to replace their uploaded image before judging / game closure
-      await subs.deleteMany({ challengeId: challenge._id, teamId, status: "running" });
+      // Allow teams to replace their uploaded image before judging / game
+      // closure — but exclude the submission the pipeline just inserted for
+      // THIS request (also "running" at this point), or this would delete
+      // the very submission being graded a moment after creating it.
+      await subs.deleteMany({
+        challengeId: challenge._id,
+        teamId,
+        status: "running",
+        _id: { $ne: input.submissionId },
+      });
       return acceptPromptImage(payload, teamId, challenge.slug);
     }
 

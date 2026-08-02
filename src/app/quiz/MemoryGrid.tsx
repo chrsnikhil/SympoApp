@@ -212,7 +212,9 @@ export default function MemoryGrid({ slug, onDone }: { slug: string; onDone: (po
       {state.completedAt && (
         <div className="mt-4 border-2 border-glitch-cyan bg-glitch-cyan/15 p-4 text-center rounded space-y-1">
           <p className="font-display text-2xl text-glitch-cyan">
-            {state.scoredPoints && state.scoredPoints > 0 ? `MATCHED ALL PAIRS! +${state.scoredPoints} PTS` : "OUT OF FLIPS"}
+            {state.matched.length === state.totalCells
+              ? `MATCHED ALL PAIRS! +${state.scoredPoints ?? 0} PTS`
+              : `OUT OF FLIPS${state.scoredPoints ? ` — +${state.scoredPoints} PTS FOR ${state.matched.length / 2} PAIR${state.matched.length === 2 ? "" : "S"}` : ""}`}
           </p>
           <p className="text-xs text-paper-white/70">
             Completed in {state.flipsUsed} flips!

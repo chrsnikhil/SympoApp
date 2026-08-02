@@ -145,13 +145,17 @@ export async function flipCell(teamId: ObjectId, challenge: Challenge, cellIndex
 
   if ((completed || capExhausted) && scoredPoints === null) {
     if (completed) {
-      // Calculate completion rank among teams that completed all 8 pairs
-      const priorCompleted = await states.countDocuments({
-        challengeSlug: challenge.slug,
-        completedAt: { $ne: null },
-        scoredPoints: { $gt: totalPairs * 2 },
-      });
-      const rank = priorCompleted + 1;
+      // Atomic "next rank please" among teams that complete all pairs — see
+      // `RankCounter` in db/types.ts. A countDocuments-then-award here would
+      // let two teams finishing in the same instant both read the same
+      // count and both get the same completion-order bonus.
+      const counters = await collections.rankCounters();
+      const counter = await counters.findOneAndUpdate(
+        { _id: `memory:${challenge.slug}` },
+        { $inc: { count: 1 } },
+        { upsert: true, returnDocument: "after" }
+      );
+      const rank = counter!.count;
       const bonus = completionBonusForRank(rank);
       scoredPoints = totalPairs * 2 + bonus; // (8 * 2) + bonus
     } else {

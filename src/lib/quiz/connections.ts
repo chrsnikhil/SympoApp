@@ -74,6 +74,23 @@ export async function scoreConnections(
 
   const guess = payload.trim();
 
+  // A real guess (not the timeout/no-answer path below, which has its own
+  // dedup) is capped at one per revealed tile — enforced here, not just by
+  // the client disabling its input, so a request built by hand can't fish
+  // for extra tries against whichever tile is currently cheapest to guess.
+  if (guess && guess !== "__timeout__") {
+    const alreadyAttemptedThisTile = await subs.findOne({
+      challengeId: challenge._id,
+      teamId,
+      status: "done",
+      "verdict.meta.imageIndex": imageIndex,
+      _id: { $ne: submissionId },
+    });
+    if (alreadyAttemptedThisTile) {
+      return { correct: false, points: 0, meta: { reason: "already-attempted-this-tile", imageIndex } };
+    }
+  }
+
   // Handle No Answer / Timer Expiry
   if (guess === "__timeout__" || !guess) {
     const firstTimeout = await subs.findOne(
@@ -143,14 +160,19 @@ export async function scoreConnections(
       ));
 
   if (isCorrect) {
-    // Count prior correct answers during THIS image stage for timestamp ranking
-    const priorCorrectThisStage = await subs.countDocuments({
-      challengeId: challenge._id,
-      "verdict.meta.imageIndex": imageIndex,
-      "verdict.correct": true,
-    });
+    // Atomic "next rank please" — two teams answering correctly in the same
+    // instant still each get a distinct rank, since `$inc` on one document is
+    // serialized by Mongo regardless of how many requests land on it at once
+    // (a countDocuments-then-award here would let both read the same count).
+    const counters = await collections.rankCounters();
+    const counterKey = `connections:${challenge.slug}:${imageIndex}`;
+    const counter = await counters.findOneAndUpdate(
+      { _id: counterKey },
+      { $inc: { count: 1 } },
+      { upsert: true, returnDocument: "after" }
+    );
 
-    const rank = priorCorrectThisStage + 1;
+    const rank = counter!.count;
     const points = stageRules.correctRanks[Math.min(rank - 1, stageRules.correctRanks.length - 1)];
 
     return {

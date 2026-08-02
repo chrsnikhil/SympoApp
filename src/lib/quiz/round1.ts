@@ -170,10 +170,10 @@ export async function round1Phase(
   if (imageGame && !anyConnectionsOpened) {
     const isClosedGlobal = imageGame.closesAt ? now > imageGame.closesAt : false;
     const startMs = imageGame.opensAt ? new Date(imageGame.opensAt).getTime() : 0;
-    const DEFAULT_IMAGE_DURATION_MS = 270_000; // 4.5 minutes (270 seconds)
+    const DEFAULT_IMAGE_DURATION_MS = 210_000; // 3 minutes 30 seconds — matches the rules text and the reference-image reveal schedule (peek starts at 2m30s, exactly 1 minute before this deadline)
     const isTimedOut = startMs > 0 ? now.getTime() - startMs >= DEFAULT_IMAGE_DURATION_MS : false;
 
-    // Stay in Game 1 until: closed globally, timed out (4.5 mins), OR coordinator opens Connections
+    // Stay in Game 1 until: closed globally, timed out (3m30s), OR coordinator opens Connections
     if (!isClosedGlobal && !isTimedOut) {
       return "image";
     }
