@@ -357,18 +357,25 @@ export interface ComebackState {
 }
 
 /**
- * Rounds 2 & 3 run full-screen with the tab treated as the only legitimate
- * surface. This is an append-only log of moments a client reported leaving
- * that surface — tab switch, window blur, or dropping out of fullscreen.
+ * Every surface except Round 1's Image Replication game treats the tab as the
+ * only legitimate place to be — that one exception exists because teams are
+ * expected to tab out to an AI image generator mid-game. This is an
+ * append-only log of moments a client reported leaving the tab: switch,
+ * window blur, dropping out of fullscreen, a detected screenshot key, or a
+ * freeze/unfreeze transition.
  *
- * DELIBERATELY NOT AN ANTI-CHEAT ENFORCEMENT MECHANISM. A browser cannot be
- * trusted to police itself — anything client-reported can be suppressed by a
- * sufficiently determined team, and this doesn't pretend otherwise. What it
- * gives the coordinator is a timestamped signal to review, same spirit as the
- * append-only score ledger: never silently correct anything, just record what
- * was observed and let a human decide what it means.
+ * The log itself is still just a timestamped signal for the coordinator to
+ * review — client-reported events can be suppressed by a determined team, and
+ * this doesn't pretend otherwise. Actual enforcement (freezing a team out)
+ * lives in `ProctorFreeze` below; this collection never drives it directly.
  */
-export type ProctorFlagKind = "tab-switch" | "window-blur" | "fullscreen-exit";
+export type ProctorFlagKind =
+  | "tab-switch"
+  | "window-blur"
+  | "fullscreen-exit"
+  | "screenshot-attempt"
+  | "freeze"
+  | "unfreeze";
 
 export interface ProctorFlag {
   _id?: ObjectId;
@@ -376,6 +383,29 @@ export interface ProctorFlag {
   round: QuizRound;
   kind: ProctorFlagKind;
   at: Date;
+}
+
+/**
+ * Live per-team-per-round proctoring state — the enforcement counterpart to
+ * `ProctorFlag`'s log. One mutable document per team+round (upserted, same
+ * "current state, not history" shape as `ComebackState`), because the client
+ * needs a cheap answer to "am I frozen right now" on every poll.
+ *
+ * Strikes 1-3 (a tab-switch or window-blur under 10 seconds) are warnings
+ * only. A 4th strike, or any single switch away that runs 10+ seconds, sets
+ * `frozen: true` — the UI blocks further interaction until a coordinator
+ * clears it from the admin dashboard. Never applies to Round 1's Image
+ * Replication game; that game doesn't arm this system at all.
+ */
+export interface ProctorFreeze {
+  _id?: ObjectId;
+  teamId: ObjectId;
+  round: QuizRound;
+  strikes: number;
+  frozen: boolean;
+  frozenAt: Date | null;
+  frozenReason: "strikes" | "long-switch" | null;
+  updatedAt: Date;
 }
 
 /**

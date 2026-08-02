@@ -2,8 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Celebration from "./Celebration";
+import FrozenScreen from "./FrozenScreen";
 import MemoryGrid from "./MemoryGrid";
+import ProtectedImage from "./ProtectedImage";
+import ScreenshotGuard from "./ScreenshotGuard";
 import SpiderTimer from "./SpiderTimer";
+import { useProctorStrikes } from "@/lib/quiz/useProctorStrikes";
 
 type Phase = "image" | "connections" | "memory" | "done";
 
@@ -44,6 +48,14 @@ interface Round1Response {
   completedPhases: string[];
   game: Round1Game | null;
   serverTime?: string;
+  /**
+   * Tab-switch strike/freeze state (see `useProctorStrikes`). Never true
+   * during the "image" phase — that game never reports a strike-eligible
+   * event — but always present so a reload during "connections"/"memory"
+   * picks the freeze back up without waiting on the client-side hook.
+   */
+  frozen?: boolean;
+  frozenReason?: string | null;
 }
 
 const PHASE_LABEL: Record<Phase, string> = {
@@ -63,7 +75,7 @@ const STEPS: Array<Exclude<Phase, "done">> = ["image", "connections", "memory"];
  * a team is on; this just renders whatever it says and notices out loud when
  * that changes.
  */
-export default function Round1Games() {
+export default function Round1Games({ teamName }: { teamName: string }) {
   const [data, setData] = useState<Round1Response | null>(null);
   const [serverOffsetMs, setServerOffsetMs] = useState(0);
   const [nowMs, setNowMs] = useState(0);
@@ -134,7 +146,7 @@ export default function Round1Games() {
           <p className="mt-3 text-sm text-paper-white/60">Waiting for the coordinator to start Round 2…</p>
         </div>
       ) : (
-        <PhaseCard data={data} now={nowMs} onChanged={load} />
+        <PhaseCard data={data} now={nowMs} onChanged={load} teamName={teamName} />
       )}
     </div>
   );
@@ -174,8 +186,28 @@ function PhaseTracker({ phase }: { phase: Phase }) {
   );
 }
 
-function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number; onChanged: () => void }) {
+function PhaseCard({
+  data,
+  now,
+  onChanged,
+  teamName,
+}: {
+  data: Round1Response;
+  now: number;
+  onChanged: () => void;
+  teamName: string;
+}) {
   const { game, phase } = data;
+
+  // Tab-switch strikes/freeze — armed on Connections and the Memory Game,
+  // never on Image Replication (teams are expected to tab out to an AI
+  // generator there). `data.frozen` (from the round1 poll, refreshed every
+  // 1-2s) is the sole source of truth for whether the freeze screen shows —
+  // it's what lets an admin's "unfreeze" click actually take effect.
+  const strikesActive = phase === "connections" || phase === "memory";
+  const isFrozen = strikesActive && !!data.frozen;
+  const { warning } = useProctorStrikes(1, strikesActive, isFrozen);
+  const frozenReason = data.frozenReason ?? null;
 
   if (!game) return null;
 
@@ -283,10 +315,27 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
           )}
         </div>
 
+        {warning && !isFrozen && (
+          <div className="anim-pop mb-4 border-2 border-comic-yellow bg-comic-yellow/10 px-4 py-3 text-xs font-comic text-comic-yellow">
+            ⚠️ {warning.message}
+          </div>
+        )}
+
         {notOpenYet ? (
           <p className="text-sm text-paper-white/50">Waiting for the coordinator to open this game…</p>
+        ) : isFrozen ? (
+          <FrozenScreen reason={frozenReason} variant="dark" />
         ) : phase === "image" ? (
-          <ImageReplication game={game} disabled={closed} onChanged={onChanged} openMs={openMs} currentNow={currentNow} />
+          <ScreenshotGuard>
+            <ImageReplication
+              game={game}
+              disabled={closed}
+              onChanged={onChanged}
+              openMs={openMs}
+              currentNow={currentNow}
+              teamName={teamName}
+            />
+          </ScreenshotGuard>
         ) : phase === "connections" ? (
           <ConnectionsGame game={game} disabled={closed} onSolved={onChanged} />
         ) : (
@@ -430,12 +479,14 @@ function ImageReplication({
   onChanged,
   openMs,
   currentNow,
+  teamName,
 }: {
   game: Round1Game;
   disabled: boolean;
   onChanged: () => void;
   openMs: number;
   currentNow: number;
+  teamName: string;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "uploading">("idle");
@@ -531,8 +582,15 @@ function ImageReplication({
                   Hides in {isInitialVisible ? initialSecondsLeft : midGameSecondsLeft}s
                 </span>
               </div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={game.referenceImage} alt="The reference image to recreate" className="w-full max-h-72 object-contain border-2 border-paper-white/20 bg-ink-black/80" />
+              <ProtectedImage
+                src={game.referenceImage}
+                alt="The reference image to recreate"
+                teamName={teamName}
+                className="border-2 border-paper-white/20 bg-ink-black/80"
+              />
+              <p className="text-[10px] text-paper-white/50 text-center">
+                🔒 Watermarked with your team name — screenshots or photos of this image are traceable.
+              </p>
             </div>
           ) : (
             <div className="border-2 border-dashed border-paper-white/20 bg-ink-black/60 p-4 text-center rounded space-y-1.5">
@@ -564,8 +622,7 @@ function ImageReplication({
 
           <div className="flex justify-center p-2 bg-ink-black/60 border border-paper-white/15">
             {displayImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={displayImage} alt="Your uploaded recreation" className="max-h-64 object-contain rounded" />
+              <ProtectedImage src={displayImage} alt="Your uploaded recreation" teamName={teamName} className="rounded" />
             ) : (
               <div className="py-8 text-center text-xs text-paper-white/45">Image uploaded and submitted</div>
             )}

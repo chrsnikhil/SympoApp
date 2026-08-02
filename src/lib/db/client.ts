@@ -16,6 +16,7 @@ import type {
   MemoryGameState,
   Participant,
   ProctorFlag,
+  ProctorFreeze,
   PromptImage,
   QuizServe,
   QuizState,
@@ -88,8 +89,18 @@ async function getConnectUri(srvUri: string): Promise<string> {
   }
 }
 
+/**
+ * `USE_LOCAL_DB=true` points this at `MONGODB_URI_LOCAL` — a real local
+ * mongod, for testing without touching Cosmos at all — instead of
+ * `MONGODB_URI`. Defaults to false when unset, so any deployment that only
+ * ever sets `MONGODB_URI` (every one so far) is unaffected.
+ */
+function useLocalDb(): boolean {
+  return (process.env.USE_LOCAL_DB ?? "false").trim().toLowerCase() === "true";
+}
+
 async function createClient(): Promise<MongoClient> {
-  const rawUri = requireEnv("MONGODB_URI");
+  const rawUri = useLocalDb() ? requireEnv("MONGODB_URI_LOCAL") : requireEnv("MONGODB_URI");
   const uri = await getConnectUri(rawUri);
   return new MongoClient(uri, {
     maxPoolSize: 20,
@@ -146,6 +157,8 @@ export const collections = {
     (await getDb()).collection<ComebackState>("comeback_states"),
   proctorFlags: async (): Promise<Collection<ProctorFlag>> =>
     (await getDb()).collection<ProctorFlag>("proctor_flags"),
+  proctorFreezes: async (): Promise<Collection<ProctorFreeze>> =>
+    (await getDb()).collection<ProctorFreeze>("proctor_freezes"),
   quizState: async (): Promise<Collection<QuizState>> =>
     (await getDb()).collection<QuizState>("quiz_state"),
 };
@@ -163,7 +176,7 @@ export const collections = {
  * not fatal.
  */
 export async function ensureIndexes(): Promise<void> {
-  const [codes, challenges, subs, scores, hunt, boards, images, memory, serves, quals, comebacks, flags] =
+  const [codes, challenges, subs, scores, hunt, boards, images, memory, serves, quals, comebacks, flags, freezes] =
     await Promise.all([
       collections.accessCodes(),
       collections.challenges(),
@@ -178,6 +191,7 @@ export async function ensureIndexes(): Promise<void> {
       collections.roundQualifications(),
       collections.comebackStates(),
       collections.proctorFlags(),
+      collections.proctorFreezes(),
     ]);
 
   const wanted: Array<[string, Promise<unknown>]> = [
@@ -198,6 +212,7 @@ export async function ensureIndexes(): Promise<void> {
     ["round_qualifications.round_team", quals.createIndex({ round: 1, teamId: 1 }, { unique: true })],
     ["comeback_states.team_round", comebacks.createIndex({ teamId: 1, round: 1 }, { unique: true })],
     ["proctor_flags.team_round", flags.createIndex({ teamId: 1, round: 1, at: -1 })],
+    ["proctor_freezes.team_round", freezes.createIndex({ teamId: 1, round: 1 }, { unique: true })],
   ];
 
   const results = await Promise.allSettled(wanted.map(([, p]) => p));

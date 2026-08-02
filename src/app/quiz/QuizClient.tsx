@@ -256,7 +256,7 @@ export default function QuizClient({
 
           <section className="min-w-0">
             {activeRoundState === 1 ? (
-              <Round1Games />
+              <Round1Games teamName={teamName} />
             ) : (
               <ProctorGate round={activeRoundState}>
                 <Mcq2Phase round={activeRoundState} persona={persona} />

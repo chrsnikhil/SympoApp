@@ -49,6 +49,7 @@ interface Overview {
   connectionsPuzzles?: ConnectionsPuzzleInfo[];
   comeback?: Array<{ teamId: string; teamName: string; bottomStreak: number; ability: string | null; usableOnSlug: string | null; used: boolean }>;
   flags?: Array<{ teamId: string; teamName: string; tabSwitch: number; windowBlur: number; fullscreenExit: number; lastAt: string }>;
+  freezes?: Array<{ teamId: string; teamName: string; round: number; strikes: number; reason: string | null; frozenAt: string | null }>;
   coins: { claimed: number; total: number; rows: Array<{ coin: string; character: string; team: string; isLocked?: boolean }> };
 }
 
@@ -603,6 +604,65 @@ export default function AdminDashboard() {
               </section>
             )}
           </>
+        )}
+
+        {/* FROZEN TEAMS — TAB-SWITCH STRIKE SYSTEM, ALL ROUNDS EXCEPT IMAGE REPLICATION */}
+        {data.freezes && (
+          <section className="panel panel-accent border-2 border-glitch-cyan/60 p-5 shadow-lg">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+              <h2 className="display-title text-xl text-glitch-cyan flex items-center gap-2">
+                <span>🧊</span> FROZEN TEAMS (TAB-SWITCH STRIKES)
+              </h2>
+              <span className={`text-xs font-bold px-3 py-1 rounded border ${data.freezes.length > 0 ? "border-glitch-cyan bg-glitch-cyan/20 text-glitch-cyan" : "border-green-500 bg-green-500/20 text-green-400"}`}>
+                {data.freezes.length > 0 ? `🧊 ${data.freezes.length} TEAM(S) FROZEN` : "✓ NO TEAMS FROZEN"}
+              </span>
+            </div>
+            <p className="mb-4 text-xs font-semibold text-paper-white/85">
+              A team freezes after 3 tab-switch warnings or a single switch away longer than 10 seconds. They stay
+              blocked from their current round until unfrozen here — never during Round 1&apos;s Image Replication
+              game, where tabbing out to an AI tool is expected.
+            </p>
+            {data.freezes.length === 0 ? (
+              <div className="p-4 border border-dashed border-paper-white/20 bg-ink-black/40 text-center rounded">
+                <p className="text-xs font-bold text-signal-good">✓ No team is currently frozen.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Team Name</th>
+                      <th>Round</th>
+                      <th>Strikes</th>
+                      <th>Reason</th>
+                      <th>Frozen At</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.freezes.map((f) => (
+                      <tr key={`${f.teamId}:${f.round}`} className="hover:bg-glitch-cyan/10 transition-colors">
+                        <td className="font-bold text-paper-white">{f.teamName}</td>
+                        <td className="text-paper-white/80">{f.round}</td>
+                        <td className="text-amber-400 font-bold">{f.strikes}</td>
+                        <td className="text-paper-white/80">{f.reason === "long-switch" ? "10s+ away" : "3 warnings"}</td>
+                        <td className="text-paper-white/60 font-mono text-xs">{f.frozenAt ? new Date(f.frozenAt).toLocaleTimeString() : "—"}</td>
+                        <td>
+                          <button
+                            disabled={busy}
+                            onClick={() => callAdvance({ action: "unfreeze-team", teamId: f.teamId, round: f.round }, false)}
+                            className="comic-btn comic-btn-cyan px-3 py-1.5 text-xs font-bold"
+                          >
+                            ▶ Unfreeze
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         )}
 
         {/* PROCTORING & INTEGRITY FLAGS — ROUND 2 TO FINAL */}
