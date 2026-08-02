@@ -1,0 +1,413 @@
+HTTP 400 {"error":{"message":"Failed to validate JSON. Please adjust your prompt. See 'failed_generation' for more details.","type":"invalid_request_error","code":"json_validate_failed","failed_generation":""}}
+
+HTTP 400 {"error":{"message":"Failed to validate JSON. Please adjust your prompt. See 'failed_generation' for more details.","type":"invalid_request_error","code":"json_validate_failed","failed_generation":""}}
+
+HTTP 429 {"error":{"message":"Rate limit reached for model `qwen/qwen3.6-27b` in organization `org_01kyya2m6qfk4bywgfs3jyj8zq` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 4631, Requested 7002. Please try again in 27.2475s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}
+
+HTTP 400 {"error":{"message":"Failed to validate JSON. Please adjust your prompt. See 'failed_generation' for more details.","type":"invalid_request_error","code":"json_validate_failed","failed_generation":""}}
+
+HTTP 400 {"error":{"message":"Failed to validate JSON. Please adjust your prompt. See 'failed_generation' for more details.","type":"invalid_request_error","code":"json_validate_failed","failed_generation":""}}
+
+HTTP 429 {"error":{"message":"Rate limit reached for model `qwen/qwen3.6-27b` in organization `org_01kyya2m6qfk4bywgfs3jyj8zq` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 5562, Requested 6857. Please try again in 33.1425s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}
+
+Exception JudgeError: Judge returned text that isn't JSON
+HTTP 429 {"error":{"message":"Rate limit reached for model `qwen/qwen3.6-27b` in organization `org_01kyya2m6qfk4bywgfs3jyj8zq` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 6880, Requested 5997. Please try again in 36.5775s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}
+
+RAW RESPONSE:
+
+<think>
+The user wants me to judge a recreation of an image.
+
+**Reference Image:**
+- A complex, cinematic scene featuring multiple Spider-Man characters (Classic, Miles Morales, Spider-Man 2099, and a hooded figure, possibly Spider-Man Noir or a variant).
+- They are on a rooftop in a rainy city (New York skyline visible).
+- There is a large, swirling blue/purple portal or vortex in the sky.
+- The style is digital art, highly detailed, dramatic lighting.
+
+**Recreation Image:**
+- This image shows a simple, flat graphic design.
+- It features a stylized spider icon inside a circle with a timer reading "00:05".
+- The bottom part of the image is just a zoomed-in crop of the same graphic.
+- It looks like a loading screen or a timer icon, possibly related to a game or app, but definitely not the scene described above.
+
+**Comparison:**
+- **Subject:** The reference is a dramatic superhero scene. The recreation is a flat icon/timer. They are completely different.
+- **Composition:** The reference is a wide shot of a cityscape. The recreation is a centered icon on a black background.
+- **Colour:** The reference has vibrant blues, purples, reds, and city lights. The recreation is mostly black, red, and white.
+- **Style:** The reference is realistic digital painting. The recreation is flat vector-style graphic design.
+- **Detail:** There are no details from the reference (rooftop, rain, portal, characters) in the recreation.
+
+**Scoring:**
+- Subject: 0 (Completely different).
+- Composition: 0 (Completely different).
+- Colour: 0 (Completely different palette and mood).
+- Style: 0 (Completely different medium).
+- Detail: 0 (No details carried over).
+
+Wait, the prompt says: "If the recreation shows a COMPLETELY DIFFERENT subject or scene from the reference, the 'subject' score MUST be 0, and no other criterion may exceed 1."
+
+So:
+- Subject: 0
+- Composition: 0 or 1. Let's say 0 because it's just a centered icon vs a complex scene.
+- Colour: 0 or 1. The recreation has red and black, which are present in
+
+Exception JudgeError: Judge returned text that isn't JSON
+RAW RESPONSE:
+
+<think>
+The user wants me to judge a recreation of an image.
+
+**Reference Image:**
+- A complex, cinematic scene featuring multiple Spider-Man characters (Classic, Miles Morales, Spider-Man 2099, and a hooded figure, possibly Spider-Man Noir or a variant).
+- They are on a rooftop in a rainy city (New York skyline visible).
+- There is a large, swirling blue/purple portal or vortex in the sky.
+- The style is digital art, highly detailed, dramatic lighting.
+
+**Recreation Image:**
+- The image shows a simple, flat graphic design.
+- It features a stylized spider icon inside a circle with a timer reading "00:05".
+- The bottom part of the image is just a zoomed-in crop of the same graphic.
+- It looks like a loading screen or a timer icon, possibly related to a game or app, but definitely not the scene described above.
+
+**Comparison:**
+- **Subject:** The reference is a dramatic superhero scene. The recreation is a flat graphic icon of a spider with a timer. This is a completely different subject.
+- **Composition:** The reference is a wide shot of a cityscape. The recreation is a centered icon on a black background.
+- **Colour:** The reference has vibrant blues, purples, reds, and city lights. The recreation is mostly black, red, and grey.
+- **Style:** The reference is realistic/digital painting. The recreation is flat vector art.
+- **Detail:** There are no details from the reference (rooftop, rain, portal, other characters) in the recreation.
+
+**Scoring:**
+- **Subject:** 0 (Completely different subject).
+- **Composition:** 0 (Completely different layout).
+- **Colour:** 0 (Completely different palette).
+- **Style:** 0 (Completely different medium).
+- **Detail:** 0 (No details carried over).
+
+Wait, the prompt says: "If the recreation shows a COMPLETELY DIFFERENT subject or scene from the reference, the 'subject' score MUST be 0, and no other criterion may exceed 1."
+
+So:
+- Subject: 0
+- Composition: 0 or 1. It's a centered icon vs a wide landscape. 0 is appropriate.
+- Colour: 0 or 1. Black
+
+Exception JudgeError: Judge returned text that isn't JSON
+RAW RESPONSE:
+
+<think>
+The user wants me to judge a recreation of an image.
+
+**Reference Image Analysis:**
+- It's a collage of four panels showing a scene with Spider-Man characters.
+- Top panel: Classic Spider-Man swinging left, Miles Morales (black suit) standing center facing away, a robotic figure (Iron Spider?) standing on a ledge top right, and a hooded figure (maybe Punisher or similar) crouching on a ledge bottom right. A large blue/purple portal is in the center. Rain is falling.
+- Bottom left panel: Close up of Classic Spider-Man swinging.
+- Bottom right panel: Close up of the robotic figure and hooded figure.
+- Bottom center panel: Close up of Miles Morales and the hooded figure.
+- Wait, looking closer at the reference image provided, it's actually a single image that looks like a collage or a multi-panel comic layout, but it's presented as one large image. Let me re-examine.
+- Actually, looking at the full reference image, it seems to be a composite of four distinct images arranged in a grid-like fashion, but they overlap or are just stacked.
+- Top image: Full scene. Spider-Man swinging left, Miles Morales center, Iron Spider top right, Hooded figure bottom right. Portal in center.
+- Bottom left image: Close up of Spider-Man swinging.
+- Bottom right image: Close up of Iron Spider and Hooded figure.
+- Bottom center image: Close up of Miles Morales and Hooded figure.
+- Wait, let me look at the full reference image again. It looks like a single large image that is actually a collage of 4 distinct images.
+    - Top part: Full scene.
+    - Bottom left part: Close up of Spider-Man.
+    - Bottom right part: Close up of Iron Spider.
+    - Bottom center part: Close up of Miles Morales.
+- Actually, looking very closely at the provided "Reference image", it is a single image that contains four distinct panels or sections.
+    - Top section: Full wide shot.
+    - Bottom left section: Close up of Spider-Man swinging.
+    - Bottom right section: Close up of Iron Spider standing.
+    - Bottom center section: Close up of Miles Morales standing.
+- Wait, no. The reference image is actually a single image that looks like a collage of 4 images.
+    - Top image: Full scene.
+    - Bottom left: Close up of Spider-Man.
+    - Bottom right: Close up of Iron Spider.
+    - Bottom center: Close up of Miles Morales.
+- Let me look at the "Team's submitted recreation".
+- The recreation is identical to the reference image. It is the exact same image.
+- Let me double check.
+- Reference: Top part shows full scene. Bottom left shows Spider-Man close up. Bottom right shows Iron Spider close up. Bottom center shows Miles Morales close up.
+- Recreation: Top part shows full scene. Bottom left shows Spider-Man close up. Bottom right shows Iron Spider close up. Bottom center shows Miles Morales close up.
+- They look pixel-perfect identical.
+
+Let me re-read the prompt. "Reference image (the ORIGINAL that the team must replicate): [Image 1]". "Team's submitted recreation (judge THIS against the reference above): [Image 2]".
+Looking at the images provided in the prompt:
+- Image 1 (Reference): It's a collage of 4 images.
+    - Top: Full scene.
+    - Bottom Left: Spider-Man swinging.
+    - Bottom Right: Iron Spider standing.
+    - Bottom Center: Miles Morales standing.
+- Image 2 (Recreation): It is the exact same collage.
+
+Wait, let me look really closely at the images.
+The reference image has 4 distinct panels.
+The recreation image has 4 distinct panels.
+They look identical.
+
+Let me check for subtle differences.
+- Top panel: Spider-Man pose, portal, Iron Spider, Hooded figure. Looks identical.
+- Bottom left panel: Spider-Man swinging. Looks identical.
+- Bottom right panel: Iron Spider. Looks identical.
+- Bottom center panel: Miles Morales. Looks identical.
+
+Actually, looking at the full image provided as "Reference", it seems to be a single image that is a collage.
+Looking at the "Team's submitted recreation", it is the exact same image.
+
+Wait, let me look at the images again.
+The reference image is a collage of 4 images.
+The recreation image is the exact same collage.
+
+Let me check the JSON output format.
+{"criteria":[{"key":"subject","score":<0-5>,"note":"<one sentence>"},{"key":"composition","score":<0
+
+Exception JudgeError: Judge returned text that isn't JSON
+RAW RESPONSE:
+
+<think>
+The user wants me to judge a recreation of an image.
+
+1.  **Analyze the images:**
+    *   **Reference Image:** It's a collage of four panels showing a scene with Spider-Man, Miles Morales, a robotic figure, and a hooded figure on a rainy rooftop with a swirling portal in the sky.
+    *   **Recreation Image:** It is identical to the reference image. It's the exact same collage of four panels.
+
+2.  **Apply the rules:**
+    *   "If the recreation is the EXACT SAME image as the reference (identical content), every criterion MUST score 5."
+
+3.  **Formulate the JSON:**
+    *   Subject: 5
+    *   Composition: 5
+    *   Colour: 5
+    *   Style: 5
+    *   Detail: 5
+    *   Summary: The recreation is an identical copy of the reference image.
+
+4.  **Final check:** The images are pixel-perfect matches (or extremely close to it, effectively identical). The rule for exact matches applies.
+</think>
+
+```json
+{
+"criteria": [
+{
+"key": "subject",
+"score": 5,
+"note": "The recreation depicts the exact same characters and scene as the reference."
+},
+{
+"key": "composition",
+"score": 5,
+"note": "The framing and layout of the four panels are identical to the reference."
+},
+{
+"key": "colour",
+"score": 5,
+"note": "The lighting, palette, and mood are perfectly replicated."
+},
+{
+"key": "style",
+"score": 5,
+"note": "The artistic style and rendering are indistinguishable from the original."
+},
+{
+"key": "detail",
+"score": 5,
+"note": "All specific elements, from the portal to the rooftop debris, are faithfully reproduced."
+}
+],
+"summary": "The submitted image is an identical copy of the reference image."
+}
+```
+
+RAW RESPONSE:
+
+<think>
+The user wants me to judge an image recreation contest.
+
+**Reference Image Analysis:**
+- Subject: A group of Spider-people and other characters (Miles Morales, classic Spider-Man, a robotic figure, a hooded figure) standing on a rooftop in a rainy city. There's a large blue/purple portal in the sky.
+- Composition: Wide shot, characters spread out. Classic Spider-Man swinging on the left, Miles Morales center, robotic figure top right, hooded figure bottom right.
+- Color: Dark, moody, rainy. Lots of blues, purples, and reds from the city lights and portal.
+- Style: Realistic, cinematic, digital art.
+- Detail: Rain, debris, city skyline, specific character poses.
+
+**Recreation Image Analysis:**
+- Subject: A group of Spider-people (Miles Morales, Spider-Gwen, Spider-Man 2099, Peni Parker, Spider-Ham, etc.) standing in front of a portal. This looks like a promotional poster for "Across the Spider-Verse".
+- Composition: Group shot, characters arranged in a V-shape or cluster.
+- Color: Brighter, more vibrant, comic-book style colors.
+- Style: Animated, comic-book aesthetic.
+- Detail: Different characters entirely (Spider-Gwen, Spider-Ham, etc. are present here but not in the reference). The portal is different (red/blue rings vs blue swirl).
+
+**Comparison:**
+- Subject: The reference has specific characters (classic Spidey, Miles, a robot, a hooded figure). The recreation has a completely different set of characters (Spider-Gwen, Spider-Ham, Peni Parker, etc.). While both are "Spider-people", the specific subjects are totally different. The reference looks like a specific fan art or concept art piece, while the recreation looks like the official movie poster. Wait, looking closer at the reference, it actually *is* a collage of the recreation image. The reference image is a tiled version of the recreation image.
+- Let me re-examine the reference image.
+- Ah, the reference image is actually a 2x2 grid of the *same* image repeated? No, looking closely at the reference image provided in the prompt...
+- The reference image is a single image showing: Classic Spider-Man swinging left, Miles Morales center, a robot top right, a hooded figure bottom right.
+- The recreation image is a group shot of many Spider-people (Gwen, Miles, 2099, Peni, Ham, etc.).
+- Wait, let me look really closely at the reference image again.
+- The reference image provided is actually a collage of 4 panels.
+    - Top Left: Classic Spidey swinging, portal, robot top right.
+    - Top Right: Robot top right, hooded figure bottom right.
+    - Bottom Left: Classic Spidey swinging, Miles Morales right.
+    - Bottom Right: Miles Morales left, hooded figure right.
+- Actually, looking at the full reference image provided, it seems to be a single large image that has been tiled or repeated? No, it looks like a single image that is very tall.
+- Let's look at the "Reference image" again. It shows:
+    - Top part: Classic Spidey swinging left, portal center, robot top right.
+    - Middle part: Miles Morales center, hooded figure right.
+    - Bottom part: Miles Morales left, hooded figure right.
+- Actually, the reference image looks like a vertical collage of 4 distinct scenes or a very tall image.
+- Let's look at the "Team's submitted recreation". It shows a group of characters: Spider-Gwen, Miles Morales, Spider-Man 2099, Peni Parker, Spider-Ham, etc. This is clearly the "Across the Spider-Verse" poster.
+- The reference image is *not* the "Across the Spider-Verse" poster. The reference image features a specific set of characters: Classic Spidey, Miles Morales, a robot (maybe Spider-Man 2099 but looks different), and a hooded figure (maybe Prowler?).
+- Wait, looking closer at the reference image... it looks like a generated image that is a bit messy. It has Classic Spidey, Miles Morales, a robot, and a hooded figure.
+- The recreation image is the official "Across the Spider-Verse" poster (or a very close AI generation of it).
+- The subjects are completely different. The reference has Classic Spidey, Miles, a robot, and a hooded figure. The recreation has Gwen, Miles, 2099, Peni, Ham, etc.
+- Therefore, the subject score must be 0.
+- Since the subject is completely different, all other scores must be 0 or 1.
+
+Let me double check the reference image.
+The reference image shows:
+- Left side: Classic Spider-Man swinging.
+- Center: Miles Morales standing.
+- Top Right: A robotic figure standing on a ledge.
+- Bottom Right: A hooded figure crouching.
+- Background: A blue/purple portal and a city skyline.
+
+The recreation image shows:
+- Center: Miles Morales standing with arms crossed.
+- Surrounding him: Spider-Gwen, Spider-Man 2099, Peni Parker, Spider-Ham, Spider-Man (Tom Holland?), Prowler, etc.
+- Background: A red/blue portal and comic book panels.
+
+These are two completely different images. The recreation is a group shot of many characters. The reference is a scene with 4 specific characters.
+So, Subject = 0.
+Composition = 0 (totally different arrangement).
+Colour = 1 (both have blue/red portals and dark city, but the palette is different).
+Style = 1 (both are digital art/comic style, but distinct).
+Detail = 0 (no specific details match).
+
+Wait, looking at the reference image again... is it possible the reference image is a *tiled* version of the recreation?
+Let's look at the bottom right of the reference image. It shows Miles Morales' legs and the hooded figure.
+Let's look at the top left of the reference image. It shows Classic Spidey.
+The recreation image has Classic Spidey (Tom Holland version) standing on the right side.
+The recreation image has Miles Morales in the center.
+The recreation image has Spider-Gwen floating.
+The recreation image has Spider-Ham.
+
+The reference image does NOT have Spider-Gwen or Spider-Ham.
+The reference image has a robot that looks like Spider-Man 2099 but without the mask/visor clearly visible or different.
+The reference image has a hooded figure that looks like the Prowler.
+
+Okay, so the reference image is a specific scene. The recreation is a group poster. They are different.
+Subject score: 0.
+Other scores: 0 or 1.
+
+Let's refine the scores.
+Subject: 0. The recreation shows a large group of Spider-people (Gwen, Ham, etc.) whereas the reference shows a specific scene with Classic Spidey, Miles, a robot, and a hooded figure.
+Composition: 0. The arrangement is totally different.
+Colour: 1. Both use a similar blue/red/purple palette for the portal and city, but the overall lighting is different.
+Style: 1. Both are digital comic-book style art.
+Detail: 0. No specific details match (e.g., the robot in reference is different from 2099 in recreation, the hooded figure is different from Prowler in recreation).
+
+Wait, looking really closely at the reference image... it looks like a "bad" AI generation that tried to make a scene with Spidey characters.
+The recreation looks like a "good" AI generation of the "Across the Spider-Verse" poster.
+They are definitely different images.
+
+Final decision:
+Subject: 0
+Composition: 0
+Colour: 1
+Style: 1
+Detail: 0
+
+Wait, the prompt says "If the recreation shows a COMPLETELY DIFFERENT subject or scene from the reference, the 'subject' score MUST be 0, and no other criterion may exceed 1."
+So I must adhere to this.
+
+Let's check the reference image one more time. Is it possible that the reference image is actually the *same* image but cropped/tiled?
+Reference image top left: Classic Spidey swinging.
+Reference image top right: Robot standing.
+Reference image bottom left: Classic Spidey swinging (again?).
+Reference image bottom right: Miles Morales and hooded figure.
+
+Actually, the reference image looks like a 2x2 grid of 4 different images or a very tall image.
+Let's assume the reference is the *entire* image provided.
+The recreation is the *entire* image provided.
+They are clearly different.
+
+One detail: The reference image has a "robot" that looks like Spider-Man 2099. The recreation has Spider-Man 2099.
+The reference has a hooded figure. The recreation has the Prowler (hooded).
+The reference has Classic Spidey. The recreation has Classic Spidey (Tom Holland).
+The reference has Miles Morales
+
+Exception JudgeError: Judge returned text that isn't JSON
+HTTP 401 {"error":{"message":"Missing Authentication header","code":401}}
+RAW RESPONSE:
+{"criteria":[{"key":"subject","score":0,"note":"The recreation depicts a completely different set of characters and scene composition compared to the reference."},{"key":"composition","score":0,"note":"The arrangement of characters and the central portal is entirely different."},{"key":"colour","score":1,"note":"The color palette shares some blue and red tones but lacks the specific lighting of the reference."},{"key":"style","score":1,"note":"The rendering style is different, moving from a cinematic digital painting to a more stylized comic/game art style."},{"key":"detail","score":0,"note":"None of the specific character details or background elements from the reference are present."}],"summary":"The recreation is a completely different scene with different characters, failing to replicate the subject or composition of the reference."}
+
+RAW RESPONSE:
+{"criteria":[{"key":"subject","score":5,"note":"The recreation is identical to the reference image."},{"key":"composition","score":5,"note":"The framing and character placement are identical."},{"key":"colour","score":5,"note":"The color palette and lighting are identical."},{"key":"style","score":5,"note":"The digital illustration style is identical."},{"key":"detail","score":5,"note":"All specific elements and debris are identical."}],"summary":"The recreation is an exact duplicate of the reference image."}
+
+RAW RESPONSE:
+{
+  "criteria": [
+    {
+      "key": "subject",
+      "score": 0,
+      "note": "The recreation features a completely different cast of characters and a different central portal."
+    },
+    {
+      "key": "composition",
+      "score": 0,
+      "note": "The framing and character placement are entirely different from the reference."
+    },
+    {
+      "key": "colour",
+      "score": 0,
+      "note": "The colour palette and lighting are mismatched, with bright neon tones versus the dark stormy palette."
+    },
+    {
+      "key": "style",
+      "score": 0,
+      "note": "The artistic style is cartoonish and comic‑book panel based, unlike the realistic painted style of the reference."
+    },
+    {
+      "key": "detail",
+      "score": 0,
+      "note": "Specific elements such as the rain, rooftop debris, and the particular characters are absent or replaced."
+    }
+  ],
+  "summary": "The recreation fails to replicate the reference in any visual aspect."
+}
+
+RAW RESPONSE:
+{"criteria":[{"key":"subject","score":5,"note":"The subjects and their actions are identical to the reference."},{"key":"composition","score":5,"note":"The framing, character placement, and perspective are perfectly preserved."},{"key":"colour","score":5,"note":"The lighting, color palette, and atmospheric effects are an exact match."},{"key":"style","score":5,"note":"The digital illustration style and texture are identical."},{"key":"detail","score":5,"note":"All specific elements like debris, rain, and background buildings are present."}],"summary":"The recreation is an identical copy of the reference image."}
+
+Exception TimeoutError: The operation was aborted due to timeout
+RAW RESPONSE:
+{
+  "criteria": [
+    {
+      "key": "subject",
+      "score": 0,
+      "note": "The recreation features a completely different set of characters and lacks the original four figures."
+    },
+    {
+      "key": "composition",
+      "score": 1,
+      "note": "Both are rooftop scenes, but the arrangement and framing differ markedly."
+    },
+    {
+      "key": "colour",
+      "score": 1,
+      "note": "Rain and neon lighting are present, yet the palette and lighting quality differ."
+    },
+    {
+      "key": "style",
+      "score": 1,
+      "note": "The reference is a detailed digital painting while the recreation has a more cartoonish, animated style."
+    },
+    {
+      "key": "detail",
+      "score": 1,
+      "note": "Some portal and city elements are similar, but the specific props and characters are unrelated."
+    }
+  ],
+  "summary": "The recreation depicts entirely different characters and composition, failing to match the reference's subject and scene."
+}
+

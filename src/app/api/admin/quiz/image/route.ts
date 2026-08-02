@@ -41,7 +41,7 @@ export async function GET(request: Request) {
     return new NextResponse(buffer, {
       headers: {
         "Content-Type": mime,
-        "Cache-Control": "public, max-age=86400, immutable",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
         "Content-Length": String(buffer.length),
       },
     });

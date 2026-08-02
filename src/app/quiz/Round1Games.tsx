@@ -181,6 +181,8 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
 
   const currentNow = now > 0 ? now : Date.now();
 
+  const RULES_DURATION_MS = 10_000; // 10-second pre-game rules gate
+
   const phaseStartRef = useRef<Record<string, number>>({});
   if (!phaseStartRef.current[phase]) {
     phaseStartRef.current[phase] = currentNow;
@@ -188,8 +190,16 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
   const phaseStartMs = phaseStartRef.current[phase];
 
   const DEFAULT_GAME_SECONDS = phase === "image" ? 210 : 270; // Game 1 is 3m 30s
-  const openMs = game.opensAt ? new Date(game.opensAt).getTime() : phaseStartMs;
-  const closeMs = game.closesAt ? new Date(game.closesAt).getTime() : openMs + DEFAULT_GAME_SECONDS * 1000;
+
+  // When the server provides opensAt/closesAt, use those directly.
+  // Otherwise, push the effective open time forward by the rules duration
+  // so the game timer only starts counting after the rules screen ends.
+  const openMs = game.opensAt
+    ? new Date(game.opensAt).getTime()
+    : phaseStartMs + RULES_DURATION_MS;
+  const closeMs = game.closesAt
+    ? new Date(game.closesAt).getTime()
+    : openMs + DEFAULT_GAME_SECONDS * 1000;
 
   // Dedicated 10-second pre-game rules gate shown for 10s on entering each game phase
   const [seenRules, setSeenRules] = useState<Record<string, boolean>>({});
@@ -220,7 +230,7 @@ function PhaseCard({ data, now, onChanged }: { data: Round1Response; now: number
 
   const totalSeconds = Math.max(1, Math.round((closeMs - openMs) / 1000));
   const secondsLeft = Math.max(0, Math.ceil((closeMs - currentNow) / 1000));
-  const timerActive = !notOpenYet && !closed && secondsLeft > 0;
+  const timerActive = !isRulesShowing && !notOpenYet && !closed && secondsLeft > 0;
 
   const hasTriggeredTimeoutRef = useRef<string | null>(null);
 
@@ -633,13 +643,18 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
   const [finalSecondsLeft, setFinalSecondsLeft] = useState(10);
   const [hasTimedOut, setHasTimedOut] = useState(false);
 
+  // Only reset state when the puzzle itself changes (new slug = new puzzle)
+  const prevSlugRef = useRef(game.slug);
   useEffect(() => {
-    setValue("");
-    setBusy(false);
-    setError(null);
-    setHasTimedOut(false);
-    setFinalSecondsLeft(10);
-  }, [game.slug, revealedCount, history.length]);
+    if (prevSlugRef.current !== game.slug) {
+      prevSlugRef.current = game.slug;
+      setValue("");
+      setBusy(false);
+      setError(null);
+      setHasTimedOut(false);
+      setFinalSecondsLeft(10);
+    }
+  }, [game.slug]);
 
   const handleTimeout = useCallback(async () => {
     if (hasTimedOut || isCompleted || disabled) return;
@@ -655,10 +670,12 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
     }
   }, [game.slug, isCompleted, disabled, onSolved, hasTimedOut]);
 
+  // Only start the 10-second final countdown when ALL tiles are revealed,
+  // the team hasn't submitted for the last tile yet, puzzle isn't done,
+  // and we haven't already timed out
   useEffect(() => {
-    if (!allTilesRevealed || disabled || hasSubmittedForCurrentTile || isCompleted) return;
+    if (!allTilesRevealed || disabled || hasSubmittedForCurrentTile || isCompleted || hasTimedOut) return;
     setFinalSecondsLeft(10);
-    setHasTimedOut(false);
 
     const timer = setInterval(() => {
       setFinalSecondsLeft((s) => {
@@ -671,7 +688,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [allTilesRevealed, disabled, hasSubmittedForCurrentTile, isCompleted, handleTimeout]);
+  }, [allTilesRevealed, disabled, hasSubmittedForCurrentTile, isCompleted, hasTimedOut, handleTimeout]);
 
   async function submit() {
     if (submittingRef.current || busy || disabled || hasSubmittedForCurrentTile || isCompleted) return;
@@ -779,7 +796,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-paper-white/80">
         <span>{allTilesRevealed ? "✓ All tiles revealed by coordinator." : `${revealedCount} of ${totalImages} tiles revealed.`}</span>
         <span className="text-comic-yellow font-bold uppercase tracking-wider">
-          Attempt {history.length} of {totalImages} (1 try per revealed tile)
+          Attempt {Math.min(history.length, totalImages)} of {totalImages} (1 try per revealed tile)
         </span>
       </div>
 

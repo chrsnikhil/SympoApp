@@ -59,6 +59,7 @@ export default function AdminDashboard() {
   const [data, setData] = useState<Overview | null>(null);
   const [busy, setBusy] = useState(false);
   const [judging, setJudging] = useState(false);
+  const [autoJudgeCountdown, setAutoJudgeCountdown] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [resetTarget, setResetTarget] = useState("");
   const [advanceConfirm, setAdvanceConfirm] = useState(false);
@@ -101,6 +102,28 @@ export default function AdminDashboard() {
     const timer = setTimeout(() => setMessage(null), 5000);
     return () => clearTimeout(timer);
   }, [message]);
+
+  useEffect(() => {
+    if (autoJudgeCountdown === null) return;
+    if (autoJudgeCountdown > 0) {
+      const timer = setTimeout(() => setAutoJudgeCountdown(c => c !== null ? c - 1 : null), 1000);
+      return () => clearTimeout(timer);
+    }
+    // Time is up, execute next
+    if (data && data.judgeQueue && data.judgeQueue.length > 0) {
+      setAutoJudgeCountdown(null);
+      setJudging(true);
+      callAdvance({ action: "judge-image", slug: "image-1" }, false).then((json) => {
+        setJudging(false);
+        // If there are still items left and we successfully judged at least 1, wait 5s for the next
+        if (json && json.ok && data.judgeQueue!.length > 1) {
+          setAutoJudgeCountdown(5);
+        }
+      });
+    } else {
+      setAutoJudgeCountdown(null);
+    }
+  }, [autoJudgeCountdown, data]);
 
   async function callAdvance(body: Record<string, unknown>, setBusyState = true) {
     if (setBusyState) setBusy(true);
@@ -148,10 +171,14 @@ export default function AdminDashboard() {
       });
       const json = await res.json();
       setMessage(res.ok ? (json.note ?? "Done.") : (json.error ?? "Action failed."));
+      await load();
       return json;
+    } catch (e) {
+      console.error(e);
+      setMessage("Network or server error.");
+      return null;
     } finally {
       if (setBusyState) setBusy(false);
-      void load();
     }
   }
 
@@ -397,18 +424,26 @@ export default function AdminDashboard() {
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="font-display text-sm uppercase tracking-wide text-paper-white font-bold">Image Replication judge queue ({data.judgeQueue.length})</h2>
                   <button
-                    disabled={judging || data.judgeQueue.length === 0}
+                    disabled={judging || autoJudgeCountdown !== null || data.judgeQueue.length === 0}
                     onClick={async () => {
+                      if (judging || autoJudgeCountdown !== null) return;
                       setJudging(true);
                       try {
-                        await callAdvance({ action: "judge-image", slug: "image-1" }, false);
+                        const json = await callAdvance({ action: "judge-image", slug: "image-1" }, false);
+                        if (json && json.ok && data.judgeQueue!.length > 1) {
+                          setAutoJudgeCountdown(60);
+                        }
                       } finally {
-                        setTimeout(() => setJudging(false), 3000);
+                        setJudging(false);
                       }
                     }}
                     className="comic-btn comic-btn-cyan px-4 py-2 text-xs disabled:opacity-50"
                   >
-                    {judging ? "EVALUATING IN BACKGROUND…" : "Judge remaining now"}
+                    {judging 
+                      ? "EVALUATING…" 
+                      : autoJudgeCountdown !== null 
+                        ? `Auto-judging next in ${autoJudgeCountdown}s...` 
+                        : "Judge remaining now"}
                   </button>
                 </div>
                 <p className="mb-3 text-xs font-semibold text-paper-white/85">
@@ -698,14 +733,24 @@ export default function AdminDashboard() {
                       </span>
                     </td>
                     <td>
-                      <button
-                        disabled={busy}
-                        onClick={() => callAdvance({ action: "unlock-coin", coin: c.coin })}
-                        className="px-2.5 py-1 text-[0.65rem] font-bold border-2 border-glitch-cyan text-glitch-cyan hover:bg-glitch-cyan/20 transition-colors rounded shadow-sm"
-                        title="Unlock token login so team can re-enter token on any device without losing team data"
-                      >
-                        🔓 UNLOCK
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          disabled={busy}
+                          onClick={() => callAdvance({ action: "unlock-coin", coin: c.coin })}
+                          className="px-2.5 py-1 text-[0.65rem] font-bold border-2 border-glitch-cyan text-glitch-cyan hover:bg-glitch-cyan/20 transition-colors rounded shadow-sm"
+                          title="Unlock token login so team can re-enter token on any device without losing team data"
+                        >
+                          🔓 UNLOCK
+                        </button>
+                        <button
+                          disabled={busy}
+                          onClick={() => callAdvance({ action: "revoke-coin", coin: c.coin })}
+                          className="px-2.5 py-1 text-[0.65rem] font-bold border-2 border-spider-red text-spider-red hover:bg-spider-red/20 transition-colors rounded shadow-sm"
+                          title="Revoke token to completely unassign it from the team"
+                        >
+                          🗑️ REVOKE
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

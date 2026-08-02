@@ -103,7 +103,7 @@ export async function GET(request: Request) {
         const queuedTeamIds = new Set<string>();
         for (const [teamId, s] of latestByTeam) {
           queuedTeamIds.add(teamId);
-          const dataUrl = s.payload ? `/api/admin/quiz/image?id=${s.payload}` : null;
+          const dataUrl = s.payload ? `/api/admin/quiz/image?id=${s.payload}&t=${s.receivedAt.getTime()}` : null;
           judgeQueue.push({
             teamId,
             teamName: teamById.get(teamId)?.name ?? "Unknown",
@@ -122,7 +122,7 @@ export async function GET(request: Request) {
               teamName: teamById.get(teamId)?.name ?? "Unknown",
               submittedAt: (img.uploadedAt ?? new Date()).toISOString(),
               imageId: imgId,
-              dataUrl: `/api/admin/quiz/image?id=${imgId}`,
+              dataUrl: `/api/admin/quiz/image?id=${imgId}&t=${(img.uploadedAt ?? new Date()).getTime()}`,
             });
           }
         }
@@ -132,7 +132,7 @@ export async function GET(request: Request) {
           const teamId = String(s.teamId);
           const img = promptImgByTeam.get(teamId);
           const imgId = s.payload || img?._id?.toString() || null;
-          const dataUrl = imgId ? `/api/admin/quiz/image?id=${imgId}` : null;
+          const dataUrl = imgId ? `/api/admin/quiz/image?id=${imgId}&t=${s.receivedAt.getTime()}` : null;
           const meta = s.verdict?.meta as Record<string, unknown> | undefined;
           const simNum = typeof meta?.similarity === "number" ? meta.similarity : undefined;
           const sumStr = typeof meta?.summary === "string" ? meta.summary : undefined;

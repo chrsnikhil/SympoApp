@@ -124,11 +124,11 @@ export async function currentConnectionsPuzzle(
   const lastPuzzle = puzzles[puzzles.length - 1];
   const isLastPuzzle = latestOpened._id?.toString() === lastPuzzle._id?.toString();
 
-  // If Puzzle 5 (the last puzzle) has been closed globally OR cleared by team, advance to Game 3 Memory!
+  // If Puzzle 5 (the last puzzle) has been closed globally, advance to Game 3 Memory!
   if (isLastPuzzle) {
     if (latestOpened.closesAt && now > latestOpened.closesAt) return null;
-    const isCleared = await connectionsCleared(teamId, latestOpened, now, teamSubmissions);
-    if (isCleared) return null;
+    // The team-specific clear check was removed so teams wait on the finished 
+    // Puzzle 5 screen until the coordinator globally closes it.
   }
 
   return latestOpened;

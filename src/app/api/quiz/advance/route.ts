@@ -100,6 +100,7 @@ async function handlePOST(request: Request) {
       }
 
       case "judge-image": {
+        // Triggering Turbopack reload openrouter
         if (!body.slug) return NextResponse.json({ error: "Missing slug" }, { status: 400 });
         if (!judgeAvailable()) {
           return NextResponse.json({ error: "No GROQ_API_KEY configured" }, { status: 503 });
@@ -121,6 +122,10 @@ async function handlePOST(request: Request) {
           );
         }
 
+        // Find teams that have already been judged (status "done") so we skip them
+        const doneSubs = await subs.find({ challengeId: challenge._id, status: "done" }).toArray();
+        const judgedTeamIds = new Set(doneSubs.map((s) => String(s.teamId)));
+
         // Find all uploaded prompt images for this challenge
         const allPromptImages = await images.find({ challengeSlug: body.slug }).toArray();
         const latestPromptImageByTeam = new Map<string, (typeof allPromptImages)[number]>();
@@ -131,29 +136,43 @@ async function handlePOST(request: Request) {
 
         const entries: Array<{ teamId: string; image: string }> = [];
         for (const [teamId, img] of latestPromptImageByTeam) {
-          entries.push({ teamId, image: img.dataUrl });
+          if (!judgedTeamIds.has(teamId)) {
+            entries.push({ teamId, image: img.dataUrl });
+            if (entries.length === 1) break; // FREE TIER LIMIT: Only process 1 team per minute to avoid HTTP 429 TPM errors
+          }
         }
 
         if (entries.length === 0) {
-          return NextResponse.json({ ok: true, slug: body.slug, judged: [], failed: [], note: "No uploaded images found." });
+          return NextResponse.json({ ok: true, slug: body.slug, judged: [], failed: [], note: "No unjudged images found." });
         }
 
-        // Run image evaluation in the background non-blockingly so the UI stays responsive
-        setTimeout(() => {
-          void (async () => {
-            try {
-              const { judged } = await judgeAll(challenge, reference, entries);
-              const scores = Object.fromEntries(judged.map((j) => [j.teamId, j.similarity]));
-              if (judged.length > 0) {
-                await resolvePromptImage(body.slug!, scores);
-              }
-            } catch (err) {
-              console.error("Background judge error:", err);
-            }
-          })();
-        }, 0);
-
-        return NextResponse.json({ ok: true, slug: body.slug, note: "Image evaluation started in background!" });
+        // Run synchronously so the admin sees real results / errors
+        try {
+          const { judged, failed } = await judgeAll(challenge, reference, entries);
+          const scores = Object.fromEntries(judged.map((j) => [j.teamId, j.similarity]));
+          if (judged.length > 0) {
+            await resolvePromptImage(body.slug!, scores);
+          }
+          if (failed.length > 0) {
+            console.error(`[judge-image] ${failed.length} team(s) failed:`, failed.map((f) => `${f.teamId}: ${f.reason}`).join("; "));
+          }
+          return NextResponse.json({
+            ok: true,
+            slug: body.slug,
+            judgedCount: judged.length,
+            failedCount: failed.length,
+            failures: failed.map((f) => ({ teamId: f.teamId, reason: f.reason })),
+            note: judged.length > 0
+              ? `Judged ${judged.length} team(s).${failed.length > 0 ? ` ${failed.length} failed — check server logs.` : ""}`
+              : `All ${failed.length} team(s) failed vision judging — check server logs and GROQ_API_KEY.`,
+          });
+        } catch (err) {
+          console.error("[judge-image] Unexpected error:", err);
+          return NextResponse.json(
+            { error: err instanceof Error ? err.message : "Vision judging failed unexpectedly" },
+            { status: 500 }
+          );
+        }
       }
 
       case "open": {

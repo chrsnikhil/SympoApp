@@ -7,22 +7,24 @@ import type { GradeResult } from "@/lib/graders/types";
 export interface ConnectionsStageRules {
   correctRanks: number[]; // Points awarded by rank [1st, 2nd, 3rd, 4th+]
   wrongPenalty: number;   // Points deducted for wrong answer
-  noAnswerPenalty: number; // Points deducted for no answer (timeout)
 }
 
 /**
  * Game 2 Scoring Table Rules:
- * Image 1: 1st:12, 2nd:11, 3rd:10, 4th+:9 | Wrong: -3 | No Answer: -1
- * Image 2: 1st:8, 2nd:7, 3rd:6, 4th+:5   | Wrong: -2 | No Answer: -1
- * Image 3+: 1st:4, 2nd:3, 3rd:2, 4th+:1  | Wrong: -1 | No Answer: -1
+ * Image 1: 1st:12, 2nd:11, 3rd:10, 4th+:9 | Wrong: -3
+ * Image 2: 1st:8, 2nd:7, 3rd:6, 4th+:5   | Wrong: -2
+ * Image 3+: 1st:4, 2nd:3, 3rd:2, 4th+:1  | Wrong: -1
+ * 
+ * Global Penalty:
+ * No Answer (0 attempts across whole puzzle): -2
  */
 export function stageRulesFor(imageIndex: number): ConnectionsStageRules {
   if (imageIndex === 1) {
-    return { correctRanks: [12, 11, 10, 9], wrongPenalty: -3, noAnswerPenalty: -1 };
+    return { correctRanks: [12, 11, 10, 9], wrongPenalty: -3 };
   } else if (imageIndex === 2) {
-    return { correctRanks: [8, 7, 6, 5], wrongPenalty: -2, noAnswerPenalty: -1 };
+    return { correctRanks: [8, 7, 6, 5], wrongPenalty: -2 };
   } else {
-    return { correctRanks: [4, 3, 2, 1], wrongPenalty: -1, noAnswerPenalty: -1 };
+    return { correctRanks: [4, 3, 2, 1], wrongPenalty: -1 };
   }
 }
 
@@ -39,7 +41,8 @@ export function revealedImages(challenge: Challenge): string[] {
 export async function scoreConnections(
   challenge: Challenge,
   teamId: ObjectId,
-  payload: string
+  payload: string,
+  submissionId: ObjectId
 ): Promise<GradeResult> {
   const subs = await collections.submissions();
 
@@ -55,37 +58,56 @@ export async function scoreConnections(
   }
 
   const images = challenge.config.connectionsImages ?? [];
-  const imageIndex = Math.max(1, Math.min(images.length || 4, challenge.config.connectionsRevealedCount ?? 1));
+  const totalImages = images.length || 4;
+  const imageIndex = Math.max(1, Math.min(totalImages, challenge.config.connectionsRevealedCount ?? 1));
   const stageRules = stageRulesFor(imageIndex);
+
+  // Block submissions once the team has used all attempts (1 per image tile)
+  const priorAttempts = await subs.countDocuments({
+    challengeId: challenge._id,
+    teamId,
+    status: "done",
+  });
+  if (priorAttempts >= totalImages) {
+    return { correct: false, points: 0, meta: { reason: "max-attempts-reached" } };
+  }
 
   const guess = payload.trim();
 
   // Handle No Answer / Timer Expiry
   if (guess === "__timeout__" || !guess) {
-    const existingTimeout = await subs.findOne({
-      challengeId: challenge._id,
-      teamId,
-      payload: "__timeout__",
-    });
-    if (existingTimeout) {
+    const firstTimeout = await subs.findOne(
+      { challengeId: challenge._id, teamId, payload: "__timeout__" },
+      { sort: { _id: 1 } }
+    );
+    if (firstTimeout && String(firstTimeout._id) !== String(submissionId)) {
+      await subs.deleteOne({ _id: submissionId });
       return { correct: false, points: 0, meta: { reason: "already-timed-out" } };
     }
 
     const attemptedCount = await subs.countDocuments({
       challengeId: challenge._id,
       teamId,
+      status: "done",
       payload: { $ne: "__timeout__" },
+      _id: { $ne: submissionId },
     });
-    // -2 pts penalty only if team made 0 attempts across the whole puzzle; 0 penalty if they tried earlier
-    const timeoutPenalty = attemptedCount === 0 ? -2 : 0;
+
+    // If team tried guessing earlier on any tile but just gave up at the end, 
+    // they don't receive the timeout penalty; they only keep their earlier penalty.
+    // We delete the timeout submission so it doesn't appear in history as an attempt.
+    if (attemptedCount > 0) {
+      await subs.deleteOne({ _id: submissionId });
+      return { correct: false, points: 0, meta: { reason: "timeout-ignored-due-to-prior-attempts" } };
+    }
 
     return {
       correct: false,
-      points: timeoutPenalty,
+      points: -2,
       meta: {
         reason: "no-answer",
         imageIndex,
-        penalty: timeoutPenalty,
+        penalty: -2,
       },
     };
   }

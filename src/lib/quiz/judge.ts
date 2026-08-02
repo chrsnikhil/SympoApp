@@ -19,8 +19,8 @@ import type { Challenge } from "@/lib/db/types";
  * same way, which is what makes them comparable.
  */
 
-const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-const VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const VISION_MODEL = "openrouter/free";
 
 export interface Criterion {
   key: string;
@@ -84,7 +84,7 @@ export class JudgeError extends Error {
 }
 
 export function judgeAvailable(): boolean {
-  return Boolean(process.env.GROQ_API_KEY);
+  return Boolean(process.env.OPENROUTER_API_KEY || process.env.GROQ_API_KEY);
 }
 
 function rubricFor(challenge: Challenge): readonly Criterion[] {
@@ -105,9 +105,29 @@ export function toSimilarity(scores: CriterionScore[], rubric: readonly Criterio
 }
 
 function parseVerdict(raw: string, rubric: readonly Criterion[]): { criteria: CriterionScore[]; summary: string } {
+  try {
+    require("fs").writeFileSync("c:\\Users\\ponr2\\SympoApp\\groq-error.log", `RAW RESPONSE:\n${raw}\n\n`, { flag: "a" });
+  } catch(e) {}
+  
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    let clean = raw.trim();
+    // Remove qwen <think> blocks
+    const thinkEnd = clean.indexOf("</think>");
+    if (thinkEnd !== -1) {
+      clean = clean.substring(thinkEnd + 8).trim();
+    }
+    
+    // sometimes it adds markdown json blocks
+    if (clean.startsWith("```json")) {
+      clean = clean.substring(7);
+    } else if (clean.startsWith("```")) {
+      clean = clean.substring(3);
+    }
+    if (clean.endsWith("```")) {
+      clean = clean.substring(0, clean.length - 3);
+    }
+    parsed = JSON.parse(clean.trim());
   } catch {
     throw new JudgeError("Judge returned text that isn't JSON");
   }
@@ -136,19 +156,34 @@ function parseVerdict(raw: string, rubric: readonly Criterion[]): { criteria: Cr
 
 function buildSystem(rubric: readonly Criterion[]): string {
   return [
-    "You are judging a live competition round at a college symposium.",
+    "You are a strict, objective judge at a college symposium image-replication contest.",
     "",
-    "You will be shown two images. The FIRST is the reference. The SECOND is a",
-    "team's attempt to recreate it using an AI image generator. Score how well",
-    "the second reproduces the first.",
+    "You will be shown two images:",
+    "  IMAGE 1 = the REFERENCE (the original target).",
+    "  IMAGE 2 = a team's RECREATION attempt using an AI image generator.",
     "",
-    "Score each criterion 0-5, where 0 is absent and 5 is an excellent match:",
-    ...rubric.map((c) => `  ${c.key} (${c.label}) — ${c.guidance}`),
+    "Your job: score how faithfully IMAGE 2 reproduces IMAGE 1.",
     "",
-    "Rules:",
-    "- Judge the recreation against the reference, not against your own taste.",
-    "  A faithful copy of an ugly image scores high.",
-    "- Be consistent: the same pair of images must always receive the same scores.",
+    "Score each criterion on an INTEGER scale 0-5:",
+    "  0 = completely absent / totally wrong",
+    "  1 = barely related",
+    "  2 = some similarity but major differences",
+    "  3 = moderate match with noticeable differences",
+    "  4 = close match with only minor differences",
+    "  5 = excellent / near-perfect match",
+    "",
+    "Criteria:",
+    ...rubric.map((c) => `  ${c.key} (${c.label}, weight ${c.weight}) — ${c.guidance}`),
+    "",
+    "CRITICAL RULES — violating these is a judging error:",
+    "- If the recreation shows a COMPLETELY DIFFERENT subject or scene from the",
+    "  reference, the 'subject' score MUST be 0, and no other criterion may exceed 1.",
+    "  A picture of a cat cannot score above 1 on anything if the reference is a landscape.",
+    "- If the recreation is the EXACT SAME image as the reference (identical content),",
+    "  every criterion MUST score 5.",
+    "- Be harsh, not generous. A 3 means 'decent but clearly different'. Reserve 4-5",
+    "  for genuinely close reproductions.",
+    "- Judge the recreation against the reference ONLY, not against aesthetics or quality.",
     "- Keep each note to one short sentence naming the specific difference.",
     "",
     "Reply with JSON only, in exactly this shape:",
@@ -156,7 +191,8 @@ function buildSystem(rubric: readonly Criterion[]): string {
       rubric.map((c) => `{"key":"${c.key}","score":<0-5>,"note":"<one sentence>"}`).join(",") +
       '],"summary":"<one sentence overall>"}',
     "",
-    "Every criterion listed above must appear exactly once.",
+    "CRITICAL INSTRUCTION FOR REASONING MODELS: Keep your internal <think> process extremely brief (under 100 words). Output the final JSON immediately.",
+    "Every criterion listed above must appear exactly once. Scores must be integers.",
   ].join("\n");
 }
 
@@ -165,12 +201,10 @@ export type ImageDataUrl = string;
 export async function judgeImage(challenge: Challenge, referenceImage: ImageDataUrl, submittedImage: ImageDataUrl): Promise<JudgeVerdict> {
   const rubric = rubricFor(challenge);
 
-  // Exact image upload check
-  if (
-    submittedImage === referenceImage ||
-    submittedImage.slice(0, 1000) === referenceImage.slice(0, 1000) ||
-    submittedImage.length === referenceImage.length
-  ) {
+  // Exact image upload check — compare the raw base64 payload after the header
+  const refBody = referenceImage.replace(/^data:[^,]+,/, "");
+  const subBody = submittedImage.replace(/^data:[^,]+,/, "");
+  if (refBody === subBody) {
     const criteria = rubric.map((c) => ({
       key: c.key,
       score: 5,
@@ -183,32 +217,43 @@ export async function judgeImage(challenge: Challenge, referenceImage: ImageData
     };
   }
 
-  const key = process.env.GROQ_API_KEY;
+  const key = process.env.OPENROUTER_API_KEY || process.env.GROQ_API_KEY;
 
   if (key) {
-    // Current working Groq vision models
-    const visionModels = ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"];
+    // Current working vision models
+    const visionModels = [VISION_MODEL];
     for (const model of visionModels) {
       try {
-        const response = await fetch(GROQ_URL, {
+        const response = await fetch(API_URL, {
           method: "POST",
-          headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
-          signal: AbortSignal.timeout(12000),
+          headers: { 
+            "content-type": "application/json", 
+            authorization: `Bearer ${key}`,
+            "HTTP-Referer": "https://sympoapp.local",
+            "X-Title": "SympoApp Image Judge"
+          },
+          signal: AbortSignal.timeout(30000),
           body: JSON.stringify({
             model,
-            response_format: { type: "json_object" },
-            temperature: 0.1,
-            max_completion_tokens: 1500,
+            temperature: 0.0,
+            max_completion_tokens: 2000,
             messages: [
               { role: "system", content: buildSystem(rubric) },
               {
                 role: "user",
                 content: [
-                  { type: "text", text: "Reference image:" },
+                  { type: "text", text: "Reference image (the ORIGINAL that the team must replicate):" },
                   { type: "image_url", image_url: { url: referenceImage } },
-                  { type: "text", text: "The team's recreation:" },
+                  { type: "text", text: "Team's submitted recreation (judge THIS against the reference above):" },
                   { type: "image_url", image_url: { url: submittedImage } },
-                  { type: "text", text: "Score the recreation against the reference." },
+                  {
+                    type: "text",
+                    text:
+                      "Score the recreation against the reference. " +
+                      "If the recreation depicts a COMPLETELY DIFFERENT subject or scene, " +
+                      "the subject score MUST be 0 and all other scores should be 0 or 1. " +
+                      "Only give high scores (4-5) when the recreation is genuinely close to the reference.",
+                  },
                 ],
               },
             ],
@@ -223,35 +268,36 @@ export async function judgeImage(challenge: Challenge, referenceImage: ImageData
             return { similarity: toSimilarity(criteria, rubric), criteria, summary };
           }
         } else {
-          console.error(`[judgeImage] Groq error (${model}):`, response.status, await response.text());
+          const errBody = await response.text();
+          console.error(`[judgeImage] Groq error (${model}): HTTP ${response.status}`, errBody);
+          try {
+            require("fs").writeFileSync(
+              "c:\\Users\\ponr2\\SympoApp\\groq-error.log",
+              `HTTP ${response.status} ${errBody}\n`,
+              { flag: "a" }
+            );
+          } catch(e) {}
         }
       } catch (e) {
         console.error(`[judgeImage] Groq model (${model}) failed:`, e);
+        try {
+          require("fs").writeFileSync(
+            "c:\\Users\\ponr2\\SympoApp\\groq-error.log",
+            `Exception ${e}\n`,
+            { flag: "a" }
+          );
+        } catch(err) {}
       }
     }
   }
 
-  // Realistic fallback image comparison based on relative base64 payload diff when API is un-reachable
-  const refLen = referenceImage.length || 1;
-  const subLen = submittedImage.length || 1;
-  const diffRatio = Math.abs(refLen - subLen) / Math.max(refLen, subLen);
-
-  // If payload sizes are very close (similar image structure/colors), score high (0.75 - 0.95)
-  // If payload sizes are vastly different (different subject/art), score low (0.35 - 0.65)
-  let sim = Math.max(0.20, Number((0.95 - diffRatio * 0.85).toFixed(2)));
-  if (sim > 0.95) sim = 0.95;
-
-  const scoreInt = Math.min(5, Math.max(0, Math.round(sim * 5)));
-  const criteria = rubric.map((c) => ({
-    key: c.key,
-    score: scoreInt,
-    note: `${c.label}: Visual feature alignment assessed at ${Math.round(sim * 100)}%.`,
-  }));
-  return {
-    similarity: sim,
-    criteria,
-    summary: `Recreation assessed at ${Math.round(sim * 100)}% match against reference composition and subject.`,
-  };
+  // All vision models failed — throw so the caller knows judging didn't happen.
+  // The submission stays queued for retry rather than receiving a fake score.
+  throw new JudgeError(
+    "Vision API unavailable — all models failed. " +
+      (key ? "GROQ_API_KEY is set but every model returned an error." : "GROQ_API_KEY is not set.") +
+      " The submission will remain queued for retry."
+  );
 }
 
 export interface JudgedSubmission {

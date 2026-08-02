@@ -77,7 +77,7 @@ export async function gradeQuiz(input: GradeInput): Promise<GradeResult> {
     const subs = await collections.submissions();
     const solved = await subs.findOne({ challengeId: challenge._id, teamId, status: "done", "verdict.correct": true });
     if (solved) return { correct: false, points: 0, meta: { reason: "already-solved" } };
-    return scoreConnections(challenge, teamId, payload);
+    return scoreConnections(challenge, teamId, payload, input.submissionId);
   }
 
   if (format === "memory") {
