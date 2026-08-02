@@ -5,8 +5,7 @@ import type { Avatar } from "@/lib/quiz/avatars";
 import type { QuizRound } from "@/lib/db/types";
 import Celebration from "./Celebration";
 import Standings from "./Standings";
-import WebShooter, { WebNet } from "./WebShooter";
-import TeamAvatar from "@/components/ui/TeamAvatar";
+import WebShooter from "./WebShooter";
 
 interface StandingRow {
   rank: number;
@@ -79,9 +78,9 @@ export default function QuizEndedScreen({
         }}
       />
 
-      <div className="relative mx-auto max-w-5xl space-y-10 text-center">
+      <div className="relative mx-auto max-w-5xl space-y-6 text-center">
         {/* HEADER ANNOUNCEMENT */}
-        <header className="relative z-10 text-center mb-8">
+        <header className="relative z-10 text-center mb-4">
           <h1
             className="font-display-xl text-[48px] md:text-[80px] leading-none uppercase italic text-on-background tracking-tighter drop-shadow-[4px_4px_0px_rgba(164,22,22,1)]"
             style={{ WebkitTextStroke: "3px #1b1b1c" }}
@@ -91,27 +90,15 @@ export default function QuizEndedScreen({
           <div className="h-2 w-48 bg-primary mx-auto mt-4 comic-tilt-left shadow-md"></div>
         </header>
 
-        {/* HERO RECORD CARD */}
-        <div className="inline-flex items-center gap-4 bg-tertiary-fixed comic-border p-4 comic-tilt-right">
-          <TeamAvatar avatar={avatar} teamName={teamName} size="lg" />
-          <div className="text-left">
-            <span className="font-label-sm text-on-tertiary-fixed-variant uppercase text-[10px] block font-bold">
-              Hero of Record
-            </span>
-            <span className="font-headline-lg text-lg uppercase font-bold">{teamName}</span>
-          </div>
-        </div>
-
         {/* TOP 3 PODIUM */}
-        <section className="space-y-6">
+        <section className="space-y-4">
           <h2 className="font-display-xl text-2xl sm:text-3xl text-on-background uppercase italic tracking-wide">
-            🌟 THE TOP THREE HEROES 🌟
+            THE TOP THREE HEROES
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end justify-center pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end justify-center pt-2">
             {/* 2ND PLACE (SILVER) */}
             <div className="order-2 md:order-1 bg-surface comic-border p-6 space-y-3 comic-tilt-left shadow-[8px_8px_0px_0px_rgba(27,27,28,1)]">
-              <div className="text-3xl">🥈</div>
               <div className="bg-secondary text-on-secondary font-label-sm text-xs px-3 py-1 comic-border inline-block uppercase font-bold">
                 2nd Place — Runner Up
               </div>
@@ -128,9 +115,8 @@ export default function QuizEndedScreen({
 
             {/* 1ST PLACE (GOLD - CENTER ELEVATED) */}
             <div className="order-1 md:order-2 bg-tertiary-fixed text-on-tertiary-fixed comic-border p-8 space-y-4 comic-tilt-right md:-translate-y-4 shadow-[10px_10px_0px_0px_rgba(27,27,28,1)]">
-              <div className="text-5xl animate-pulse">👑 🏆 👑</div>
               <div className="bg-primary text-on-primary font-display-xl text-xs px-4 py-1.5 comic-border inline-block uppercase tracking-widest font-bold -rotate-1">
-                🥇 1st Place — Multiverse Champion
+                1st Place — Multiverse Champion
               </div>
               <h3 className="font-display-xl text-3xl text-on-tertiary-fixed uppercase italic truncate">
                 {firstPlace ? firstPlace.teamName : "Awaiting..."}
@@ -145,7 +131,6 @@ export default function QuizEndedScreen({
 
             {/* 3RD PLACE (BRONZE) */}
             <div className="order-3 bg-surface comic-border p-6 space-y-3 comic-tilt-right shadow-[8px_8px_0px_0px_rgba(27,27,28,1)]">
-              <div className="text-3xl">🥉</div>
               <div className="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-xs px-3 py-1 comic-border inline-block uppercase font-bold">
                 3rd Place — Bronze Medalist
               </div>

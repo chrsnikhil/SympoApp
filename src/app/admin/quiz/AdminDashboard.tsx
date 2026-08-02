@@ -212,7 +212,7 @@ export default function AdminDashboard() {
 
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => setShowStageLeaderboard(true)} className="comic-btn comic-btn-yellow px-4 py-2 text-xs font-bold">
-              📺 View Stage Leaderboard
+              View Stage Leaderboard
             </button>
           </div>
         </header>
@@ -221,7 +221,7 @@ export default function AdminDashboard() {
           <div className="fixed bottom-6 right-6 z-[99999] flex max-w-md items-center justify-between gap-4 border-2 border-glitch-cyan bg-[#0d0e12] p-4 text-paper-white shadow-[6px_6px_0px_0px_rgba(0,229,255,1)] anim-pop rounded-none">
             <div className="flex items-center gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-glitch-cyan bg-glitch-cyan/20 text-lg font-bold">
-                ⚡
+                !
               </span>
               <div>
                 <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-glitch-cyan">SYSTEM NOTICE</p>
@@ -260,13 +260,13 @@ export default function AdminDashboard() {
                 onClick={() => callAdvance({ action: "start-quiz" }, false)}
                 className="comic-btn comic-btn-yellow px-5 py-2.5 text-sm font-bold shadow-lg animate-pulse"
               >
-                ▶ START QUIZ
+                START QUIZ
               </button>
             ) : (
               round < 3 &&
               (!advanceConfirm ? (
                 <button onClick={() => setAdvanceConfirm(true)} className="comic-btn comic-btn-cyan px-4 py-2 text-xs">
-                  ▶ Proceed to Round {round + 1}
+                  Proceed to Round {round + 1}
                 </button>
               ) : (
                 <div className="flex items-center gap-2 border border-signal-good bg-ink-black p-2">
@@ -295,12 +295,12 @@ export default function AdminDashboard() {
               (data.ended ? (
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="inline-flex items-center gap-2 border-2 border-signal-good bg-signal-good/10 px-4 py-2 text-signal-good text-xs font-bold uppercase tracking-widest rounded">
-                    🏁 QUIZ CONCLUDED — CHAMPIONS VICTORY SCREEN IS LIVE
+                    QUIZ CONCLUDED — CHAMPIONS VICTORY SCREEN IS LIVE
                   </div>
                 </div>
               ) : !endConfirm ? (
                 <button onClick={() => setEndConfirm(true)} className="comic-btn comic-btn-pink px-4 py-2 text-xs">
-                  ⏹ End Quiz
+                  End Quiz
                 </button>
               ) : (
                 <div className="flex items-center gap-2 border border-signal-wrong bg-ink-black p-2">
@@ -327,7 +327,7 @@ export default function AdminDashboard() {
                 onClick={() => setResetConfirm(true)}
                 className="comic-btn comic-btn-yellow px-4 py-2 text-xs font-bold"
               >
-                🔄 Reset Quiz (Scores to Zero)
+                Reset Quiz (Scores to Zero)
               </button>
             ) : (
               <div className="flex items-center gap-2 border border-comic-yellow bg-ink-black p-2">
@@ -392,7 +392,7 @@ export default function AdminDashboard() {
                           className="px-2.5 py-1 text-[0.65rem] font-bold border border-signal-good bg-signal-good/20 text-signal-good hover:bg-signal-good hover:text-ink-black transition-colors rounded"
                           title="Restore team back into the round"
                         >
-                          ↩ Restore
+                          Restore
                         </button>
                       ) : (
                         <button
@@ -403,7 +403,7 @@ export default function AdminDashboard() {
                           className="px-2.5 py-1 text-[0.65rem] font-bold border border-spider-red bg-spider-red/20 text-spider-red hover:bg-spider-red hover:text-paper-white transition-colors rounded"
                           title="Eliminate team instantly"
                         >
-                          ✂ Eliminate
+                          Eliminate
                         </button>
                       )}
                     </td>
@@ -579,11 +579,11 @@ export default function AdminDashboard() {
                               onClick={() => callAdvance({ action: "open", slug: p.slug, minutes: 30 }, false)}
                               className="comic-btn comic-btn-cyan px-3 py-1.5 text-xs font-bold"
                             >
-                              ▶ Start Puzzle & Reveal Tile 1
+                              Start Puzzle & Reveal Tile 1
                             </button>
                           ) : p.revealedCount >= p.totalImages ? (
                             <div className="border border-signal-good/50 bg-signal-good/15 text-signal-good px-3 py-1.5 text-xs font-bold rounded flex items-center gap-1.5 shadow">
-                              <span>✓ All {p.totalImages} Tiles Revealed</span>
+                              <span>All {p.totalImages} Tiles Revealed</span>
                               <span className="text-paper-white/60">• 10s Answer Timer Active ({p.solvedCount} Solved)</span>
                             </div>
                           ) : (
@@ -592,7 +592,7 @@ export default function AdminDashboard() {
                               onClick={() => callAdvance({ action: "reveal-next-image", slug: p.slug }, false)}
                               className="comic-btn comic-btn-cyan px-3 py-1.5 text-xs font-bold"
                             >
-                              ▶ Reveal Next Tile (Tile {p.revealedCount + 1} of {p.totalImages})
+                              Reveal Next Tile (Tile {p.revealedCount + 1} of {p.totalImages})
                             </button>
                           )}
                         </div>
@@ -729,7 +729,7 @@ export default function AdminDashboard() {
                     <td>{c.team}</td>
                     <td>
                       <span className={`text-[0.65rem] font-bold px-2 py-0.5 border ${c.isLocked ? "border-spider-red bg-spider-red/20 text-spider-red" : "border-signal-good bg-signal-good/20 text-signal-good"}`}>
-                        {c.isLocked ? "🔒 IN USE" : "🔓 ACTIVE"}
+                        {c.isLocked ? "IN USE" : "ACTIVE"}
                       </span>
                     </td>
                     <td>

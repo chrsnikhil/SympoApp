@@ -153,8 +153,8 @@ export default function MemoryGrid({ slug, onDone }: { slug: string; onDone: (po
                   <div className="absolute inset-0 opacity-15 pointer-events-none bg-[radial-gradient(circle_at_center,_var(--spider-red)_0%,_transparent_70%)]" />
                   
                   <div className="w-full flex justify-between text-[10px] text-spider-red/70 font-mono">
-                    <span>🕸️</span>
-                    <span>🕸️</span>
+                    <span>+</span>
+                    <span>+</span>
                   </div>
 
                   <div className="w-10 h-10 rounded-full border-2 border-comic-yellow/80 bg-ink-black flex items-center justify-center shadow-lg relative z-10">
@@ -162,8 +162,8 @@ export default function MemoryGrid({ slug, onDone }: { slug: string; onDone: (po
                   </div>
 
                   <div className="w-full flex justify-between text-[10px] text-spider-red/70 font-mono rotate-180">
-                    <span>🕸️</span>
-                    <span>🕸️</span>
+                    <span>+</span>
+                    <span>+</span>
                   </div>
                 </div>
 
@@ -192,12 +192,12 @@ export default function MemoryGrid({ slug, onDone }: { slug: string; onDone: (po
                   {/* Status Indicator Badges */}
                   {isMatched && (
                     <div className="absolute top-1 right-1 bg-signal-good text-ink-black w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs shadow">
-                      ✓
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
                   )}
                   {isPendingMismatch && (
                     <div className="absolute top-1 right-1 bg-spider-red text-paper-white w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs shadow">
-                      ✕
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </div>
                   )}
                 </div>
@@ -212,7 +212,7 @@ export default function MemoryGrid({ slug, onDone }: { slug: string; onDone: (po
       {state.completedAt && (
         <div className="mt-4 border-2 border-glitch-cyan bg-glitch-cyan/15 p-4 text-center rounded space-y-1">
           <p className="font-display text-2xl text-glitch-cyan">
-            {state.scoredPoints && state.scoredPoints > 0 ? `🎉 MATCHED ALL PAIRS! +${state.scoredPoints} PTS` : "🔒 OUT OF FLIPS"}
+            {state.scoredPoints && state.scoredPoints > 0 ? `MATCHED ALL PAIRS! +${state.scoredPoints} PTS` : "OUT OF FLIPS"}
           </p>
           <p className="text-xs text-paper-white/70">
             Completed in {state.flipsUsed} flips!

@@ -207,7 +207,6 @@ export default function QuizClient({
 
         <div className="relative mx-auto max-w-4xl space-y-8 text-center">
           <div className="halftone panel panel-accent p-8 space-y-4 border-2 border-spider-red bg-ink-black/80">
-            <div className="text-5xl animate-bounce">🕸️</div>
             <h1 className="display-title chromatic text-3xl sm:text-4xl text-spider-red uppercase tracking-wide">
               HEROIC EFFORT, {teamName.toUpperCase()}!
             </h1>
@@ -216,7 +215,7 @@ export default function QuizClient({
               You can sit back and watch the live multiverse leaderboard below as the remaining Spider-Heroes battle for glory.
             </p>
             <div className="inline-block px-4 py-1.5 border border-comic-yellow bg-comic-yellow/10 text-comic-yellow text-xs font-bold uppercase tracking-widest rounded">
-              📺 Live Spectator Mode — Leaderboard
+              Live Spectator Mode — Leaderboard
             </div>
           </div>
 
@@ -315,27 +314,27 @@ function RoundTransition({
       title: "Round 1 — Final Universe (3 Mini-Games)",
       desc: "Prepare for 3 sequential mini-games. Each game tests a different dimension of skill!",
       points: [
-        "🖼️ Game 1: Image Replication (50s initial view + 30s peek at 2m 30s | 3m 30s to submit)",
-        "🧩 Game 2: Connections (1 submission per image revealed | 5 puzzles)",
-        "🃏 Game 3: Memory Game (16 cards / 8 pairs — match all pairs within flip limit)",
+        "Game 1: Image Replication (50s initial view + 30s peek at 2m 30s | 3m 30s to submit)",
+        "Game 2: Connections (1 submission per image revealed | 5 puzzles)",
+        "Game 3: Memory Game (16 cards / 8 pairs — match all pairs within flip limit)",
       ],
     },
     2: {
       title: "Round 2 — Universe 1 (Warm-Up MCQs)",
       desc: "Speed and accuracy are key! You have a strict time window per question.",
       points: [
-        "📖 Reading Window: 6 seconds to read the question stem (options locked)",
-        "⚡ Answer Window: 10 seconds to select your answer",
-        "⏱️ Speed Bonus: Faster correct answers break ties",
+        "Reading Window: 6 seconds to read the question stem (options locked)",
+        "Answer Window: 10 seconds to select your answer",
+        "Speed Bonus: Faster correct answers break ties",
       ],
     },
     3: {
       title: "Round 3 — Universe 2 (Multiverse Abilities)",
       desc: "High-stakes finale with live leaderboard and Comeback Meter powers!",
       points: [
-        "🔥 Finalist MCQs with live stage standings",
-        "⚡ Comeback Meter: Unlocks special abilities for trailing teams",
-        "🏆 Top 3 teams win the Multiverse Championship!",
+        "Finalist MCQs with live stage standings",
+        "Comeback Meter: Unlocks special abilities for trailing teams",
+        "Top 3 teams win the Multiverse Championship!",
       ],
     },
   };
