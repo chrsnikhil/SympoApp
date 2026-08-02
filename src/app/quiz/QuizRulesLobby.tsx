@@ -161,7 +161,6 @@ export default function QuizRulesLobby({
 
         {/* WAITING ROOM FOOTER BADGE */}
         <footer className="bg-[#f0da74] text-black comic-border p-6 text-center space-y-3 comic-tilt-left shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] relative">
-          <div className="text-3xl animate-bounce">📡</div>
           <h3 className="font-display-xl text-lg sm:text-xl uppercase tracking-wide">
             STAND BY FOR EVENT INITIALIZATION
           </h3>

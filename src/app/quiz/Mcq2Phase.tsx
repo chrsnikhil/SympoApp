@@ -240,7 +240,6 @@ export default function Mcq2Phase({
             <div className="absolute inset-0 ben-day pointer-events-none opacity-20"></div>
             {round === 3 && <Celebration />}
             <div className="relative z-10">
-              <span className="font-display-xl text-[64px]">🕸</span>
               <h2 className="font-display-xl text-[40px] uppercase italic text-on-background mt-2">
                 {round === 3 ? "Multiverse Complete" : "Round Complete"}
               </h2>
@@ -315,7 +314,7 @@ export default function Mcq2Phase({
                         <span className="w-3 h-3 rounded-full bg-signal-good inline-block border border-ink-black" />
                       </div>
                       <span className="font-mono text-[11px] font-bold text-glitch-cyan uppercase tracking-widest flex items-center gap-1.5">
-                        <span>💻</span> CODE SNIPPET
+                        CODE SNIPPET
                       </span>
                     </div>
                     <pre className="p-4 sm:p-6 font-mono text-sm md:text-base text-glitch-cyan leading-relaxed overflow-x-auto whitespace-pre bg-[#0a0b0e] border-t border-paper-white/10">
@@ -349,7 +348,7 @@ export default function Mcq2Phase({
             <div>
               {phase === "read" ? (
                 <div className="bg-surface comic-border p-8 text-center comic-tilt-right">
-                  <div className="font-display-xl text-headline-lg text-on-surface-variant uppercase mb-1">🔒 Options Locked</div>
+                  <div className="font-display-xl text-headline-lg text-on-surface-variant uppercase mb-1">Options Locked</div>
                   <p className="font-label-sm text-on-surface-variant uppercase text-xs">
                     Reading window active — options reveal in {readSecondsLeft}s
                   </p>
@@ -404,7 +403,7 @@ export default function Mcq2Phase({
                               </svg>
                               {/* Top-right "WEB LOCKED" badge */}
                               <div className="absolute top-2 right-2 bg-primary text-on-primary px-2.5 py-0.5 comic-border text-[10px] font-headline-lg uppercase tracking-wider shadow">
-                                🕸️ WEB LOCKED
+                                WEB LOCKED
                               </div>
                             </div>
                           )}
@@ -435,7 +434,7 @@ export default function Mcq2Phase({
                       className="relative bg-primary px-10 py-5 comic-border comic-tilt-right transition-all duration-100 hover:translate-x-1 hover:translate-y-1 hover:shadow-none shadow-[8px_8px_0px_0px_rgba(27,27,28,1)] active:scale-95 disabled:opacity-40"
                     >
                       <span className="font-display-xl text-headline-lg-mobile text-on-primary uppercase tracking-widest">
-                        {verdict ? "🔒 LOCKED IN" : submitting ? "Locking in…" : "Lock it in"}
+                        {verdict ? "LOCKED IN" : submitting ? "Locking in…" : "Lock it in"}
                       </span>
                     </button>
                   </div>
@@ -469,7 +468,7 @@ export default function Mcq2Phase({
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <div className="font-display-xl text-headline-lg-mobile text-primary flex items-center gap-2">
-                <span>⚡ COMEBACK METER</span>
+                <span>COMEBACK METER</span>
                 <span className="font-label-sm text-xs text-on-surface-variant">({comeback?.bottomStreak ?? 0} / 3 NOTCHES)</span>
               </div>
               <div className="font-label-sm text-xs text-on-surface-variant uppercase mt-1">
@@ -495,7 +494,7 @@ export default function Mcq2Phase({
             <div className="mt-4 pt-4 border-t-2 border-dashed border-on-surface/20 flex flex-wrap items-center justify-between gap-4">
               <div>
                 <div className="font-display-xl text-headline-lg-mobile text-primary">
-                  {comeback.info?.icon} UNLOCKED: {comeback.info?.label}
+                  UNLOCKED: {comeback.info?.label}
                 </div>
                 <div className="font-label-sm text-xs text-on-surface-variant uppercase">{comeback.info?.description}</div>
               </div>

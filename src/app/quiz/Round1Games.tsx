@@ -162,7 +162,6 @@ function PhaseTracker({ phase }: { phase: Phase }) {
                     : "border-paper-white/15 text-paper-white/30"
               }`}
             >
-              {state === "done" ? "✓ " : ""}
               Game {step}
             </div>
             {i < STEPS.length - 1 && <span className="text-paper-white/20">→</span>}
@@ -284,7 +283,7 @@ function PreGameRulesGate({
       title: "GAME 1: IMAGE REPLICATION",
       color: "text-glitch-cyan",
       bgBorder: "border-glitch-cyan bg-glitch-cyan/10",
-      icon: "🖼️",
+      icon: "",
       points: [
         "Reference Image Display: 50 seconds at start (reappears for 30s at 2m 30s mark).",
         "Image Generation & Submission Time: 3 minutes 30 seconds total.",
@@ -298,7 +297,7 @@ function PreGameRulesGate({
       title: "GAME 2: CONNECTIONS",
       color: "text-comic-yellow",
       bgBorder: "border-comic-yellow bg-comic-yellow/10",
-      icon: "🧩",
+      icon: "",
       points: [
         "A series of images will be revealed one by one on screen.",
         "Each image acts as a new clue to identify the single connecting word or phrase.",
@@ -311,7 +310,7 @@ function PreGameRulesGate({
       title: "GAME 3: MEMORY GAME",
       color: "text-gadget-pink",
       bgBorder: "border-gadget-pink bg-gadget-pink/10",
-      icon: "🃏",
+      icon: "",
       points: [
         "16 face-down cards (8 matching Spider-Verse character pairs) displayed on grid.",
         "Flip two cards at a time to find matching pairs.",
@@ -326,16 +325,10 @@ function PreGameRulesGate({
 
   return (
     <article className="halftone panel anim-pop p-8 text-center space-y-6 relative overflow-hidden border-2 border-spider-red/80 shadow-[0_0_25px_rgba(229,34,59,0.3)]">
-      {/* Spider Web Corner Badges */}
-      <div className="absolute top-2 left-3 text-spider-red text-lg opacity-60">🕸️</div>
-      <div className="absolute top-2 right-3 text-spider-red text-lg opacity-60">🕸️</div>
-
       {/* Spider-Sense Header */}
       <div className="inline-flex items-center gap-2 border-2 border-spider-red/80 bg-spider-red/15 px-4 py-1 text-spider-red text-xs font-display tracking-widest uppercase rounded shadow animate-pulse">
-        ⚡ SPIDER-SENSE BRIEFING ⚡
+        SPIDER-SENSE BRIEFING
       </div>
-
-      <div className="text-5xl animate-bounce my-1">{cfg.icon}</div>
 
       <div className="space-y-3">
         <div className="flex justify-center my-2">
@@ -350,13 +343,13 @@ function PreGameRulesGate({
         </div>
         <h2 className={`font-display-xl text-3xl uppercase italic tracking-wide ${cfg.color}`}>{cfg.title}</h2>
         <span className="inline-block text-xs font-bold px-3 py-1 border border-paper-white/20 bg-ink-black/80 text-comic-yellow rounded shadow">
-          ★ Worth {points} Points ★
+          Worth {points} Points
         </span>
       </div>
 
       <div className={`text-left border-2 p-5 space-y-2.5 rounded backdrop-blur-sm ${cfg.bgBorder}`}>
         <p className="font-display text-sm uppercase tracking-wider text-paper-white mb-2 flex items-center gap-2">
-          <span>🕸️</span> RULES & DIRECTIVES:
+          RULES & DIRECTIVES:
         </p>
         {cfg.points.map((pt, i) => (
           <div key={i} className="font-mono text-xs text-paper-white/90 flex items-start gap-2.5">
@@ -367,7 +360,7 @@ function PreGameRulesGate({
       </div>
 
       <div className="border border-paper-white/20 bg-ink-black/90 p-3 text-center text-xs font-mono text-paper-white/80 flex items-center justify-center gap-2">
-        <span className="text-glitch-cyan font-bold">🕸️ THWIP!</span>
+        <span className="text-glitch-cyan font-bold">THWIP!</span>
         <span>Auto-directing to game screen when timer reaches 0s…</span>
       </div>
     </article>
@@ -497,7 +490,7 @@ function ImageReplication({
             <div className="border-2 border-glitch-cyan bg-glitch-cyan/10 p-3 rounded space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-display text-xs uppercase tracking-wider text-glitch-cyan flex items-center gap-1.5">
-                  {isInitialVisible ? "📷 Reference Image Display" : "👀 Mid-Game Bonus Peek!"}
+                  {isInitialVisible ? "Reference Image Display" : "Mid-Game Bonus Peek!"}
                 </span>
                 <span className="font-mono text-xs font-bold text-comic-yellow bg-ink-black px-2 py-0.5 rounded border border-comic-yellow/40">
                   Hides in {isInitialVisible ? initialSecondsLeft : midGameSecondsLeft}s
@@ -508,7 +501,6 @@ function ImageReplication({
             </div>
           ) : (
             <div className="border-2 border-dashed border-paper-white/20 bg-ink-black/60 p-4 text-center rounded space-y-1.5">
-              <div className="text-xl">🙈</div>
               <p className="font-display text-xs uppercase tracking-wider text-paper-white/90">Reference Image Hidden</p>
               <p className="text-[11px] text-paper-white/70">
                 {elapsedSeconds < 150
@@ -529,7 +521,7 @@ function ImageReplication({
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-paper-white/10 pb-3">
             <div>
               <span className="font-comic text-base text-glitch-cyan flex items-center gap-1.5">
-                ✓ Image Saved & Uploaded
+                Image Saved & Uploaded
               </span>
             </div>
           </div>
@@ -682,7 +674,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
           </p>
           {allTilesRevealed && !isCompleted && (
             <p className="mt-1 font-comic text-xs text-spider-red animate-pulse">
-              ⚡ All tiles revealed! Final 10-second countdown to answer!
+              All tiles revealed! Final 10-second countdown to answer!
             </p>
           )}
         </div>
@@ -730,7 +722,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
                 <img src={images[i]} alt={`Tile ${i + 1}`} className="h-full w-full object-contain p-1" />
               ) : (
                 <div className="grid h-full place-items-center text-[0.65rem] uppercase tracking-widest text-paper-white/30 font-mono">
-                  🔒 TILE {i + 1}
+                  TILE {i + 1}
                 </div>
               )}
               <div className="absolute top-1 left-1 bg-ink-black/80 text-[10px] font-mono px-1.5 py-0.5 text-paper-white/70 border border-paper-white/20 rounded">
@@ -742,7 +734,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-paper-white/80">
-        <span>{allTilesRevealed ? "✓ All tiles revealed by coordinator." : `${revealedCount} of ${totalImages} tiles revealed.`}</span>
+        <span>{allTilesRevealed ? "All tiles revealed by coordinator." : `${revealedCount} of ${totalImages} tiles revealed.`}</span>
         <span className="text-comic-yellow font-bold uppercase tracking-wider">
           Attempt {history.length} of {totalImages} (1 try per revealed tile)
         </span>
@@ -754,7 +746,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
           {hasSubmittedForCurrentTile ? (
             <div className="border-2 border-comic-yellow/50 bg-ink-black/80 p-4 text-center rounded space-y-1">
               <p className="font-comic text-sm text-comic-yellow">
-                🔒 Attempt {history.length} Submitted: &quot;{lastAttempt?.payload === "__timeout__" ? "No Answer" : lastAttempt?.payload}&quot;
+                Attempt {history.length} Submitted: &quot;{lastAttempt?.payload === "__timeout__" ? "No Answer" : lastAttempt?.payload}&quot;
               </p>
               <p className="text-xs text-paper-white/70">
                 {revealedCount < totalImages
@@ -795,7 +787,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
       ) : (
         <div className="border-2 border-signal-good bg-signal-good/10 p-5 text-center rounded space-y-2">
           <p className="font-display-xl text-xl text-signal-good uppercase tracking-wider">
-            {isSolved ? "🎉 PUZZLE COMPLETED!" : "🏁 PUZZLE CONCLUDED"}
+            {isSolved ? "PUZZLE COMPLETED!" : "PUZZLE CONCLUDED"}
           </p>
           {game.solvedVerdict && (
             <p className="font-headline-lg text-sm text-paper-white">
@@ -830,10 +822,10 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
                     <span className="font-mono font-bold uppercase">Attempt #{h.imageIndex}:</span>
                     <span>
                       {isWin
-                        ? `✅ Correct (+${h.points} pts${h.rank ? `, Rank #${h.rank}` : ""})`
+                        ? `Correct (+${h.points} pts${h.rank ? `, Rank #${h.rank}` : ""})`
                         : isTimeout
-                          ? `⏰ No Answer (${h.points} pts penalty)`
-                          : `❌ Wrong Answer (${h.points} pts penalty)`}
+                          ? `No Answer (${h.points} pts penalty)`
+                          : `Wrong Answer (${h.points} pts penalty)`}
                     </span>
                   </div>
                   {!isTimeout && <p className="font-mono text-[11px] opacity-80">&quot;{h.payload}&quot;</p>}
