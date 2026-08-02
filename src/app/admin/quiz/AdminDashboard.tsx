@@ -602,14 +602,16 @@ export default function AdminDashboard() {
                                   Reveal Next Tile (Tile {p.revealedCount + 1} of {p.totalImages})
                                 </button>
                               )}
-                              <button
-                                disabled={busy}
-                                onClick={() => callAdvance({ action: "close-puzzle", slug: p.slug }, false)}
-                                className="comic-btn comic-btn-pink px-3 py-1.5 text-xs font-bold"
-                                title="Close this puzzle to move teams to the next puzzle (or next game)"
-                              >
-                                Close & Advance
-                              </button>
+                              {p.puzzleIndex === 5 && (
+                                <button
+                                  disabled={busy}
+                                  onClick={() => callAdvance({ action: "close-puzzle", slug: p.slug }, false)}
+                                  className="comic-btn comic-btn-pink px-3 py-1.5 text-xs font-bold"
+                                  title="Close this puzzle to move teams to the next game"
+                                >
+                                  Close & Advance
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
