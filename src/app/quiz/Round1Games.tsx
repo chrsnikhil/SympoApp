@@ -683,8 +683,17 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
   const revealedCount = images.length;
   const isCompleted = isSolved || (history.length >= totalImages && revealedCount >= totalImages);
 
+  const [localSubmissionCountForTile, setLocalSubmissionCountForTile] = useState(0);
+  const prevRevealedRef = useRef(revealedCount);
+  useEffect(() => {
+    if (revealedCount !== prevRevealedRef.current) {
+      setLocalSubmissionCountForTile(0);
+      prevRevealedRef.current = revealedCount;
+    }
+  }, [revealedCount]);
+
   // Check if team has already submitted an attempt for the currently revealed tile count
-  const hasSubmittedForCurrentTile = history.length >= revealedCount;
+  const hasSubmittedForCurrentTile = history.length >= totalImages || localSubmissionCountForTile >= 1 || history.length >= revealedCount;
   const lastAttempt = history[history.length - 1];
 
   // Final 10-second countdown once ALL tiles are revealed by the coordinator
@@ -762,6 +771,7 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
         return;
       }
       setValue("");
+      setLocalSubmissionCountForTile(c => c + 1);
       onSolved();
     } catch {
       setError("Submission failed");
