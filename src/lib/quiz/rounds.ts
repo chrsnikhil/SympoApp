@@ -149,23 +149,25 @@ export async function computeStandings(round: QuizRound): Promise<Standing[]> {
   const rawInvolved = new Set<string>([...points.keys(), ...tiebreak.keys()]);
   const involved = new Set<string>();
   for (const id of rawInvolved) {
-    if (teamById.has(id) && teamById.get(id)?.name !== "Quiz Control") {
+    const t = teamById.get(id);
+    if (t && t.name !== "Quiz Control" && t.coin != null) {
       involved.add(id);
     }
   }
   const isEnded = await isQuizEnded();
   if (round === 3 || isEnded) {
     for (const t of teamDocs) {
-      if (t.name !== "Quiz Control") involved.add(String(t._id));
+      if (t.name !== "Quiz Control" && t.coin != null) involved.add(String(t._id));
     }
   } else if (round > 1) {
     const quals = await collections.roundQualifications();
     for (const q of await quals.find({ round }).toArray()) {
-      if (teamById.has(String(q.teamId))) involved.add(String(q.teamId));
+      const t = teamById.get(String(q.teamId));
+      if (t && t.coin != null) involved.add(String(q.teamId));
     }
   } else {
     for (const t of teamDocs) {
-      if (t.name !== "Quiz Control") involved.add(String(t._id));
+      if (t.name !== "Quiz Control" && t.coin != null) involved.add(String(t._id));
     }
   }
 
