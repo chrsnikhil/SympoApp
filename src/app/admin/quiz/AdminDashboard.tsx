@@ -582,19 +582,35 @@ export default function AdminDashboard() {
                             >
                               Start Puzzle & Reveal Tile 1
                             </button>
-                          ) : p.revealedCount >= p.totalImages ? (
-                            <div className="border border-signal-good/50 bg-signal-good/15 text-signal-good px-3 py-1.5 text-xs font-bold rounded flex items-center gap-1.5 shadow">
-                              <span>All {p.totalImages} Tiles Revealed</span>
-                              <span className="text-paper-white/60">• 10s Answer Timer Active ({p.solvedCount} Solved)</span>
+                          ) : closed ? (
+                            <div className="border border-paper-white/30 bg-ink-black/50 text-paper-white/60 px-3 py-1.5 text-xs font-bold rounded shadow">
+                              <span>✓ Puzzle Closed</span>
                             </div>
                           ) : (
-                            <button
-                              disabled={busy || closed}
-                              onClick={() => callAdvance({ action: "reveal-next-image", slug: p.slug }, false)}
-                              className="comic-btn comic-btn-cyan px-3 py-1.5 text-xs font-bold"
-                            >
-                              Reveal Next Tile (Tile {p.revealedCount + 1} of {p.totalImages})
-                            </button>
+                            <div className="flex items-center gap-2">
+                              {p.revealedCount >= p.totalImages ? (
+                                <div className="border border-signal-good/50 bg-signal-good/15 text-signal-good px-3 py-1.5 text-xs font-bold rounded flex items-center gap-1.5 shadow">
+                                  <span>All {p.totalImages} Tiles Revealed</span>
+                                  <span className="text-paper-white/60">• 10s Timer ({p.solvedCount} Solved)</span>
+                                </div>
+                              ) : (
+                                <button
+                                  disabled={busy}
+                                  onClick={() => callAdvance({ action: "reveal-next-image", slug: p.slug }, false)}
+                                  className="comic-btn comic-btn-cyan px-3 py-1.5 text-xs font-bold"
+                                >
+                                  Reveal Next Tile (Tile {p.revealedCount + 1} of {p.totalImages})
+                                </button>
+                              )}
+                              <button
+                                disabled={busy}
+                                onClick={() => callAdvance({ action: "close-puzzle", slug: p.slug }, false)}
+                                className="comic-btn comic-btn-pink px-3 py-1.5 text-xs font-bold"
+                                title="Close this puzzle to move teams to the next puzzle (or next game)"
+                              >
+                                Close & Advance
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
