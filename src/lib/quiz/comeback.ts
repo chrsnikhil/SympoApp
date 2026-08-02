@@ -26,10 +26,10 @@ const ABILITIES: readonly ComebackAbility[] = ["extra-time", "fifty-fifty", "hin
 const EXTRA_TIME_SECONDS = 5;
 
 export const ABILITY_INFO: Record<ComebackAbility, { label: string; icon: string; description: string }> = {
-  "extra-time": { label: "Web-Line Stall", icon: "⏱️", description: `Adds ${EXTRA_TIME_SECONDS}s to the current question.` },
-  "fifty-fifty": { label: "Spider-Sense", icon: "❌", description: "Removes two wrong options from the current question." },
-  hint: { label: "Goblin Intel", icon: "💡", description: "Reveals a hint for the current question." },
-  skip: { label: "Dimensional Hop", icon: "⏭️", description: "Skips the current question. It scores zero and can't be revisited." },
+  "extra-time": { label: "Web-Line Stall", icon: "", description: `Adds ${EXTRA_TIME_SECONDS}s to the current question.` },
+  "fifty-fifty": { label: "Spider-Sense", icon: "", description: "Removes two wrong options from the current question." },
+  hint: { label: "Goblin Intel", icon: "", description: "Reveals a hint for the current question." },
+  skip: { label: "Dimensional Hop", icon: "", description: "Skips the current question. It scores zero and can't be revisited." },
 };
 
 async function getOrInit(teamId: ObjectId, round: QuizRound): Promise<ComebackState> {
