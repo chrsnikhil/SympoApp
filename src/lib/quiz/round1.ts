@@ -124,11 +124,29 @@ export async function currentConnectionsPuzzle(
   const lastPuzzle = puzzles[puzzles.length - 1];
   const isLastPuzzle = latestOpened._id?.toString() === lastPuzzle._id?.toString();
 
-  // If Puzzle 5 (the last puzzle) has been closed globally, advance to Game 3 Memory!
+  // Puzzle 5 (the last one) has no "next puzzle" to hand a team off to, so it's the
+  // one case where a team has to leave Connections on its own rather than by the
+  // coordinator opening what's next. Two ways out:
+  //   1) the coordinator closes it globally (closesAt in the past) — the manual
+  //      override, always works regardless of reveal state.
+  //   2) EVERY tile has been revealed on stage — so nobody skips ahead of the live
+  //      reveal — AND this team has individually cleared it (solved, timed out, or
+  //      used all its attempts).
+  // An earlier version of this check ran regardless of reveal state, which let a
+  // team that solved on tile 1's clue jump straight to Memory while the coordinator
+  // was still revealing tiles 2-5 on stage for everyone else — that's why it was
+  // pulled. Gating on `allTilesRevealed` first keeps the "everyone watches the same
+  // reveal" pacing while still letting a team that's individually finished move on
+  // without the coordinator having to take a separate "close puzzle" action.
   if (isLastPuzzle) {
     if (latestOpened.closesAt && now > latestOpened.closesAt) return null;
-    // The team-specific clear check was removed so teams wait on the finished 
-    // Puzzle 5 screen until the coordinator globally closes it.
+
+    const totalImages = latestOpened.config.connectionsImages?.length ?? 4;
+    const allTilesRevealed = (latestOpened.config.connectionsRevealedCount ?? 0) >= totalImages;
+    if (allTilesRevealed) {
+      const isCleared = await connectionsCleared(teamId, latestOpened, now, teamSubmissions);
+      if (isCleared) return null;
+    }
   }
 
   return latestOpened;

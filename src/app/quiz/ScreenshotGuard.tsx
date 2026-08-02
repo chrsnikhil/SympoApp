@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 
 /**
- * Wraps Round 1's Image Replication game. Blocks the easy "save/print/inspect"
- * keyboard paths (Ctrl+S, Ctrl+P, Ctrl+U, F12, Ctrl+Shift+I/J/C) while mounted,
- * and logs (without blocking — a key that's already fired can't be un-pressed)
- * a PrintScreen press so the coordinator sees it in the integrity log.
+ * Wraps Round 1's Image Replication game. Blocks the easy "save/copy/print/
+ * inspect" keyboard paths (Ctrl+S, Ctrl+C, Ctrl+P, Ctrl+U, F12, Ctrl+Shift+
+ * I/J/C) while mounted, blocks the `copy` event itself as a second layer (in
+ * case a shortcut variant or a menu action slips past the keydown check), and
+ * logs (without blocking — a key that's already fired can't be un-pressed) a
+ * PrintScreen press so the coordinator sees it in the integrity log.
  *
  * Deliberately scoped to this one game via mount/unmount rather than applied
  * globally — Round 1's other games and Rounds 2/3 have no reason to eat these
@@ -19,9 +21,9 @@ export default function ScreenshotGuard({ children }: { children: React.ReactNod
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const key = e.key.toLowerCase();
-      const savePrintInspect = (e.ctrlKey || e.metaKey) && ["s", "p", "u"].includes(key);
+      const saveCopyPrintInspect = (e.ctrlKey || e.metaKey) && ["s", "c", "p", "u"].includes(key);
       const devtools = (e.ctrlKey && e.shiftKey && ["i", "j", "c"].includes(key)) || e.key === "F12";
-      if (savePrintInspect || devtools) {
+      if (saveCopyPrintInspect || devtools) {
         e.preventDefault();
       }
     }
@@ -38,11 +40,17 @@ export default function ScreenshotGuard({ children }: { children: React.ReactNod
       });
     }
 
+    function onCopy(e: ClipboardEvent) {
+      e.preventDefault();
+    }
+
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("keyup", onKeyUp);
+    document.addEventListener("copy", onCopy);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("keyup", onKeyUp);
+      document.removeEventListener("copy", onCopy);
     };
   }, []);
 
