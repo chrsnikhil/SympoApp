@@ -143,7 +143,7 @@ async function main() {
   const first = clients[0].client;
   // Must match seed-quiz.ts's CONNECTIONS_PUZZLES answers — see the note
   // there on why this isn't imported instead.
-  const CONNECTIONS_ANSWERS = ["recursion", "single responsibility", "fetch", "race condition", "hierarchy"];
+  const CONNECTIONS_ANSWERS = ["heap sort", "gpu", "blockchain", "pytorch", "api"];
 
   const r1Start = await first.get("/api/quiz/round1");
   check("round1 starts on the image phase", r1Start.body?.phase === "image", r1Start.body);

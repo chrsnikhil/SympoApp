@@ -117,7 +117,7 @@ export async function scoreConnections(
 
   // Comprehensive fallback list of accepted aliases for all 5 puzzles
   const PUZZLE_ALIASES: Record<string, string[]> = {
-    "connections-1": ["cookie", "cookies", "web cookie", "browser cookie", "http cookie", "session cookie"],
+    "connections-1": ["heap sort", "heapsort"],
     "connections-2": ["nvidia", "nvidia gpu"],
     "connections-3": ["blockchain", "block chain"],
     "connections-4": ["tensorflow", "tensor flow"],

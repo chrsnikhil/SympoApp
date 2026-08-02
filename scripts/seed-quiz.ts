@@ -63,10 +63,10 @@ type ConnectionsPuzzle = { title: string; clue: string; answer: string; images?:
 const CONNECTIONS_IMAGES = ["/quiz/connect-1-a.svg", "/quiz/connect-1-b.svg", "/quiz/connect-1-c.svg", "/quiz/connect-1-d.svg"];
 const CONNECTIONS_PUZZLES: ConnectionsPuzzle[] = [
   {
-    title: "Puzzle 1: Four pictures. One shared technical term.",
-    clue: "One is delicious. The other knows everything about you.",
-    answer: "cookie",
-    images: ["/quiz/p1-a.png", "/quiz/p1-b.png", "/quiz/p1-c.png", "/quiz/p1-d.png"],
+    title: "Puzzle 1: Two pictures. One shared technical term.",
+    clue: "A data structure and a way to organize things.",
+    answer: "heap sort",
+    images: ["/quiz/heap.png", "/quiz/sort.png"],
   },
   {
     title: "Puzzle 2: Three pictures. One shared technical term.",
