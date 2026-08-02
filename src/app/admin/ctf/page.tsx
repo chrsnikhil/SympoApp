@@ -14,9 +14,6 @@ interface AdminChallenge {
     description?: string;
     answerHash?: string;
     initialPoints?: number;
-    minimumPoints?: number;
-    decayAfter?: number;
-    firstBloodBonus?: number;
     status?: "open" | "closed" | "released" | "hidden";
     disabled?: boolean;
     attachments?: string[];
@@ -38,7 +35,6 @@ interface LeaderboardRow {
   teamName: string;
   points: number;
   solvedCount?: number;
-  firstBloodCount?: number;
   lastScoreAt: string | null;
 }
 
@@ -64,6 +60,11 @@ export default function AdminCtfPage() {
   const [activeTab, setActiveTab] = useState<"challenges" | "leaderboard" | "submissions" | "create" | "teams">("challenges");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+  // Event State Controls
+  const [eventState, setEventState] = useState<"waiting" | "started" | "ended">("waiting");
+  const [remainingSecs, setRemainingSecs] = useState<number | null>(null);
+  const [isTogglingEvent, setIsTogglingEvent] = useState(false);
+
   // Reset Modal state
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetConfirmInput, setResetConfirmInput] = useState("");
@@ -88,10 +89,6 @@ export default function AdminCtfPage() {
   const [newCategory, setNewCategory] = useState("Web");
   const [newDescription, setNewDescription] = useState("");
   const [newFlag, setNewFlag] = useState("SPIDER{...}");
-  const [newInitialPts, setNewInitialPts] = useState(100);
-  const [newMinPts, setNewMinPts] = useState(50);
-  const [newDecayAfter, setNewDecayAfter] = useState(3);
-  const [newFbBonus, setNewFbBonus] = useState(30);
 
   // Attachment upload state
   const [uploadSlug, setUploadSlug] = useState("");
@@ -99,11 +96,12 @@ export default function AdminCtfPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [cRes, sRes, dashRes, tRes] = await Promise.all([
+      const [cRes, sRes, dashRes, tRes, evRes] = await Promise.all([
         fetch("/api/admin/ctf/challenges"),
         fetch("/api/admin/ctf/submissions"),
         fetch("/api/ctf/dashboard"),
         fetch("/api/admin/ctf/teams"),
+        fetch("/api/admin/ctf/event-status"),
       ]);
 
       if (cRes.status === 401 || sRes.status === 401) {
@@ -115,11 +113,18 @@ export default function AdminCtfPage() {
       const sData = await sRes.json();
       const dashData = await dashRes.json();
       const tData = await tRes.json();
+      const evData = await evRes.json();
 
       if (cRes.ok) setChallenges(cData.challenges ?? []);
       if (sRes.ok) setSubmissions(sData.submissions ?? []);
       if (dashRes.ok && dashData.leaderboard) setLeaderboard(dashData.leaderboard ?? []);
       if (tRes.ok) setTeams(tData.teams ?? []);
+      if (evRes.ok && evData.state) {
+        setEventState(evData.state);
+        if (evData.remainingSeconds !== undefined) {
+          setRemainingSecs(evData.remainingSeconds);
+        }
+      }
     } catch (e) {
       console.error("Admin fetch error:", e);
     } finally {
@@ -132,6 +137,50 @@ export default function AdminCtfPage() {
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  // Tick remaining event time every second
+  useEffect(() => {
+    if (remainingSecs === null || remainingSecs <= 0 || eventState !== "started") return;
+    const timer = setInterval(() => {
+      setRemainingSecs((prev) => (prev && prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [remainingSecs, eventState]);
+
+  function formatTimer(secs: number | null) {
+    if (secs === null) return "105 mins";
+    if (secs <= 0) return "0 mins (EVENT ENDED)";
+    const mins = Math.floor(secs / 60);
+    const rem = secs % 60;
+    if (rem === 0) return `${mins} mins`;
+    return `${mins}m ${rem}s`;
+  }
+
+  async function handleToggleEvent(action: "start" | "reset") {
+    setIsTogglingEvent(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/ctf/event-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setEventState(json.state);
+        setMsg({
+          ok: true,
+          text: action === "start" ? "Event started! Participants can now view their dashboard." : "Event status reset to Waiting Room.",
+        });
+      } else {
+        setMsg({ ok: false, text: json.error ?? "Failed to update event status" });
+      }
+    } catch {
+      setMsg({ ok: false, text: "Network error updating event status" });
+    } finally {
+      setIsTogglingEvent(false);
+    }
+  }
 
   function openResetModal() {
     setResetConfirmInput("");
@@ -146,7 +195,7 @@ export default function AdminCtfPage() {
       const res = await fetch("/api/admin/ctf/reset", { method: "POST" });
       const json = await res.json();
       if (res.ok) {
-        setMsg({ ok: true, text: "🎉 Leaderboard, CTF submissions, and participant teams reset successfully!" });
+        setMsg({ ok: true, text: "Leaderboard, CTF submissions, and participant teams reset successfully!" });
         setShowResetModal(false);
         setResetConfirmInput("");
         fetchData();
@@ -254,100 +303,100 @@ export default function AdminCtfPage() {
     }
   }
 
+  async function handleUpdateStatus(slug: string, status: "open" | "closed" | "released" | "hidden") {
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/ctf/challenges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "updateStatus", slug, status }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setMsg({ ok: true, text: `Challenge ${slug} status updated to ${status}` });
+        fetchData();
+      } else {
+        setMsg({ ok: false, text: json.error ?? "Failed to update status" });
+      }
+    } catch {
+      setMsg({ ok: false, text: "Network error updating challenge status" });
+    }
+  }
+
   async function handleCreateChallenge(e: React.FormEvent) {
     e.preventDefault();
+    if (!newSlug.trim() || !newTitle.trim() || !newFlag.trim()) return;
+
+    const initialPts = newDifficulty === "Hard" ? 200 : newDifficulty === "Medium" ? 150 : 100;
+
     setMsg(null);
-
-    const points = newDifficulty === "Hard" ? 200 : newDifficulty === "Medium" ? 150 : 100;
-
     try {
       const res = await fetch("/api/admin/ctf/challenges", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          slug: newSlug,
-          title: newTitle,
+          action: "create",
+          slug: newSlug.trim(),
+          title: newTitle.trim(),
           difficulty: newDifficulty,
-          category: newCategory,
-          description: newDescription,
-          flag: newFlag,
-          points,
-          status: "open",
+          category: newCategory.trim(),
+          description: newDescription.trim(),
+          flag: newFlag.trim(),
+          initialPoints: initialPts,
         }),
       });
-
       const json = await res.json();
-      if (!res.ok) {
-        setMsg({ ok: false, text: json.error ?? "Failed to create challenge" });
-      } else {
-        setMsg({ ok: true, text: "🎉 Challenge created successfully!" });
+      if (res.ok) {
+        setMsg({ ok: true, text: `Challenge '${newTitle}' created successfully!` });
         setNewSlug("");
         setNewTitle("");
         setNewDescription("");
-        fetchData();
+        setNewFlag("SPIDER{...}");
         setActiveTab("challenges");
+        fetchData();
+      } else {
+        setMsg({ ok: false, text: json.error ?? "Failed to create challenge" });
       }
     } catch {
       setMsg({ ok: false, text: "Network error creating challenge" });
     }
   }
 
-  async function handleUpdateStatus(slug: string, status: "open" | "closed" | "released" | "hidden") {
-    setMsg(null);
-    try {
-      const res = await fetch("/api/admin/ctf/challenges", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, status }),
-      });
-      const json = await res.json();
-      if (res.ok) {
-        setMsg({ ok: true, text: `Challenge status updated to "${status}"` });
-        fetchData();
-      } else {
-        setMsg({ ok: false, text: json.error ?? "Update failed" });
-      }
-    } catch {
-      setMsg({ ok: false, text: "Network error updating status" });
-    }
-  }
-
   async function handleFileUpload(e: React.FormEvent) {
     e.preventDefault();
     if (!uploadSlug || !uploadFile) {
-      setMsg({ ok: false, text: "Select a challenge and file first" });
+      setMsg({ ok: false, text: "Please select a challenge and a file to upload" });
       return;
     }
 
-    const formData = new FormData();
-    formData.append("slug", uploadSlug);
-    formData.append("file", uploadFile);
-
+    setMsg(null);
     try {
+      const formData = new FormData();
+      formData.append("slug", uploadSlug);
+      formData.append("file", uploadFile);
+
       const res = await fetch("/api/admin/ctf/upload", {
         method: "POST",
         body: formData,
       });
+
       const json = await res.json();
       if (res.ok) {
-        setMsg({ ok: true, text: `📁 File "${uploadFile.name}" attached successfully!` });
+        setMsg({ ok: true, text: `Attachment '${uploadFile.name}' uploaded to challenge ${uploadSlug}!` });
         setUploadFile(null);
         fetchData();
       } else {
         setMsg({ ok: false, text: json.error ?? "Upload failed" });
       }
     } catch {
-      setMsg({ ok: false, text: "Upload failed due to network error" });
+      setMsg({ ok: false, text: "Network error uploading file" });
     }
   }
 
-
-
-  function handleExport(format: "csv" | "json") {
+  function handleExport(format: "json" | "csv") {
     window.open(`/api/admin/ctf/export?format=${format}`, "_blank");
   }
 
-  // Group challenges by difficulty like the participant page
   const easyChallenges = challenges.filter(c => (c.config?.difficulty ?? "Easy").toLowerCase() === "easy");
   const mediumChallenges = challenges.filter(c => (c.config?.difficulty ?? "").toLowerCase() === "medium");
   const hardChallenges = challenges.filter(c => (c.config?.difficulty ?? "").toLowerCase() === "hard");
@@ -356,8 +405,8 @@ export default function AdminCtfPage() {
     return (
       <main className="min-h-screen bg-[#070308] text-white flex items-center justify-center font-sans">
         <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto shadow-[0_0_20px_rgba(220,38,38,0.5)]" />
-          <p className="text-red-400 text-sm font-bold tracking-widest uppercase">Connecting to Alchemax Admin Network...</p>
+          <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto shadow-md" />
+          <p className="text-red-400 text-sm font-bold tracking-widest uppercase">Connecting to Admin Network...</p>
         </div>
       </main>
     );
@@ -368,22 +417,23 @@ export default function AdminCtfPage() {
     return (
       <div
         key={ch._id}
-        className="bg-[#160d1a]/90 border border-white/10 rounded-2xl p-5 flex flex-col justify-between shadow-xl backdrop-blur-md hover:border-white/20 transition-all"
+        className="bg-[#160d1a] border border-white/10 rounded-2xl p-5 flex flex-col justify-between shadow-xl hover:border-white/20 transition-all"
       >
         <div>
           <div className="flex items-center justify-between mb-3">
-            <span className="px-2.5 py-0.5 text-[10px] font-black uppercase bg-pink-950/60 text-pink-300 rounded-md border border-pink-500/30">
+            <span className="px-2.5 py-0.5 text-[10px] font-black uppercase bg-pink-950 text-pink-300 rounded-md border border-pink-500/30">
               {ch.config.category ?? "Misc"}
             </span>
             <span
-              className={`px-2.5 py-0.5 text-[10px] font-black uppercase rounded-md border ${status === "open"
-                  ? "bg-emerald-950/60 text-emerald-300 border-emerald-500/40"
+              className={`px-2.5 py-0.5 text-[10px] font-black uppercase rounded-md border ${
+                status === "open"
+                  ? "bg-emerald-950 text-emerald-300 border-emerald-500/40"
                   : status === "closed"
-                    ? "bg-red-950/60 text-red-300 border-red-500/40"
+                    ? "bg-red-950 text-red-300 border-red-500/40"
                     : status === "released"
-                      ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/40"
-                      : "bg-gray-950/60 text-gray-400 border-gray-500/40"
-                }`}
+                      ? "bg-cyan-950 text-cyan-300 border-cyan-500/40"
+                      : "bg-gray-950 text-gray-400 border-gray-500/40"
+              }`}
             >
               STATUS: {status}
             </span>
@@ -395,8 +445,6 @@ export default function AdminCtfPage() {
 
           <div className="bg-[#07030a] p-3 rounded-xl text-xs space-y-1 font-mono mb-4 text-gray-300 border border-white/5">
             <div>Initial Pts: <span className="text-red-400 font-bold">{ch.config.initialPoints ?? ch.points}</span></div>
-            <div>Minimum Pts: <span className="text-pink-400 font-bold">{ch.config.minimumPoints ?? 50}</span></div>
-            <div>Decay After: <span className="text-amber-400 font-bold">{ch.config.decayAfter ?? 3} solves</span></div>
             <div>Attachments: <span className="text-gray-400">{ch.config.attachments?.join(", ") || "None"}</span></div>
           </div>
         </div>
@@ -407,39 +455,43 @@ export default function AdminCtfPage() {
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => handleUpdateStatus(ch.slug, "open")}
-              className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all ${status === "open"
-                  ? "bg-emerald-600 text-white border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
-                  : "bg-emerald-950/40 text-emerald-300 border-emerald-500/30 hover:bg-emerald-900/50"
-                }`}
+              className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all ${
+                status === "open"
+                  ? "bg-emerald-600 text-white border-emerald-400"
+                  : "bg-emerald-950 text-emerald-300 border-emerald-500/30 hover:bg-emerald-900"
+              }`}
             >
-              Open 🟢
+              Open
             </button>
             <button
               onClick={() => handleUpdateStatus(ch.slug, "closed")}
-              className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all ${status === "closed"
-                  ? "bg-red-600 text-white border-red-400 shadow-[0_0_10px_rgba(239,68,68,0.5)]"
-                  : "bg-red-950/40 text-red-300 border-red-500/30 hover:bg-red-900/50"
-                }`}
+              className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all ${
+                status === "closed"
+                  ? "bg-red-600 text-white border-red-400"
+                  : "bg-red-950 text-red-300 border-red-500/30 hover:bg-red-900"
+              }`}
             >
-              Close 🔴
+              Close
             </button>
             <button
               onClick={() => handleUpdateStatus(ch.slug, "released")}
-              className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all ${status === "released"
-                  ? "bg-cyan-600 text-white border-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.5)]"
-                  : "bg-cyan-950/40 text-cyan-300 border-cyan-500/30 hover:bg-cyan-900/50"
-                }`}
+              className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all ${
+                status === "released"
+                  ? "bg-cyan-600 text-white border-cyan-400"
+                  : "bg-cyan-950 text-cyan-300 border-cyan-500/30 hover:bg-cyan-900"
+              }`}
             >
-              Release 🚀
+              Release
             </button>
             <button
               onClick={() => handleUpdateStatus(ch.slug, "hidden")}
-              className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all ${status === "hidden"
+              className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all ${
+                status === "hidden"
                   ? "bg-gray-700 text-white border-gray-500"
-                  : "bg-gray-900/40 text-gray-400 border-gray-700 hover:bg-gray-800/50"
-                }`}
+                  : "bg-gray-900 text-gray-400 border-gray-700 hover:bg-gray-800"
+              }`}
             >
-              Hide 👻
+              Hide
             </button>
           </div>
         </div>
@@ -449,44 +501,39 @@ export default function AdminCtfPage() {
 
   return (
     <main className="min-h-screen bg-[#0a0510] text-gray-100 font-sans pb-16 relative overflow-x-hidden selection:bg-red-500 selection:text-white z-0">
-      {/* Interactive FX: Cursor, Web Trail & Crawling Spiders */}
+      {/* Interactive FX */}
       <SpiderBackgroundFX />
 
-      {/* Background aesthetics */}
-      <div className="fixed inset-0 pointer-events-none -z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_#1f0612_0%,_#0a0510_80%)]" />
-        <div className="absolute bottom-0 w-full h-[50vh] bg-gradient-to-t from-red-950/40 to-transparent" />
-        <div className="absolute left-0 top-1/4 w-[600px] h-[600px] bg-red-600/10 rounded-full blur-[150px]" />
-        <div className="absolute right-0 bottom-1/4 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[150px]" />
-        <div className="absolute bottom-0 left-0 w-full h-32 opacity-20 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiMwYTA1MTAiLz48cGF0aCBkPSJNMCAxMDBWMzBoMjB2MTBoMTVWMjBoMTB2MTBoMThWNTBoMTB2MTBoMTVWNDBoMjB2MjBoMTBWMTBoMTV2MTBoMjBWNTBIMTAwVjEwMGgtMTAwWiIgZmlsbD0iI2RjMjYyNiIgb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] bg-repeat-x bg-bottom" style={{ backgroundSize: '150px 100%' }}></div>
-      </div>
+      {/* Solid Background */}
+      <div className="fixed inset-0 pointer-events-none -z-10 bg-[#0a0510]" />
 
       {/* Top Navbar */}
-      <header className="bg-[#0a0510]/80 border-b border-red-500/20 px-6 py-5 sticky top-0 z-40 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
+      <header className="bg-[#0a0510] border-b border-red-500/20 px-6 py-5 sticky top-0 z-40 shadow-md">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">⚙️</span>
-            <div>
-              <h1 className="text-2xl font-black italic tracking-tighter flex items-center gap-2">
-                <span className="text-gray-200 drop-shadow-md">X-PLORE 26</span>
-                <span className="text-red-600 drop-shadow-[0_0_15px_rgba(220,38,38,0.8)]">ADMIN CONTROL PANEL</span>
-              </h1>
-              <p className="text-xs text-gray-400 font-medium">Spider-Verse CTF Event Telemetry & Management</p>
-            </div>
+          <div>
+            <h1 className="text-2xl font-black italic tracking-tighter flex items-center gap-2">
+              <span className="text-gray-200">XPLORE 26</span>
+              <span className="text-red-600">ADMIN CONTROL PANEL</span>
+            </h1>
+            <p className="text-xs text-gray-400 font-medium">CTF Event Telemetry & Management</p>
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-red-950 border border-red-500/50 text-red-300 font-mono text-xs font-bold shadow-md">
+              <span className="uppercase text-gray-400">Time Left:</span>
+              <span className="text-white text-xs font-black">{eventState === "started" ? formatTimer(remainingSecs) : "105 mins"}</span>
+            </div>
             <a
               href="/ctf"
-              className="px-4 py-2 text-xs font-bold bg-red-950/60 border border-red-500/40 text-red-300 rounded-xl hover:bg-red-900/60 transition-all uppercase tracking-wider shadow-[0_0_15px_rgba(220,38,38,0.2)]"
+              className="px-4 py-2 text-xs font-bold bg-red-950 border border-red-500/40 text-red-300 rounded-xl hover:bg-red-900 transition-all uppercase tracking-wider"
             >
-              Participant View 👁️
+              Participant View
             </a>
             <button
               onClick={openResetModal}
-              className="px-4 py-2 text-xs font-bold bg-red-600/30 border border-red-500/60 text-red-200 rounded-xl hover:bg-red-600/60 transition-all uppercase tracking-wider shadow-[0_0_15px_rgba(239,68,68,0.3)]"
+              className="px-4 py-2 text-xs font-bold bg-red-600/30 border border-red-500/60 text-red-200 rounded-xl hover:bg-red-600/60 transition-all uppercase tracking-wider"
             >
-              Reset CTF Board ⚠️
+              Reset CTF Board
             </button>
             <button
               onClick={async () => {
@@ -497,7 +544,7 @@ export default function AdminCtfPage() {
                 }
                 window.location.href = "/enter";
               }}
-              className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-red-950/60 border border-red-500/40 text-red-300 rounded-xl hover:bg-red-900/60 transition-all uppercase tracking-wider shadow-[0_0_15px_rgba(220,38,38,0.2)]"
+              className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-red-950 border border-red-500/40 text-red-300 rounded-xl hover:bg-red-900 transition-all uppercase tracking-wider"
             >
               Logout
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -509,79 +556,50 @@ export default function AdminCtfPage() {
       </header>
 
       <div className="max-w-7xl mx-auto px-6 mt-8 z-10 relative">
-        {/* Top Controls & Navigation */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-white/10 pb-4 mb-8">
-          <div className="flex bg-[#07030a] p-1.5 rounded-2xl border border-white/10 space-x-2">
-            <button
-              onClick={() => setActiveTab("challenges")}
-              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wider ${activeTab === "challenges"
-                  ? "bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.5)]"
-                  : "text-gray-400 hover:text-white"
-                }`}
-            >
-              Manage Challenges ({challenges.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("leaderboard")}
-              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wider ${activeTab === "leaderboard"
-                  ? "bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.5)]"
-                  : "text-gray-400 hover:text-white"
-                }`}
-            >
-              Live Leaderboard 🏆 ({leaderboard.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("create")}
-              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wider ${activeTab === "create"
-                  ? "bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.5)]"
-                  : "text-gray-400 hover:text-white"
-                }`}
-            >
-              Create Challenge ➕
-            </button>
-            <button
-              onClick={() => setActiveTab("submissions")}
-              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wider ${activeTab === "submissions"
-                  ? "bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.5)]"
-                  : "text-gray-400 hover:text-white"
-                }`}
-            >
-              Submissions Log ({submissions.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("teams")}
-              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wider ${activeTab === "teams"
-                  ? "bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.5)]"
-                  : "text-gray-400 hover:text-white"
-                }`}
-            >
-              Teams & Moderation 🛡️ ({teams.length})
-            </button>
+        {/* Admin Event Control Banner */}
+        <div className="mb-6 p-6 bg-[#0d0716] border border-red-500/30 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
+          <div>
+            <h2 className="text-xl font-black uppercase text-white flex items-center gap-3">
+              EVENT STATUS:{" "}
+              <span className={eventState === "started" ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                {eventState === "started" ? "EVENT LIVE" : "WAITING ROOM ACTIVE"}
+              </span>
+            </h2>
+            <p className="text-xs text-gray-400 font-medium mt-1">
+              {eventState === "started"
+                ? "Participants can access the dashboard and question pages."
+                : "Participants are kept in the waiting room until you click 'Start Event'."}
+            </p>
           </div>
-
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => handleExport("csv")}
-              className="px-4 py-2 bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-bold rounded-xl hover:bg-emerald-900/60 transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-            >
-              Export CSV 📥
-            </button>
-            <button
-              onClick={() => handleExport("json")}
-              className="px-4 py-2 bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 text-xs font-bold rounded-xl hover:bg-cyan-900/60 transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)]"
-            >
-              Export JSON 📄
-            </button>
+            {eventState !== "started" ? (
+              <button
+                onClick={() => handleToggleEvent("start")}
+                disabled={isTogglingEvent}
+                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-md disabled:opacity-50"
+              >
+                {isTogglingEvent ? "Starting..." : "START EVENT"}
+              </button>
+            ) : (
+              <button
+                onClick={() => handleToggleEvent("reset")}
+                disabled={isTogglingEvent}
+                className="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-md disabled:opacity-50"
+              >
+                {isTogglingEvent ? "Resetting..." : "RESET TO WAITING ROOM"}
+              </button>
+            )}
           </div>
         </div>
 
         {/* Global Feedback Banner */}
         {msg && (
           <div
-            className={`mb-6 p-4 rounded-2xl border text-sm font-bold flex items-center justify-between animate-fadeIn ${msg.ok
-                ? "bg-emerald-950/80 border-emerald-500/50 text-emerald-200"
-                : "bg-red-950/80 border-red-500/50 text-red-200"
-              }`}
+            className={`mb-6 p-4 rounded-2xl border text-sm font-bold flex items-center justify-between animate-fadeIn ${
+              msg.ok
+                ? "bg-emerald-950 border-emerald-500/50 text-emerald-200"
+                : "bg-red-950 border-red-500/50 text-red-200"
+            }`}
           >
             <span>{msg.text}</span>
             <button onClick={() => setMsg(null)} className="text-xs opacity-70 hover:opacity-100">
@@ -590,11 +608,72 @@ export default function AdminCtfPage() {
           </div>
         )}
 
+        {/* Top Controls & Navigation */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-white/10 pb-4 mb-8">
+          <div className="flex bg-[#07030a] p-1.5 rounded-2xl border border-white/10 space-x-2">
+            <button
+              onClick={() => setActiveTab("challenges")}
+              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wider ${
+                activeTab === "challenges" ? "bg-red-600 text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Manage Challenges ({challenges.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("leaderboard")}
+              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wider ${
+                activeTab === "leaderboard" ? "bg-red-600 text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Live Leaderboard ({leaderboard.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("create")}
+              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wider ${
+                activeTab === "create" ? "bg-red-600 text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Create Challenge
+            </button>
+            <button
+              onClick={() => setActiveTab("submissions")}
+              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wider ${
+                activeTab === "submissions" ? "bg-red-600 text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Submissions Log ({submissions.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("teams")}
+              className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wider ${
+                activeTab === "teams" ? "bg-red-600 text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Teams & Moderation ({teams.length})
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => handleExport("csv")}
+              className="px-4 py-2 bg-emerald-950 border border-emerald-500/40 text-emerald-300 text-xs font-bold rounded-xl hover:bg-emerald-900 transition-all"
+            >
+              Export CSV
+            </button>
+            <button
+              onClick={() => handleExport("json")}
+              className="px-4 py-2 bg-cyan-950 border border-cyan-500/40 text-cyan-300 text-xs font-bold rounded-xl hover:bg-cyan-900 transition-all"
+            >
+              Export JSON
+            </button>
+          </div>
+        </div>
+
         {/* TAB 1: CHALLENGES MANAGEMENT */}
         {activeTab === "challenges" && (
           <div className="space-y-8">
             {/* Attachment Upload Drawer */}
-            <div className="bg-[#0d0716]/90 border border-red-500/30 rounded-3xl p-6 shadow-[0_0_30px_rgba(220,38,38,0.1)] backdrop-blur-xl">
+            <div className="bg-[#0d0716] border border-red-500/30 rounded-3xl p-6 shadow-md">
               <h3 className="text-lg font-black uppercase tracking-wide text-white mb-1">Upload Attachment to Challenge</h3>
               <p className="text-xs text-gray-400 mb-4 font-medium">Supported formats: zip, pdf, png, jpg, pcap</p>
 
@@ -620,20 +699,20 @@ export default function AdminCtfPage() {
 
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-pink-600 text-white font-black text-xs rounded-xl shadow-[0_0_15px_rgba(220,38,38,0.4)] hover:opacity-90 transition-all uppercase tracking-wider w-full md:w-auto"
+                  className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white font-black text-xs rounded-xl transition-all uppercase tracking-wider w-full md:w-auto"
                 >
                   Upload Attachment
                 </button>
               </form>
             </div>
 
-            {/* 3 Difficulty Columns Grid like Participant Page */}
+            {/* 3 Difficulty Columns Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* EASY COLUMN */}
-              <div className="flex flex-col gap-4 border border-emerald-500/30 bg-[#0a1612]/70 rounded-3xl p-5 shadow-[0_0_25px_rgba(16,185,129,0.1)] backdrop-blur-md">
+              <div className="flex flex-col gap-4 border border-emerald-500/30 bg-[#0a1612] rounded-3xl p-5">
                 <div className="text-center pb-3 border-b border-emerald-500/20 mb-1">
-                  <h2 className="text-emerald-400 font-black uppercase tracking-widest text-lg drop-shadow-[0_0_10px_rgba(16,185,129,0.5)] flex items-center justify-center gap-2">
-                    <span>🟢</span> EASY ({easyChallenges.length})
+                  <h2 className="text-emerald-400 font-black uppercase tracking-widest text-lg">
+                    EASY ({easyChallenges.length})
                   </h2>
                 </div>
                 {easyChallenges.length === 0 ? (
@@ -644,10 +723,10 @@ export default function AdminCtfPage() {
               </div>
 
               {/* MEDIUM COLUMN */}
-              <div className="flex flex-col gap-4 border border-amber-500/30 bg-[#16120a]/70 rounded-3xl p-5 shadow-[0_0_25px_rgba(245,158,11,0.1)] backdrop-blur-md">
+              <div className="flex flex-col gap-4 border border-amber-500/30 bg-[#16120a] rounded-3xl p-5">
                 <div className="text-center pb-3 border-b border-amber-500/20 mb-1">
-                  <h2 className="text-amber-400 font-black uppercase tracking-widest text-lg drop-shadow-[0_0_10px_rgba(245,158,11,0.5)] flex items-center justify-center gap-2">
-                    <span>🟡</span> MEDIUM ({mediumChallenges.length})
+                  <h2 className="text-amber-400 font-black uppercase tracking-widest text-lg">
+                    MEDIUM ({mediumChallenges.length})
                   </h2>
                 </div>
                 {mediumChallenges.length === 0 ? (
@@ -658,10 +737,10 @@ export default function AdminCtfPage() {
               </div>
 
               {/* HARD COLUMN */}
-              <div className="flex flex-col gap-4 border border-red-500/30 bg-[#160a0f]/70 rounded-3xl p-5 shadow-[0_0_25px_rgba(220,38,38,0.15)] backdrop-blur-md">
+              <div className="flex flex-col gap-4 border border-red-500/30 bg-[#160a0f] rounded-3xl p-5">
                 <div className="text-center pb-3 border-b border-red-500/20 mb-1">
-                  <h2 className="text-pink-500 font-black uppercase tracking-widest text-lg drop-shadow-[0_0_10px_rgba(236,72,153,0.5)] flex items-center justify-center gap-2">
-                    <span>🔴</span> HARD ({hardChallenges.length})
+                  <h2 className="text-pink-500 font-black uppercase tracking-widest text-lg">
+                    HARD ({hardChallenges.length})
                   </h2>
                 </div>
                 {hardChallenges.length === 0 ? (
@@ -676,17 +755,17 @@ export default function AdminCtfPage() {
 
         {/* TAB 2: LIVE LEADERBOARD */}
         {activeTab === "leaderboard" && (
-          <div className="bg-[#0d0716]/90 border border-red-500/30 rounded-3xl p-6 md:p-8 shadow-[0_0_50px_rgba(220,38,38,0.15)] backdrop-blur-xl">
+          <div className="bg-[#0d0716] border border-red-500/30 rounded-3xl p-6 md:p-8 shadow-xl">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-2xl font-black uppercase tracking-tight text-white">Live Team Standings & Telemetry</h2>
-                <p className="text-xs text-gray-400 font-medium">Real-time leaderboard updated dynamically via decay scoring engine</p>
+                <h2 className="text-2xl font-black uppercase tracking-tight text-white">Live Team Standings</h2>
+                <p className="text-xs text-gray-400 font-medium">Real-time CTF leaderboard</p>
               </div>
               <button
                 onClick={fetchData}
-                className="px-4 py-2 bg-red-950/60 border border-red-500/40 text-red-300 text-xs font-bold rounded-xl hover:bg-red-900/60 transition-all shadow-[0_0_15px_rgba(220,38,38,0.2)]"
+                className="px-4 py-2 bg-red-950 border border-red-500/40 text-red-300 text-xs font-bold rounded-xl hover:bg-red-900 transition-all"
               >
-                Refresh Standings 🔄
+                Refresh Standings
               </button>
             </div>
 
@@ -702,11 +781,11 @@ export default function AdminCtfPage() {
                 </thead>
                 <tbody className="divide-y divide-white/5 text-sm">
                   {leaderboard.filter((row) => row.teamName.toLowerCase() !== "admin team").map((row, idx) => (
-                    <tr key={row.teamId} className={`transition-colors ${idx < 3 ? 'bg-red-950/20' : 'hover:bg-white/5'}`}>
-                      <td className="py-4 px-4 font-black">
-                        {idx === 0 ? "🥇 #1" : idx === 1 ? "🥈 #2" : idx === 2 ? "🥉 #3" : `#${idx + 1}`}
+                    <tr key={row.teamId} className={`transition-colors ${idx < 3 ? 'bg-red-950/30' : 'hover:bg-white/5'}`}>
+                      <td className="py-4 px-4 font-black text-gray-200">
+                        #{idx + 1}
                       </td>
-                      <td className="py-4 px-4 font-bold text-white flex items-center gap-3">
+                      <td className="py-4 px-4 font-bold text-white">
                         <span>{row.teamName}</span>
                       </td>
                       <td className="py-4 px-4 text-center font-mono font-bold text-cyan-300">
@@ -719,7 +798,7 @@ export default function AdminCtfPage() {
                   ))}
                   {leaderboard.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-gray-500 text-sm">
+                      <td colSpan={4} className="py-8 text-center text-gray-500 text-sm">
                         No team scores calculated yet.
                       </td>
                     </tr>
@@ -732,9 +811,9 @@ export default function AdminCtfPage() {
 
         {/* TAB 3: CREATE CHALLENGE FORM */}
         {activeTab === "create" && (
-          <div className="bg-[#0d0716]/90 border border-red-500/30 rounded-3xl p-6 md:p-8 max-w-3xl mx-auto shadow-[0_0_50px_rgba(220,38,38,0.15)] backdrop-blur-xl">
+          <div className="bg-[#0d0716] border border-red-500/30 rounded-3xl p-6 md:p-8 max-w-3xl mx-auto shadow-xl">
             <h2 className="text-2xl font-black uppercase tracking-tight text-white mb-1">Create New CTF Challenge</h2>
-            <p className="text-xs text-gray-400 mb-6 font-medium">Flags are automatically hashed into SHA-256 (stored secure, never plaintext)</p>
+            <p className="text-xs text-gray-400 mb-6 font-medium">Flags are automatically hashed into SHA-256</p>
 
             <form onSubmit={handleCreateChallenge} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -814,15 +893,15 @@ export default function AdminCtfPage() {
               <div className="bg-[#07030a] p-3 rounded-xl border border-red-500/20 text-xs flex items-center justify-between text-gray-300 font-mono">
                 <span>Awarded Points for <strong className="text-pink-400">{newDifficulty}</strong>:</span>
                 <span className="text-emerald-400 font-black text-sm">
-                  {newDifficulty === "Hard" ? "200 pts ⭐" : newDifficulty === "Medium" ? "150 pts ⭐" : "100 pts ⭐"}
+                  {newDifficulty === "Hard" ? "200 pts" : newDifficulty === "Medium" ? "150 pts" : "100 pts"}
                 </span>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-3.5 mt-4 bg-gradient-to-r from-red-600 via-pink-600 to-red-600 hover:from-red-500 hover:to-pink-500 text-white font-black rounded-xl shadow-[0_0_25px_rgba(220,38,38,0.5)] transition-all text-xs uppercase tracking-widest flex items-center justify-center gap-2"
+                className="w-full py-3.5 mt-4 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl transition-all text-xs uppercase tracking-widest flex items-center justify-center gap-2"
               >
-                <span>🕷️</span> Create Challenge
+                Create Challenge
               </button>
             </form>
           </div>
@@ -830,7 +909,7 @@ export default function AdminCtfPage() {
 
         {/* TAB 4: SUBMISSIONS LOG */}
         {activeTab === "submissions" && (
-          <div className="bg-[#0d0716]/90 border border-red-500/30 rounded-3xl p-6 md:p-8 shadow-[0_0_50px_rgba(220,38,38,0.15)] backdrop-blur-xl">
+          <div className="bg-[#0d0716] border border-red-500/30 rounded-3xl p-6 md:p-8 shadow-xl">
             <h2 className="text-2xl font-black uppercase tracking-tight text-white mb-1">All CTF Submissions Log</h2>
             <p className="text-xs text-gray-400 mb-6 font-medium">Real-time audit log of participant attempts</p>
 
@@ -855,12 +934,12 @@ export default function AdminCtfPage() {
                       <td className="py-3.5 px-4 text-white">{sub.challengeTitle}</td>
                       <td className="py-3.5 px-4">
                         {sub.correct ? (
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-950/60 text-emerald-300 border border-emerald-500/40">
-                            ✓ Correct
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/40">
+                            Correct
                           </span>
                         ) : (
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-950/60 text-red-300 border border-red-500/40">
-                            ✕ Wrong
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-950 text-red-300 border border-red-500/40">
+                            Wrong
                           </span>
                         )}
                       </td>
@@ -884,7 +963,7 @@ export default function AdminCtfPage() {
 
         {/* TAB 5: TEAMS & MODERATION */}
         {activeTab === "teams" && (
-          <div className="bg-[#0d0716]/90 border border-red-500/30 rounded-3xl p-6 md:p-8 shadow-[0_0_50px_rgba(220,38,38,0.15)] backdrop-blur-xl">
+          <div className="bg-[#0d0716] border border-red-500/30 rounded-3xl p-6 md:p-8 shadow-xl">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-2xl font-black uppercase tracking-tight text-white">Teams Moderation & Penalties</h2>
@@ -892,9 +971,9 @@ export default function AdminCtfPage() {
               </div>
               <button
                 onClick={fetchData}
-                className="px-4 py-2 bg-red-950/60 border border-red-500/40 text-red-300 text-xs font-bold rounded-xl hover:bg-red-900/60 transition-all shadow-[0_0_15px_rgba(220,38,38,0.2)]"
+                className="px-4 py-2 bg-red-950 border border-red-500/40 text-red-300 text-xs font-bold rounded-xl hover:bg-red-900 transition-all"
               >
-                Refresh Teams 🔄
+                Refresh Teams
               </button>
             </div>
 
@@ -932,34 +1011,34 @@ export default function AdminCtfPage() {
                       <td className="py-4 px-4 text-center">
                         {t.banned ? (
                           <span className="px-2.5 py-1 rounded-full text-xs font-black bg-red-950 text-red-400 border border-red-500/50">
-                            🚫 BANNED
+                            BANNED
                           </span>
                         ) : (
-                          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-950/60 text-emerald-300 border border-emerald-500/40">
-                            ✓ Active
+                          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/40">
+                            Active
                           </span>
                         )}
                       </td>
                       <td className="py-4 px-4 text-right space-x-2">
                         <button
                           onClick={() => openPenaltyModal(t)}
-                          className="px-3 py-1.5 bg-amber-950/60 border border-amber-500/40 text-amber-300 text-xs font-bold rounded-xl hover:bg-amber-900/60 transition-all shadow-[0_0_10px_rgba(245,158,11,0.2)]"
+                          className="px-3 py-1.5 bg-amber-950 border border-amber-500/40 text-amber-300 text-xs font-bold rounded-xl hover:bg-amber-900 transition-all"
                         >
-                          Penalty ⚠️
+                          Penalty
                         </button>
                         {t.banned ? (
                           <button
                             onClick={() => handleUnbanTeam(t)}
-                            className="px-3 py-1.5 bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-bold rounded-xl hover:bg-emerald-900/60 transition-all shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                            className="px-3 py-1.5 bg-emerald-950 border border-emerald-500/40 text-emerald-300 text-xs font-bold rounded-xl hover:bg-emerald-900 transition-all"
                           >
-                            Unban 🔓
+                            Unban
                           </button>
                         ) : (
                           <button
                             onClick={() => openBanModal(t)}
-                            className="px-3 py-1.5 bg-red-950/80 border border-red-500/60 text-red-300 text-xs font-bold rounded-xl hover:bg-red-900/80 transition-all shadow-[0_0_10px_rgba(239,68,68,0.3)]"
+                            className="px-3 py-1.5 bg-red-950 border border-red-500/60 text-red-300 text-xs font-bold rounded-xl hover:bg-red-900 transition-all"
                           >
-                            Ban 🚫
+                            Ban
                           </button>
                         )}
                       </td>
@@ -981,8 +1060,8 @@ export default function AdminCtfPage() {
 
       {/* CONFIRMATION DIALOG MODAL: PENALTY */}
       {penaltyModalTeam && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-[#12071a] border border-amber-500/40 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-[0_0_50px_rgba(245,158,11,0.3)] space-y-6 relative">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-[#12071a] border border-amber-500/40 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-xl space-y-6 relative">
             <button
               onClick={() => setPenaltyModalTeam(null)}
               className="absolute top-4 right-4 text-gray-400 hover:text-white text-lg font-bold"
@@ -990,12 +1069,9 @@ export default function AdminCtfPage() {
               ✕
             </button>
 
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">⚠️</span>
-              <div>
-                <h3 className="text-xl font-black text-white uppercase tracking-wider">Confirm Point Penalty</h3>
-                <p className="text-xs text-gray-400 font-medium">Issue point deduction to participant team</p>
-              </div>
+            <div>
+              <h3 className="text-xl font-black text-white uppercase tracking-wider">Confirm Point Penalty</h3>
+              <p className="text-xs text-gray-400 font-medium">Issue point deduction to participant team</p>
             </div>
 
             <div className="bg-amber-950/40 border border-amber-500/30 rounded-2xl p-4 text-xs space-y-2 text-amber-200">
@@ -1045,9 +1121,9 @@ export default function AdminCtfPage() {
               <button
                 onClick={handleConfirmPenalty}
                 disabled={isSubmittingPenalty || penaltyPointsInput <= 0}
-                className="flex-1 py-3 bg-amber-600 hover:bg-amber-500 text-white text-xs font-black rounded-xl transition-all uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.5)] disabled:opacity-50"
+                className="flex-1 py-3 bg-amber-600 hover:bg-amber-500 text-white text-xs font-black rounded-xl transition-all uppercase tracking-wider disabled:opacity-50"
               >
-                {isSubmittingPenalty ? "Applying…" : "Confirm Penalty ⚠️"}
+                {isSubmittingPenalty ? "Applying…" : "Confirm Penalty"}
               </button>
             </div>
           </div>
@@ -1056,8 +1132,8 @@ export default function AdminCtfPage() {
 
       {/* CONFIRMATION DIALOG MODAL: BAN TEAM */}
       {banModalTeam && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-[#12071a] border border-red-500/40 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-[0_0_50px_rgba(239,68,68,0.4)] space-y-6 relative">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-[#12071a] border border-red-500/40 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-xl space-y-6 relative">
             <button
               onClick={() => setBanModalTeam(null)}
               className="absolute top-4 right-4 text-gray-400 hover:text-white text-lg font-bold"
@@ -1065,12 +1141,9 @@ export default function AdminCtfPage() {
               ✕
             </button>
 
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">🚫</span>
-              <div>
-                <h3 className="text-xl font-black text-white uppercase tracking-wider">Ban Team Confirmation</h3>
-                <p className="text-xs text-gray-400 font-medium">Block team access and remove from leaderboard</p>
-              </div>
+            <div>
+              <h3 className="text-xl font-black text-white uppercase tracking-wider">Ban Team Confirmation</h3>
+              <p className="text-xs text-gray-400 font-medium">Block team access and remove from leaderboard</p>
             </div>
 
             <div className="bg-red-950/50 border border-red-500/40 rounded-2xl p-4 text-xs space-y-2 text-red-200">
@@ -1116,9 +1189,9 @@ export default function AdminCtfPage() {
               <button
                 onClick={handleConfirmBan}
                 disabled={isSubmittingBan || banConfirmInput.trim().toUpperCase() !== "BAN"}
-                className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white text-xs font-black rounded-xl transition-all uppercase tracking-wider shadow-[0_0_20px_rgba(239,68,68,0.5)] disabled:opacity-50"
+                className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white text-xs font-black rounded-xl transition-all uppercase tracking-wider disabled:opacity-50"
               >
-                {isSubmittingBan ? "Banning…" : "Confirm Ban 🚫"}
+                {isSubmittingBan ? "Banning…" : "Confirm Ban"}
               </button>
             </div>
           </div>
@@ -1127,8 +1200,8 @@ export default function AdminCtfPage() {
 
       {/* CONFIRMATION DIALOG MODAL: REQUIRE TYPING 'reset' */}
       {showResetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
-          <div className="bg-[#0d0716] border-2 border-red-500/80 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-[0_0_50px_rgba(239,68,68,0.4)] relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fadeIn">
+          <div className="bg-[#0d0716] border-2 border-red-500/80 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-xl relative">
             <button
               onClick={() => setShowResetModal(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-white text-lg font-bold"
@@ -1136,12 +1209,9 @@ export default function AdminCtfPage() {
               ✕
             </button>
 
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">⚠️</span>
-              <div>
-                <h3 className="text-xl font-black uppercase text-red-500 tracking-wider">Confirm Reset</h3>
-                <p className="text-xs text-gray-400 font-medium">Irreversible Action</p>
-              </div>
+            <div className="mb-4">
+              <h3 className="text-xl font-black uppercase text-red-500 tracking-wider">Confirm Reset</h3>
+              <p className="text-xs text-gray-400 font-medium">Irreversible Action</p>
             </div>
 
             <p className="text-xs text-gray-300 mb-4 leading-relaxed">
@@ -1150,7 +1220,7 @@ export default function AdminCtfPage() {
 
             <div className="bg-red-950/40 border border-red-500/30 rounded-2xl p-4 mb-5 space-y-2">
               <label className="block text-[11px] font-black uppercase tracking-widest text-red-300">
-                To confirm, type <span className="bg-red-900/80 px-2 py-0.5 rounded text-white font-mono font-bold">reset</span> below:
+                To confirm, type <span className="bg-red-900 px-2 py-0.5 rounded text-white font-mono font-bold">reset</span> below:
               </label>
               <input
                 type="text"
@@ -1163,7 +1233,7 @@ export default function AdminCtfPage() {
                 }}
                 placeholder="type reset to confirm..."
                 autoFocus
-                className="w-full bg-[#07030a] border border-red-500/60 rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-500/50"
+                className="w-full bg-[#07030a] border border-red-500/60 rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-red-400"
               />
             </div>
 
@@ -1179,11 +1249,11 @@ export default function AdminCtfPage() {
                 disabled={resetConfirmInput.trim().toLowerCase() !== "reset" || isResetting}
                 className={`w-1/2 py-3 text-xs font-black rounded-xl transition-all uppercase tracking-wider flex items-center justify-center gap-2 ${
                   resetConfirmInput.trim().toLowerCase() === "reset" && !isResetting
-                    ? "bg-red-600 hover:bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.6)] cursor-pointer"
-                    : "bg-red-950/50 border border-red-900/50 text-red-400/50 cursor-not-allowed"
+                    ? "bg-red-600 hover:bg-red-500 text-white cursor-pointer"
+                    : "bg-red-950 border border-red-900 text-red-400/50 cursor-not-allowed"
                 }`}
               >
-                {isResetting ? "Resetting..." : "Confirm Reset 🚨"}
+                {isResetting ? "Resetting..." : "Confirm Reset"}
               </button>
             </div>
           </div>

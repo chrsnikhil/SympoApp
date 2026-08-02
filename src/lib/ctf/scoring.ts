@@ -1,25 +1,13 @@
 /**
- * Calculates the current score of a CTF challenge.
+ * Calculates the current score of a CTF challenge (static points, decay disabled).
  *
  * @param initialPoints Starting points of the challenge
- * @param minimumPoints Minimum points after decay
- * @param decayAfter Number of solves before score starts decreasing
- * @param solveCount Total number of correct solves
  */
 export function calculateChallengeValue(
   initialPoints: number,
-  minimumPoints: number,
-  decayAfter: number,
-  solveCount: number
+  _minimumPoints?: number,
+  _decayAfter?: number,
+  _solveCount?: number
 ): number {
-  if (solveCount <= decayAfter) {
-    return initialPoints;
-  }
-
-  const extraSolves = solveCount - decayAfter;
-  // Calculate dynamic decay step based on initial vs minimum gap
-  const step = Math.max(5, Math.round((initialPoints - minimumPoints) / 10));
-  const currentPoints = initialPoints - extraSolves * step;
-
-  return Math.max(minimumPoints, currentPoints);
+  return initialPoints;
 }

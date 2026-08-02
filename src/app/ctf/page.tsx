@@ -37,6 +37,10 @@ interface SubmissionItem {
 }
 
 interface DashboardData {
+  eventState?: "waiting" | "started" | "ended";
+  startedAt?: string | null;
+  durationMinutes?: number;
+  remainingSeconds?: number;
   team: {
     id: string;
     name: string;
@@ -56,6 +60,7 @@ export default function CtfDashboardPage() {
   const [submittingSlug, setSubmittingSlug] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Record<string, { ok: boolean; msg: string }>>({});
   const [activeSubmit, setActiveSubmit] = useState<string | null>(null);
+  const [remainingSecs, setRemainingSecs] = useState<number | null>(null);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -67,6 +72,9 @@ export default function CtfDashboardPage() {
       const json = await res.json();
       if (res.ok) {
         setData(json);
+        if (json.remainingSeconds !== undefined) {
+          setRemainingSecs(json.remainingSeconds);
+        }
       }
     } catch (e) {
       console.error("Dashboard fetch error:", e);
@@ -77,9 +85,18 @@ export default function CtfDashboardPage() {
 
   useEffect(() => {
     fetchDashboard();
-    const interval = setInterval(fetchDashboard, 5000);
+    const interval = setInterval(fetchDashboard, 3000);
     return () => clearInterval(interval);
   }, [fetchDashboard]);
+
+  // Tick remaining event time every second
+  useEffect(() => {
+    if (remainingSecs === null || remainingSecs <= 0) return;
+    const timer = setInterval(() => {
+      setRemainingSecs((prev) => (prev && prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [remainingSecs]);
 
   async function handleFlagSubmit(slug: string) {
     const flag = flagInputs[slug]?.trim();
@@ -107,14 +124,14 @@ export default function CtfDashboardPage() {
       } else if (result.correct) {
         setFeedback((prev) => ({
           ...prev,
-          [slug]: { ok: true, msg: `🎉 CORRECT! +${result.points} pts.` },
+          [slug]: { ok: true, msg: `CORRECT! +${result.points} pts.` },
         }));
         setFlagInputs((prev) => ({ ...prev, [slug]: "" }));
         setActiveSubmit(null);
         fetchDashboard();
       } else {
         const reason = result.meta?.reason === "already-solved" ? "Already Solved!" : "Incorrect flag!";
-        setFeedback((prev) => ({ ...prev, [slug]: { ok: false, msg: `❌ ${reason}` } }));
+        setFeedback((prev) => ({ ...prev, [slug]: { ok: false, msg: reason } }));
       }
     } catch {
       setFeedback((prev) => ({ ...prev, [slug]: { ok: false, msg: "Network error submitting flag" } }));
@@ -132,18 +149,66 @@ export default function CtfDashboardPage() {
     setFlagInputs((prev) => ({ ...prev, [slug]: val }));
   };
 
+  function formatTimer(secs: number | null) {
+    if (secs === null) return "105 mins";
+    if (secs <= 0) return "0 mins (EVENT ENDED)";
+    const mins = Math.floor(secs / 60);
+    const remainingSecs = secs % 60;
+    if (remainingSecs === 0) return `${mins} mins`;
+    return `${mins}m ${remainingSecs}s`;
+  }
+
   if (loading && !data) {
     return (
       <main className="min-h-screen bg-[#070308] text-white flex items-center justify-center font-sans">
         <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto shadow-[0_0_15px_rgba(220,38,38,0.5)]" />
-          <p className="text-red-400 text-sm font-bold tracking-widest uppercase">Connecting to Spider-Verse...</p>
+          <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto shadow-md" />
+          <p className="text-red-400 text-sm font-bold tracking-widest uppercase">Connecting to XPLORE Network...</p>
         </div>
       </main>
     );
   }
 
-  // Categorize challenges strictly by difficulty, fallback to points if difficulty is unspecified
+  // WAITING ROOM SCREEN
+  if (data?.eventState && data.eventState !== "started") {
+    return (
+      <main className="min-h-screen bg-[#0a0510] text-gray-100 font-sans flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        <SpiderBackgroundFX />
+        <div className="fixed inset-0 pointer-events-none -z-10 bg-[#0a0510]" />
+        
+        <div className="max-w-md w-full bg-[#0d0716] border border-red-500/40 rounded-3xl p-8 text-center space-y-6 shadow-2xl z-10">
+          <h1 className="text-3xl font-black italic tracking-tighter text-white">
+            XPLORE 26 <span className="text-red-600 block text-2xl font-black not-italic mt-1">MULTIVERSE BREACH</span>
+          </h1>
+          
+          <div className="py-6 px-4 bg-red-950 border border-red-500/30 rounded-2xl space-y-3">
+            <div className="text-amber-400 font-black uppercase text-xs tracking-widest">STATUS: WAITING ROOM</div>
+            <p className="text-base text-white font-bold">The CTF event has not started yet.</p>
+            <p className="text-xs text-gray-300 leading-relaxed">
+              Please wait in this room while the event administrator starts the event.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 text-xs text-gray-400 animate-pulse font-mono">
+            <div className="w-2 h-2 rounded-full bg-amber-400" />
+            Waiting for admin start signal...
+          </div>
+
+          <button
+            onClick={async () => {
+              try { await fetch("/api/logout", { method: "POST" }); } catch {}
+              window.location.href = "/enter";
+            }}
+            className="px-4 py-2 text-xs font-bold text-gray-400 hover:text-white uppercase tracking-wider underline"
+          >
+            Logout
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  // Categorize challenges strictly by difficulty
   const allChs = data?.challenges ?? [];
   const easyChallenges: ChallengeItem[] = [];
   const mediumChallenges: ChallengeItem[] = [];
@@ -155,18 +220,8 @@ export default function CtfDashboardPage() {
       hardChallenges.push(ch);
     } else if (diff === "medium") {
       mediumChallenges.push(ch);
-    } else if (diff === "easy") {
-      easyChallenges.push(ch);
     } else {
-      // Fallback by points if difficulty string is missing or custom
-      const pts = ch.points || ch.initialPoints || 100;
-      if (pts >= 225) {
-        hardChallenges.push(ch);
-      } else if (pts >= 150) {
-        mediumChallenges.push(ch);
-      } else {
-        easyChallenges.push(ch);
-      }
+      easyChallenges.push(ch);
     }
   });
 
@@ -182,11 +237,11 @@ export default function CtfDashboardPage() {
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(220, 38, 38, 0.3);
+          background: rgba(220, 38, 38, 0.4);
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(220, 38, 38, 0.5);
+          background: rgba(220, 38, 38, 0.6);
         }
         .animate-fadeIn {
           animation: fadeIn 0.2s ease-in-out;
@@ -197,24 +252,25 @@ export default function CtfDashboardPage() {
         }
       `}</style>
 
-      {/* Background aesthetics */}
-      <div className="fixed inset-0 pointer-events-none -z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_#1a0610_0%,_#0a0510_80%)]" />
-        <div className="absolute bottom-0 w-full h-[50vh] bg-gradient-to-t from-red-950/40 to-transparent" />
-        <div className="absolute left-0 top-1/4 w-[600px] h-[600px] bg-red-600/5 rounded-full blur-[150px]" />
-        <div className="absolute right-0 bottom-1/4 w-[600px] h-[600px] bg-purple-600/5 rounded-full blur-[150px]" />
-        <div className="absolute bottom-0 left-0 w-full h-32 opacity-20 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiMwYTA1MTAiLz48cGF0aCBkPSJNMCAxMDBWMzBoMjB2MTBoMTVWMjBoMTB2MTBoMThWNTBoMTB2MTBoMTVWNDBoMjB2MjBoMTBWMTBoMTV2MTBoMjBWNTBIMTAwVjEwMGgtMTAwWiIgZmlsbD0iI2RjMjYyNiIgb3BhY2l0eT0iMC41Ii8+PC9zdmc+')] bg-repeat-x bg-bottom" style={{ backgroundSize: '150px 100%' }}></div>
-      </div>
+      {/* Solid Background */}
+      <div className="fixed inset-0 pointer-events-none -z-10 bg-[#0a0510]" />
 
       {/* Header */}
-      <header className="flex-none flex items-center justify-between px-6 md:px-10 py-5 border-b border-red-500/20 bg-[#0a0510]/80 backdrop-blur-md z-10 shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
-        <div className="flex items-center gap-12">
+      <header className="flex-none flex flex-col md:flex-row items-center justify-between px-6 md:px-10 py-5 border-b border-red-500/20 bg-[#0a0510] z-10 shadow-md gap-4">
+        <div className="flex items-center gap-6">
           <h1 className="text-2xl md:text-3xl font-black italic tracking-tighter flex items-center gap-2">
-            <span className="text-gray-200 drop-shadow-md">X-PLORE 26</span>
-            <span className="text-red-600 drop-shadow-[0_0_15px_rgba(220,38,38,0.8)]">MULTIVERSE BREACH</span>
+            <span className="text-gray-200">XPLORE 26</span>
+            <span className="text-red-600">MULTIVERSE BREACH</span>
           </h1>
         </div>
-        <div className="flex items-center gap-5">
+
+        {/* 105 Mins Countdown Timer Banner */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-950 border border-red-500/50 text-red-300 font-mono text-xs font-bold shadow-md">
+            <span className="uppercase tracking-wider text-gray-400">Time Left:</span>
+            <span className="text-white text-sm font-black">{formatTimer(remainingSecs)}</span>
+          </div>
+
           <button
             onClick={async () => {
               try {
@@ -224,7 +280,7 @@ export default function CtfDashboardPage() {
               }
               window.location.href = "/enter";
             }}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-red-500/30 bg-red-950/30 hover:bg-red-900/50 text-red-400 hover:text-red-300 text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_10px_rgba(220,38,38,0.2)]"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-red-500/30 bg-red-950 text-red-400 hover:text-red-300 text-xs font-bold uppercase tracking-wider transition-all"
           >
             Logout
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -237,13 +293,13 @@ export default function CtfDashboardPage() {
       {/* Main Content Grid */}
       <div className="flex-1 overflow-hidden p-6 md:p-8 flex flex-col xl:flex-row gap-6 max-w-[1800px] mx-auto w-full z-10 h-full">
         
-        {/* Left Side - llenges Grid (Scrollable) */}
+        {/* Left Side - Challenges Grid (Scrollable) */}
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto pr-2 pb-10 custom-scrollbar h-full">
           
           {/* EASY COLUMN */}
-          <div className="flex flex-col gap-4 border border-cyan-500/30 bg-[#0f111a]/80 rounded-2xl p-4 shadow-[0_0_20px_rgba(6,182,212,0.1)] backdrop-blur-sm h-max">
+          <div className="flex flex-col gap-4 border border-cyan-500/30 bg-[#0f111a] rounded-2xl p-4 h-max">
             <div className="text-center pb-3 pt-1 border-b border-cyan-500/20 mb-2">
-              <h2 className="text-cyan-400 font-black uppercase tracking-widest text-lg drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]">
+              <h2 className="text-cyan-400 font-black uppercase tracking-widest text-lg">
                 EASY ({easyChallenges.length})
               </h2>
             </div>
@@ -268,9 +324,9 @@ export default function CtfDashboardPage() {
           </div>
 
           {/* MEDIUM COLUMN */}
-          <div className="flex flex-col gap-4 border border-amber-500/40 bg-[#161010]/80 rounded-2xl p-4 shadow-[0_0_20px_rgba(245,158,11,0.1)] backdrop-blur-sm h-max">
+          <div className="flex flex-col gap-4 border border-amber-500/40 bg-[#161010] rounded-2xl p-4 h-max">
             <div className="text-center pb-3 pt-1 border-b border-amber-500/20 mb-2">
-              <h2 className="text-amber-400 font-black uppercase tracking-widest text-lg drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]">
+              <h2 className="text-amber-400 font-black uppercase tracking-widest text-lg">
                 MEDIUM ({mediumChallenges.length})
               </h2>
             </div>
@@ -295,9 +351,9 @@ export default function CtfDashboardPage() {
           </div>
 
           {/* HARD COLUMN */}
-          <div className="flex flex-col gap-4 border border-red-500/40 bg-[#160a0f]/80 rounded-2xl p-4 shadow-[0_0_20px_rgba(220,38,38,0.15)] backdrop-blur-sm h-max">
+          <div className="flex flex-col gap-4 border border-red-500/40 bg-[#160a0f] rounded-2xl p-4 h-max">
             <div className="text-center pb-3 pt-1 border-b border-red-500/20 mb-2">
-              <h2 className="text-pink-500 font-black uppercase tracking-widest text-lg drop-shadow-[0_0_8px_rgba(236,72,153,0.5)]">
+              <h2 className="text-pink-500 font-black uppercase tracking-widest text-lg">
                 HARD ({hardChallenges.length})
               </h2>
             </div>
@@ -326,26 +382,25 @@ export default function CtfDashboardPage() {
         <div className="w-full xl:w-[380px] flex-none flex flex-col gap-6 overflow-y-auto pb-10 custom-scrollbar h-full">
           
           {/* Active Team Card */}
-          <div className="border border-red-500/30 bg-[#12050a]/90 backdrop-blur-md rounded-2xl p-5 shadow-[0_0_25px_rgba(220,38,38,0.15)] relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-[radial-gradient(circle_at_top_right,_rgba(220,38,38,0.15),_transparent_70%)] pointer-events-none" />
+          <div className="border border-red-500/30 bg-[#12050a] rounded-2xl p-5 relative overflow-hidden shadow-md">
             <div className="flex items-center gap-5 relative z-10">
-              <div className="w-14 h-14 rounded-full border border-red-500/50 bg-red-950 flex items-center justify-center text-3xl shadow-[0_0_20px_rgba(220,38,38,0.4)]">
-                🕷️
+              <div className="w-12 h-12 rounded-full border border-red-500/50 bg-red-950 flex items-center justify-center font-black text-white text-lg">
+                #
               </div>
               <div>
                 <div className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Active Team</div>
-                <div className="text-white font-bold text-lg tracking-tight mb-1">{data?.team.name ?? "Web-Slingers"}</div>
+                <div className="text-white font-bold text-lg tracking-tight mb-1">{data?.team?.name ?? "Team"}</div>
                 <div className="text-[11px] text-gray-400 uppercase tracking-widest">
-                  Total Secured Points: <span className="text-red-500 font-black text-sm ml-1">{data?.score ?? 0}</span>
+                  Total Points: <span className="text-red-500 font-black text-sm ml-1">{data?.score ?? 0}</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Leaderboard Card */}
-          <div className="border border-red-500/20 bg-[#12050a]/90 backdrop-blur-md rounded-2xl flex-1 flex flex-col overflow-hidden min-h-[400px] shadow-[0_0_25px_rgba(220,38,38,0.1)]">
+          <div className="border border-red-500/20 bg-[#12050a] rounded-2xl flex-1 flex flex-col overflow-hidden min-h-[400px] shadow-md">
             <div className="p-5 pb-3 border-b border-red-900/30">
-              <h2 className="text-red-500 font-black uppercase tracking-widest text-lg drop-shadow-[0_0_8px_rgba(220,38,38,0.5)]">
+              <h2 className="text-red-500 font-black uppercase tracking-widest text-lg">
                 LEADERBOARD
               </h2>
             </div>
@@ -357,33 +412,25 @@ export default function CtfDashboardPage() {
                     key={row.teamId}
                     className={`flex items-center gap-4 p-3 rounded-xl transition-all ${
                       isMyTeam
-                        ? "bg-red-950/60 border-2 border-red-500/80 shadow-[0_0_20px_rgba(239,68,68,0.4)]"
+                        ? "bg-red-950 border-2 border-red-500"
                         : idx === 0
-                        ? "bg-amber-500/10 border border-amber-500/20"
-                        : idx < 3
-                        ? "bg-white/5 border border-white/10"
+                        ? "bg-amber-950/40 border border-amber-500/30"
                         : "hover:bg-white/5 border border-transparent"
                     }`}
                   >
                     <div className="w-8 flex justify-center font-black">
-                      {idx === 0 ? <span className="text-2xl drop-shadow-[0_0_10px_rgba(250,204,21,0.6)]">🥇</span> : 
-                       idx === 1 ? <span className="text-2xl drop-shadow-[0_0_10px_rgba(203,213,225,0.6)]">🥈</span> :
-                       idx === 2 ? <span className="text-2xl drop-shadow-[0_0_10px_rgba(217,119,6,0.6)]">🥉</span> :
-                       <span className="text-gray-500 text-sm">{idx + 1}</span>}
+                      <span className="text-gray-400 text-sm">#{idx + 1}</span>
                     </div>
                     <div className="flex-1">
                       <div className="text-white font-bold text-sm tracking-wide flex items-center gap-2">
                         <span>{row.teamName}</span>
                         {isMyTeam && (
-                          <span className="px-1.5 py-0.5 bg-red-600 text-[9px] font-black uppercase text-white rounded tracking-wider shadow">
+                          <span className="px-1.5 py-0.5 bg-red-600 text-[9px] font-black uppercase text-white rounded tracking-wider">
                             YOU
                           </span>
                         )}
                       </div>
                       <div className="text-gray-400 text-[11px] uppercase tracking-wider mt-0.5">{row.points} Points</div>
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-[#1a0a14] border border-red-500/30 flex items-center justify-center text-sm shadow-[0_0_10px_rgba(220,38,38,0.2)]">
-                      {['🕷️', '🕸️', '🦸‍♂️', '🦹'][idx % 4]}
                     </div>
                   </div>
                 );
@@ -403,13 +450,6 @@ export default function CtfDashboardPage() {
 // Subcomponent for Challenge Cards
 function ChallengeCard({
   ch,
-  activeSubmit,
-  setActiveSubmit,
-  flagInput,
-  setFlagInput,
-  onSubmit,
-  submitting,
-  feedback,
   onDownload,
 }: {
   ch: ChallengeItem;
@@ -422,20 +462,16 @@ function ChallengeCard({
   feedback?: { ok: boolean; msg: string };
   onDownload: (slug: string, name?: string) => void;
 }) {
-  const isExpanded = activeSubmit === ch.slug;
   const isSolved = ch.isSolved;
 
   return (
     <div
-      className={`relative bg-[#160d1a]/80 backdrop-blur-md rounded-xl p-5 flex flex-col gap-4 border overflow-hidden transition-all duration-300 ${
+      className={`relative bg-[#160d1a] rounded-xl p-5 flex flex-col gap-4 border overflow-hidden transition-all duration-300 ${
         isSolved
-          ? "border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
-          : "border-white/10 hover:border-white/20 hover:bg-[#1a0f1f]/90"
+          ? "border-emerald-500/40"
+          : "border-white/10 hover:border-white/20 hover:bg-[#1a0f1f]"
       }`}
     >
-      {/* Background Accent */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-[radial-gradient(circle_at_top_right,_rgba(220,38,38,0.08),_transparent_70%)] pointer-events-none" />
-
       {/* Header */}
       <div className="flex justify-between items-start z-10">
         <h3 className="text-white font-bold text-base leading-snug w-[85%]">{ch.title}</h3>
@@ -446,7 +482,7 @@ function ChallengeCard({
         )}
       </div>
 
-      {/* Meta info & Icon */}
+      {/* Meta info */}
       <div className="flex justify-between items-center z-10">
         <div className="flex flex-col gap-3">
           <div>
@@ -456,17 +492,14 @@ function ChallengeCard({
           <div className="flex gap-6">
             <div>
               <div className="text-[9px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">Points</div>
-              <div className="flex items-center gap-1.5 text-pink-500 text-sm font-black">
-                <svg className="w-3.5 h-3.5 text-pink-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-                {ch.points}
+              <div className="text-pink-500 text-sm font-black">
+                {ch.points} pts
               </div>
             </div>
             <div>
               <div className="text-[9px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">Difficulty</div>
               <div
-                className={`flex items-center gap-1.5 text-sm font-black ${
+                className={`text-sm font-black ${
                   ch.difficulty.toLowerCase() === "easy"
                     ? "text-emerald-500"
                     : ch.difficulty.toLowerCase() === "medium"
@@ -474,27 +507,18 @@ function ChallengeCard({
                     : "text-red-500"
                 }`}
               >
-                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
-                </svg>
                 {ch.difficulty}
               </div>
             </div>
           </div>
         </div>
-
-        {/* Avatar/Character Placeholder */}
-        <div className="w-16 h-16 rounded-full border border-red-500/20 bg-[#1a0a14] flex items-center justify-center text-3xl shadow-[0_0_15px_rgba(220,38,38,0.15)] overflow-hidden">
-           {ch.difficulty.toLowerCase() === 'easy' ? '🕷️' : ch.difficulty.toLowerCase() === 'medium' ? '🕸️' : '🦹'}
-        </div>
       </div>
 
       {/* Footer Actions */}
       <div className="flex justify-end items-end mt-1 z-10">
-
         <a
           href={`/ctf/${ch.slug}`}
-          className="flex items-center gap-1.5 border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-[0_0_10px_rgba(220,38,38,0.2)]"
+          className="flex items-center gap-1.5 border border-red-500/40 bg-red-950 hover:bg-red-900 text-red-400 px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />

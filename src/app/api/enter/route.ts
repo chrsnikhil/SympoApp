@@ -67,6 +67,9 @@ export async function POST(request: Request) {
   const forwarded = request.headers.get("x-forwarded-for");
   const clientIp = forwarded ? forwarded.split(",")[0].trim() : "127.0.0.1";
 
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const isSecure = forwardedProto === "https" || request.url.startsWith("https:");
+
   if (isRateLimited(clientIp)) {
     return NextResponse.json(
       { error: "Too many failed login attempts. Please wait 3 minutes before trying again." },
@@ -132,7 +135,7 @@ export async function POST(request: Request) {
     });
 
     const res = NextResponse.json({ ok: true, teamId: adminTeam._id!.toString(), role: "admin" });
-    res.cookies.set({ ...sessionCookieOptions(), value: token });
+    res.cookies.set({ ...sessionCookieOptions(isSecure), value: token });
     return res;
   }
 
@@ -244,7 +247,7 @@ export async function POST(request: Request) {
     }
 
     const res = NextResponse.json({ ok: true, teamId: team._id!.toString(), role: "participant" });
-    res.cookies.set({ ...sessionCookieOptions(), value: token });
+    res.cookies.set({ ...sessionCookieOptions(isSecure), value: token });
     return res;
   }
 
@@ -278,7 +281,7 @@ export async function POST(request: Request) {
     });
 
     const res = NextResponse.json({ ok: true, teamId: record.teamId.toString(), role: record.role });
-    res.cookies.set({ ...sessionCookieOptions(), value: token });
+    res.cookies.set({ ...sessionCookieOptions(isSecure), value: token });
     return res;
   }
 

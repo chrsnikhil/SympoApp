@@ -3,28 +3,13 @@ import { SESSION_COOKIE, eventFromHost } from "@/lib/config";
 import { verifySession } from "@/lib/auth/session";
 
 /**
- * Host-based routing for the five-subdomain platform.
- *
- * NOTE ON THE FILENAME: Next.js 16 deprecated `middleware.ts` in favour of
- * `proxy.ts` (and the named export `middleware` → `proxy`). Unlike middleware,
- * proxy runs on the **Node.js** runtime and that is not configurable.
- *
- *   hunt.example.com/clue/3  →  rewrite → /hunt/clue/3   → app/(hunt)/...
- *   ctf.example.com/         →  rewrite → /ctf           → app/(ctf)/...
- *   app.example.com/enter    →  passthrough              → app/(app)/enter
- *
- * The rewrite is invisible to the user: the URL bar keeps the pretty
- * subdomain form while Next resolves a normal nested route.
- *
- * AUTH HERE IS OPTIMISTIC ONLY. Per the Next docs, proxy shouldn't be treated
- * as the authorization boundary — it exists to bounce logged-out users to the
- * entry page cheaply. Every route handler that mutates state re-verifies the
- * session itself (see `requireSession`). Losing that second check would be a
- * real vulnerability, not a style issue.
+ * Host-based & path-based proxy authentication boundary.
  */
 
-/** Paths that must never be rewritten or gated. */
+/** Paths that must never be gated. */
 const PUBLIC_PREFIXES = ["/_next", "/api/health", "/favicon.ico", "/enter", "/api/enter"];
+
+const PROTECTED_PREFIXES = ["/ctf", "/admin", "/hunt", "/code", "/quiz"];
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -35,36 +20,43 @@ export async function proxy(request: NextRequest) {
 
   const host = request.headers.get("host");
   const event = eventFromHost(host);
+  const isProtectedPath = PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
-  // Not an event subdomain (app.*, www.*, localhost) — serve as-is.
-  if (!event) return NextResponse.next();
+  // Not an event subdomain and not a protected path — serve as-is.
+  if (!event && !isProtectedPath) {
+    return NextResponse.next();
+  }
 
-  // Optimistic session check. No DB read: just a signature verification.
-  const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
+  // Optimistic session check (signature verification)
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  const session = await verifySession(token);
+  console.log(`[proxy debug] path=${pathname} tokenPresent=${Boolean(token)} sessionVerified=${Boolean(session)}`);
   if (!session) {
     const entry = new URL("/enter", request.nextUrl.origin);
-    // Send them back where they were trying to go once they're in.
-    entry.searchParams.set("rt", `${request.nextUrl.origin}${pathname}${search}`);
+    // Use relative path for rt so redirects work across ngrok, custom domains, and localhost
+    entry.searchParams.set("rt", `${pathname}${search}`);
     return NextResponse.redirect(entry);
   }
 
-  // Rewrite the subdomain into its route group segment.
-  const url = request.nextUrl.clone();
-  url.pathname = `/${event}${pathname === "/" ? "" : pathname}`;
+  // If subdomain routing, rewrite into route group segment
+  if (event) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/${event}${pathname === "/" ? "" : pathname}`;
 
-  const res = NextResponse.rewrite(url);
-  // Hand identity to route handlers so they don't each re-parse the cookie.
-  // These are internal-only; they never reach the browser.
+    const res = NextResponse.rewrite(url);
+    res.headers.set("x-team-id", session.teamId);
+    res.headers.set("x-participant-id", session.sub);
+    res.headers.set("x-event", event);
+    return res;
+  }
+
+  // Path-based routing (e.g. /ctf, /admin/ctf on localhost / ngrok)
+  const res = NextResponse.next();
   res.headers.set("x-team-id", session.teamId);
   res.headers.set("x-participant-id", session.sub);
-  res.headers.set("x-event", event);
   return res;
 }
 
 export const config = {
-  /**
-   * Skip static assets outright — running proxy on every chunk request would
-   * add latency to page loads for no benefit.
-   */
   matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|ico|webp|woff2?)$).*)"],
 };

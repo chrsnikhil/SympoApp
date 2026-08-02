@@ -1,19 +1,42 @@
 import { NextResponse } from "next/server";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
-import { collections } from "@/lib/db/client";
+import { collections, getDb } from "@/lib/db/client";
 import { readSnapshot } from "@/lib/leaderboard/materialize";
-import { calculateChallengeValue } from "@/lib/ctf/scoring";
+
+const SETTING_KEY = "ctf_event_state";
+const DURATION_MINUTES = 105;
+
+const difficultyWeight: Record<string, number> = {
+  easy: 1,
+  medium: 2,
+  hard: 3,
+};
 
 export async function GET() {
   try {
     const session = await requireSession();
     const teamIdStr = session.teamId;
 
+    const db = await getDb();
+    const setting = await db.collection("system_settings").findOne({ key: SETTING_KEY });
+    const eventState = setting?.state ?? "waiting";
+    const startedAt = setting?.startedAt ? new Date(setting.startedAt).toISOString() : null;
+
+    let remainingSeconds = DURATION_MINUTES * 60;
+    if (eventState === "started" && setting?.startedAt) {
+      const startTime = new Date(setting.startedAt).getTime();
+      const endTime = startTime + DURATION_MINUTES * 60 * 1000;
+      remainingSeconds = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+    }
+
     const teams = await collections.teams();
     const subsCollection = await collections.submissions();
     const challengesCollection = await collections.challenges();
 
     const team = await teams.findOne({ _id: new (require("mongodb").ObjectId)(teamIdStr) });
+    if (session.role !== "admin" && !team) {
+      return NextResponse.json({ error: "Session expired or team no longer exists" }, { status: 401 });
+    }
     const teamName = team?.name ?? "Team";
 
     // Materialize and get current leaderboard
@@ -27,7 +50,7 @@ export async function GET() {
       .find({ type: "ctf" })
       .toArray();
 
-    // Get all correct solves across all teams to compute dynamic decay
+    // Get all correct solves across all teams
     const allCorrectSubs = await subsCollection
       .find({ type: "ctf", "verdict.correct": true })
       .toArray();
@@ -60,10 +83,6 @@ export async function GET() {
         const cId = ch._id!.toString();
         const solveCount = solveCountMap.get(cId) ?? 0;
         const initialPts = ch.config.initialPoints ?? ch.points;
-        const minPts = ch.config.minimumPoints ?? 50;
-        const decayAfter = ch.config.decayAfter ?? 5;
-        const currentPoints = calculateChallengeValue(initialPts, minPts, decayAfter, solveCount);
-
         const isSolved = teamSolvedSet.has(cId);
 
         return {
@@ -74,13 +93,23 @@ export async function GET() {
           category: ch.config.category ?? "General",
           description: ch.config.description ?? "",
           initialPoints: initialPts,
-          points: currentPoints,
+          points: initialPts,
           solveCount,
           isSolved,
           attachments: ch.config.attachments ?? [],
           status: ch.config.status ?? "open",
         };
       });
+
+    // Sort challenges: Easy -> Medium -> Hard, then by slug
+    challengesList.sort((a, b) => {
+      const diffA = a.difficulty.toLowerCase();
+      const diffB = b.difficulty.toLowerCase();
+      const wA = difficultyWeight[diffA] ?? 99;
+      const wB = difficultyWeight[diffB] ?? 99;
+      if (wA !== wB) return wA - wB;
+      return a.slug.localeCompare(b.slug, undefined, { numeric: true, sensitivity: "base" });
+    });
 
     // Format submission history
     const historyList = teamSubs.map((s) => {
@@ -97,6 +126,10 @@ export async function GET() {
     });
 
     return NextResponse.json({
+      eventState,
+      startedAt,
+      durationMinutes: DURATION_MINUTES,
+      remainingSeconds,
       team: {
         id: teamIdStr,
         name: teamName,

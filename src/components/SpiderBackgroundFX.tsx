@@ -185,16 +185,8 @@ export default function SpiderBackgroundFX() {
       ctx.lineTo(13.5, 13);
       ctx.closePath();
 
-      // Spider-Verse Dark Red/Crimson Body Gradient
-      const grad = ctx.createLinearGradient(0, 0, 12, 20);
-      if (isHovering) {
-        grad.addColorStop(0, "#0891b2"); // Cyan highlight on hover
-        grad.addColorStop(1, "#0e7490");
-      } else {
-        grad.addColorStop(0, "#e11d48"); // Spider-Verse Neon Crimson
-        grad.addColorStop(1, "#9f1239");
-      }
-      ctx.fillStyle = grad;
+      // Solid Crimson / Cyan Body Color
+      ctx.fillStyle = isHovering ? "#0891b2" : "#e11d48";
       ctx.fill();
 
       // Crisp Neon Outline

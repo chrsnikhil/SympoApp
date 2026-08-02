@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
-import { collections } from "@/lib/db/client";
+import { collections, getDb } from "@/lib/db/client";
 import { materialize } from "@/lib/leaderboard/materialize";
+
+const SETTING_KEY = "ctf_event_state";
+const DURATION_MINUTES = 105;
 
 export async function POST() {
   try {
@@ -43,12 +46,24 @@ export async function POST() {
       }
     }
 
-    // 5. Stamp global CTF reset timestamp
-    const { getDb } = await import("@/lib/db/client");
+    // 5. Stamp global CTF reset timestamp AND reset event state back to Waiting Room
     const db = await getDb();
     await db.collection("system_settings").updateOne(
       { key: "ctf_last_reset" },
       { $set: { key: "ctf_last_reset", resetAt: new Date() } },
+      { upsert: true }
+    );
+    await db.collection("system_settings").updateOne(
+      { key: SETTING_KEY },
+      {
+        $set: {
+          key: SETTING_KEY,
+          state: "waiting",
+          startedAt: null,
+          durationMinutes: DURATION_MINUTES,
+          updatedAt: new Date(),
+        },
+      },
       { upsert: true }
     );
 
@@ -56,7 +71,7 @@ export async function POST() {
     await boardsCollection.deleteMany({});
     await materialize("ctf");
 
-    return NextResponse.json({ ok: true, message: "CTF Leaderboard, submissions, and team progress reset successfully" });
+    return NextResponse.json({ ok: true, message: "CTF Leaderboard, submissions, and team progress reset successfully. Event reset to Waiting Room." });
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -65,4 +80,3 @@ export async function POST() {
     return NextResponse.json({ error: "Failed to reset CTF leaderboard" }, { status: 500 });
   }
 }
-

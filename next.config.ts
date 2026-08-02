@@ -9,6 +9,8 @@ const nextConfig: NextConfig = {
   output: "standalone",
 
   /* config options here */
+
+  allowedDevOrigins: ['*.ngrok-free.app'],
 };
 
 export default nextConfig;
