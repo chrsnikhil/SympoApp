@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import SpiderBackgroundFX from "@/components/SpiderBackgroundFX";
+import LylaTerminal from "@/components/LylaTerminal";
 
 interface ChallengeDetail {
   id: string;
@@ -73,6 +74,11 @@ export default function ChallengeDetailPage() {
       const res = await fetch(`/api/ctf/challenge/${encodeURIComponent(slug)}`);
       if (res.status === 401) {
         router.push("/enter?rt=/ctf");
+        return;
+      }
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        console.error("Non-JSON response received from /api/ctf/challenge");
         return;
       }
       const data = await res.json();
@@ -313,29 +319,41 @@ export default function ChallengeDetailPage() {
             </div>
           )}
 
-          {/* PROBLEM STATEMENT */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-black uppercase tracking-widest text-red-400">
-              PROBLEM STATEMENT
-            </h3>
-            <div className="bg-[#120819] border border-white/5 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-              <div className="text-xs md:text-sm text-gray-300 leading-relaxed space-y-2 max-w-2xl">
-                <p>{challenge.description}</p>
-              </div>
+          {/* PROBLEM STATEMENT / LYLA TERMINAL */}
+          {slug === "hard-01" ? (
+            <div className="space-y-3">
+              <h3 className="text-sm font-black uppercase tracking-widest text-red-400">
+                INTERACTIVE TERMINAL // PROTOCOL DELTA
+              </h3>
+              <LylaTerminal />
             </div>
-          </div>
+          ) : (
+            <>
+              {/* PROBLEM STATEMENT */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-black uppercase tracking-widest text-red-400">
+                  PROBLEM STATEMENT
+                </h3>
+                <div className="bg-[#120819] border border-white/5 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+                  <div className="text-xs md:text-sm text-gray-300 leading-relaxed space-y-2 max-w-2xl">
+                    <p>{challenge.description}</p>
+                  </div>
+                </div>
+              </div>
 
-          {/* DETAILS */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-black uppercase tracking-widest text-red-400">
-              DETAILS
-            </h3>
-            <div className="bg-[#120819] border border-white/5 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-              <div className="text-xs md:text-sm text-gray-300 leading-relaxed space-y-2 max-w-2xl">
-                <p>{challenge.details || "We found a suspicious encoded file in the server logs. Analyze patterns, key usage, and encoding layers to extract the flag."}</p>
+              {/* DETAILS */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-black uppercase tracking-widest text-red-400">
+                  DETAILS
+                </h3>
+                <div className="bg-[#120819] border border-white/5 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+                  <div className="text-xs md:text-sm text-gray-300 leading-relaxed space-y-2 max-w-2xl">
+                    <p>{challenge.details || "We found a suspicious encoded file in the server logs. Analyze patterns, key usage, and encoding layers to extract the flag."}</p>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
 
           {/* HINTS */}
           <div className="space-y-3">

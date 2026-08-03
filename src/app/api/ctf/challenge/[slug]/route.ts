@@ -20,11 +20,13 @@ export async function GET(
     const session = await requireSession();
     const teamIdStr = session.teamId;
     const resolvedParams = await Promise.resolve(params);
-    const slug = resolvedParams?.slug;
+    const rawSlug = resolvedParams?.slug;
 
-    if (!slug) {
+    if (!rawSlug) {
       return NextResponse.json({ error: "Missing challenge slug" }, { status: 400 });
     }
+
+    const cleanSlug = decodeURIComponent(rawSlug).trim();
 
     const db = await getDb();
     const setting = await db.collection("system_settings").findOne({ key: SETTING_KEY });
@@ -38,13 +40,11 @@ export async function GET(
       remainingSeconds = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
     }
 
-    const cleanSlug = slug.trim();
     const challengesCollection = await collections.challenges();
     const subsCollection = await collections.submissions();
     const teamsCollection = await collections.teams();
 
     const ch = await challengesCollection.findOne({
-      type: "ctf",
       $or: [
         { slug: cleanSlug },
         { slug: cleanSlug.toLowerCase() },
@@ -52,7 +52,7 @@ export async function GET(
       ]
     });
 
-    if (!ch || ch.config.disabled) {
+    if (!ch || ch.config?.disabled) {
       return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
     }
 

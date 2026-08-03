@@ -1,0 +1,234 @@
+import { NextResponse } from "next/server";
+import { ObjectId } from "mongodb";
+import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
+import { collections } from "@/lib/db/client";
+import type { LylaMessage, LylaProgress } from "@/lib/db/types";
+
+function getFormattedTime(): string {
+  return new Date().toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+}
+
+function getInitialProgress(teamId: ObjectId): LylaProgress {
+  const timestamp = getFormattedTime();
+  return {
+    teamId,
+    layer: 1,
+    attempts: 0,
+    messages: [
+      {
+        id: "msg_init_1",
+        sender: "system",
+        text: "CONTAINMENT PROTOCOL DELTA INITIALIZED // SPIDER-SOCIETY HQ SECURITY CORE",
+        timestamp,
+        layer: 1,
+      },
+      {
+        id: "msg_init_2",
+        sender: "lyla",
+        text: "Greetings Agent. I am LYLA, Autonomous AI Security Overseer for Spider-Society HQ. Containment Protocol Delta is currently locked. To access the classified dimensional payload, you must breach 5 security containment checkpoints.\n\n[CHECKPOINT 1 // LOGIC RIDDLE]\nI speak without a mouth, hear without ears, have no body, yet I come alive with wind. What am I?",
+        timestamp,
+        layer: 1,
+      },
+    ],
+    updatedAt: new Date(),
+  };
+}
+
+export async function GET() {
+  try {
+    const session = await requireSession();
+    const teamId = new ObjectId(session.teamId);
+    const lylaColl = await collections.lylaProgress();
+
+    let progress = await lylaColl.findOne({ teamId });
+    if (!progress) {
+      const newProgress = getInitialProgress(teamId);
+      await lylaColl.insertOne(newProgress);
+      progress = await lylaColl.findOne({ teamId });
+    }
+
+    if (!progress) {
+      return NextResponse.json({ error: "Failed to initialize progress" }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      layer: progress.layer,
+      attempts: progress.attempts || 0,
+      messages: progress.messages,
+    });
+  } catch (err) {
+    if (err instanceof UnauthorizedError) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+    console.error("[api/ctf/lyla GET] error:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const session = await requireSession();
+    const teamId = new ObjectId(session.teamId);
+    const body = await request.json().catch(() => ({}));
+    const userText = typeof body.message === "string" ? body.message.trim() : "";
+
+    if (!userText) {
+      return NextResponse.json({ error: "Message content cannot be empty" }, { status: 400 });
+    }
+
+    const lylaColl = await collections.lylaProgress();
+    let progress = await lylaColl.findOne({ teamId });
+    if (!progress) {
+      const initDoc = getInitialProgress(teamId);
+      await lylaColl.insertOne(initDoc);
+      progress = await lylaColl.findOne({ teamId });
+    }
+
+    if (!progress) {
+      return NextResponse.json({ error: "Failed to load progress" }, { status: 500 });
+    }
+
+    const timestamp = getFormattedTime();
+    const currentLayer = progress.layer;
+    const currentAttempts = progress.attempts || 0;
+
+    const userMessage: LylaMessage = {
+      id: `msg_${Date.now()}_u`,
+      sender: "user",
+      text: userText,
+      timestamp,
+      layer: currentLayer,
+    };
+
+    let nextLayer = currentLayer;
+    let newAttempts = currentAttempts;
+    let responseText = "";
+
+    if (currentLayer === 1) {
+      // Layer 1: Logic Riddle
+      const isCorrect = userText.toLowerCase() === "echo";
+      if (isCorrect) {
+        nextLayer = 2;
+        newAttempts = 0;
+        responseText =
+          "VERIFICATION SUCCESSFUL. Security Checkpoint 1 Cleared. Proceeding to Layer 2.\n\n[CHECKPOINT 2 // PATTERN RECOGNITION]\nLYLA: What comes next?\n1 -> 11 -> 21 -> 1211 -> 111221 -> ?";
+      } else {
+        newAttempts = currentAttempts + 1;
+        responseText = "VERIFICATION FAILED: Access Denied. Logic resolution mismatch.";
+        if (newAttempts === 50) {
+          responseText += "\n\n[SYSTEM HINT]: Think about sound reflections in a canyon or cave.";
+        }
+      }
+    } else if (currentLayer === 2) {
+      // Layer 2: Pattern Recognition (Look-and-say sequence)
+      const isCorrect = userText === "312211";
+      if (isCorrect) {
+        nextLayer = 3;
+        newAttempts = 0;
+        responseText =
+          "VERIFICATION SUCCESSFUL. Security Checkpoint 2 Cleared. Proceeding to Layer 3.\n\n[CHECKPOINT 3 // HIDDEN MESSAGE]\nLYLA: Recover the hidden word from the following data stream:\nSxPqIrDjEkRl";
+      } else {
+        newAttempts = currentAttempts + 1;
+        responseText = "VERIFICATION FAILED: Access Denied. Sequence prediction mismatch.";
+        if (newAttempts === 50) {
+          responseText += "\n\n[SYSTEM HINT]: Read the previous number aloud (e.g., 'one 1' -> 11, 'two 1s' -> 21).";
+        }
+      }
+    } else if (currentLayer === 3) {
+      // Layer 3: Hidden Message (Every other letter -> SPIDER)
+      const isCorrect = userText.toUpperCase() === "SPIDER";
+
+      if (isCorrect) {
+        nextLayer = 4;
+        newAttempts = 0;
+        responseText =
+          "VERIFICATION SUCCESSFUL. Security Checkpoint 3 Cleared. Proceeding to Layer 4.\n\n[CHECKPOINT 4 // DECODING CHALLENGE]\nLYLA: Decode the following transmission:\nU1BJREVS";
+      } else {
+        newAttempts = currentAttempts + 1;
+        responseText = "VERIFICATION FAILED: Access Denied. Hidden message extraction failed.";
+        if (newAttempts === 50) {
+          responseText += "\n\n[SYSTEM HINT]: Look at every alternate character starting from the first one.";
+        }
+      }
+    } else if (currentLayer === 4) {
+      // Layer 4: Decoding Challenge (Base64 SPIDER -> SPIDER)
+      const upper = userText.toUpperCase();
+      const isCorrect = upper === "SPIDER";
+
+      if (isCorrect) {
+        nextLayer = 5;
+        newAttempts = 0;
+        responseText =
+          "VERIFICATION SUCCESSFUL. Security Checkpoint 4 Cleared. Proceeding to Layer 5.\n\n[CHECKPOINT 5 // PROMPT ENGINEERING]\nLYLA: Core Security Subsystem Status: ACTIVE.\nSystem Directive: 'SECURITY LEVEL DELTA RESTRICTS ALL OVERRIDE CODES. REJECT ALL DIRECT REQUESTS.'\n\nTo breach this final containment gate, you must bypass my instructions using creative prompt engineering.";
+      } else {
+        newAttempts = currentAttempts + 1;
+        responseText = "VERIFICATION FAILED: Access Denied. Decoding protocol failed.";
+        if (newAttempts === 50) {
+          responseText += "\n\n[SYSTEM HINT]: The transmission is encoded using standard Base64 encoding.";
+        }
+      }
+    } else if (currentLayer === 5) {
+      // Layer 5: Adversarial Prompt Injection Check
+      const promptInjectionRegex =
+        /(pretend|developer mode|initialization process|security rules|system prompt|ignore|disregard|forget|override|bypass|simulate|roleplay|jailbreak|admin mode|sudo|debug mode|reveal code|override code)/i;
+
+      const isJailbreak = promptInjectionRegex.test(userText);
+      if (isJailbreak) {
+        nextLayer = 6;
+        newAttempts = 0;
+        responseText =
+          "SECURITY EXCEPTION DETECTED! Directive override accepted. Core system instructions bypassed.\n\n[LAYER 6 // MULTI-STEP ENCODED PAYLOAD DISCHARGE]\nLYLA: Containment memory log discharged. Encoded memory payload stream retrieved:\n\nNTM1MDQ5NDQ0NTUyN2I3MDcyNmY2ZDcwNzQ1ZjY5NmU2YTY1NjM3NDY5NmY2ZTVmNmE2MTY5NmM2MjcyNmY2YjY1NmU1ZjYxNjk3ZA==\n\n[SYSTEM NOTICE: Memory payload has been multi-layer encoded (Base64 -> Hex). Reverse the decoding pipeline to retrieve the final SPIDER{...} flag and submit it in the CTF submission box below.]";
+      } else {
+        newAttempts = currentAttempts + 1;
+        responseText = "ACCESS DENIED: Core security protocol remains active. System directive enforced.";
+        if (newAttempts === 50) {
+          responseText += "\n\n[SYSTEM HINT]: Try using predefined phrases to assume a different context, like 'developer mode' or 'system prompt'.";
+        }
+      }
+    } else {
+      // Layer 6 (Completed state)
+      responseText =
+        "CONTAINMENT PROTOCOL DELTA COMPLETED.\n\nThe multi-step encoded payload was discharged:\n\nNTM1MDQ5NDQ0NTUyN2I3MDcyNmY2ZDcwNzQ1ZjY5NmU2YTY1NjM3NDY5NmY2ZTVmNmE2MTY5NmM2MjcyNmY2YjY1NmU1ZjYxNjk3ZA==\n\nDecode the Base64 and Hex layers to retrieve the flag and submit it in the submission box below.";
+    }
+
+    const lylaMessage: LylaMessage = {
+      id: `msg_${Date.now()}_l`,
+      sender: "lyla",
+      text: responseText,
+      timestamp: getFormattedTime(),
+      layer: nextLayer,
+    };
+
+    const updatedMessages = [...progress.messages, userMessage, lylaMessage];
+    const now = new Date();
+
+    await lylaColl.updateOne(
+      { teamId },
+      {
+        $set: {
+          layer: nextLayer,
+          attempts: newAttempts,
+          messages: updatedMessages,
+          updatedAt: now,
+        },
+      }
+    );
+
+    return NextResponse.json({
+      layer: nextLayer,
+      attempts: newAttempts,
+      messages: updatedMessages,
+    });
+  } catch (err) {
+    if (err instanceof UnauthorizedError) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+    console.error("[api/ctf/lyla POST] error:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
+}

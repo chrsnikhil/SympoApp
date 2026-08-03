@@ -151,3 +151,21 @@ export interface LeaderboardSnapshot {
     solvedCount?: number;
   }>;
 }
+
+export interface LylaMessage {
+  id: string;
+  sender: "user" | "lyla" | "system";
+  text: string;
+  timestamp: string;
+  layer?: number;
+}
+
+export interface LylaProgress {
+  _id?: ObjectId;
+  teamId: ObjectId;
+  layer: number; // 1 to 6 (6 is completed payload discharge)
+  attempts?: number; // failed attempts for current layer
+  messages: LylaMessage[];
+  updatedAt: Date;
+}
+

@@ -5,6 +5,7 @@ import type {
   Challenge,
   HuntProgress,
   LeaderboardSnapshot,
+  LylaProgress,
   Participant,
   ScoreEvent,
   Submission,
@@ -74,6 +75,8 @@ export const collections = {
     (await getDb()).collection<HuntProgress>("hunt_progress"),
   leaderboards: async (): Promise<Collection<LeaderboardSnapshot>> =>
     (await getDb()).collection<LeaderboardSnapshot>("leaderboard_snapshots"),
+  lylaProgress: async (): Promise<Collection<LylaProgress>> =>
+    (await getDb()).collection<LylaProgress>("lyla_progress"),
 };
 
 /**
@@ -86,13 +89,14 @@ export const collections = {
  *  - submissions.status     → the judge queue reconciler scans by status
  */
 export async function ensureIndexes(): Promise<void> {
-  const [codes, challenges, subs, scores, hunt, boards] = await Promise.all([
+  const [codes, challenges, subs, scores, hunt, boards, lyla] = await Promise.all([
     collections.accessCodes(),
     collections.challenges(),
     collections.submissions(),
     collections.scoreEvents(),
     collections.huntProgress(),
     collections.leaderboards(),
+    collections.lylaProgress(),
   ]);
 
   await Promise.all([
@@ -109,5 +113,7 @@ export async function ensureIndexes(): Promise<void> {
     scores.createIndex({ event: 1, at: -1 }),
     hunt.createIndex({ teamId: 1, challengeSlug: 1 }, { unique: true }),
     boards.createIndex({ event: 1 }, { unique: true }),
+    lyla.createIndex({ teamId: 1 }, { unique: true }),
   ]);
 }
+

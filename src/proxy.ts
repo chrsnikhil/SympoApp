@@ -38,8 +38,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(entry);
   }
 
-  // If subdomain routing, rewrite into route group segment
-  if (event) {
+  // If subdomain routing, rewrite into route group segment (except for API routes)
+  if (event && !pathname.startsWith("/api/")) {
     const url = request.nextUrl.clone();
     url.pathname = `/${event}${pathname === "/" ? "" : pathname}`;
 
