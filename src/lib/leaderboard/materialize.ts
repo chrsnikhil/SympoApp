@@ -109,18 +109,24 @@ export async function materialize(event: EventKey | "overall"): Promise<Leaderbo
       }
 
       // Track solves by difficulty category for Time Bonus
-      const category = ch?.config.difficulty ?? ch?.config.category ?? "Easy";
+      const category = (ch?.config.difficulty ?? ch?.config.category ?? "easy").toLowerCase().trim();
       if (!stats.solvesByCategory.has(category)) {
         stats.solvesByCategory.set(category, []);
       }
       stats.solvesByCategory.get(category)!.push({ challengeId: cId, receivedAt: sub.receivedAt });
     }
 
-    // Calculate Category Time Bonus (+50 pts if category completed within 30 min)
+    // Calculate Category Time Bonus (+50 pts if category completed within category limit, max ONCE per team)
+    const categoryLimitsMs: Record<string, number> = {
+      easy: 15 * 60 * 1000,   // 15 mins
+      medium: 25 * 60 * 1000, // 25 mins
+      hard: 30 * 60 * 1000,   // 30 mins
+    };
+
     const challengesByCategory = new Map<string, string[]>();
     for (const ch of ctfChallenges) {
       const cId = String(ch._id);
-      const diff = ch.config.difficulty ?? ch.config.category ?? "Easy";
+      const diff = (ch.config.difficulty ?? ch.config.category ?? "easy").toLowerCase().trim();
       if (!challengesByCategory.has(diff)) {
         challengesByCategory.set(diff, []);
       }
@@ -128,10 +134,14 @@ export async function materialize(event: EventKey | "overall"): Promise<Leaderbo
     }
 
     for (const stats of teamStats.values()) {
+      let earnedBonus = false;
       for (const [diffCategory, categoryChallengeIds] of challengesByCategory.entries()) {
+        if (earnedBonus) break;
         if (categoryChallengeIds.length === 0) continue;
 
+        const limitMs = categoryLimitsMs[diffCategory] ?? (30 * 60 * 1000);
         const teamCategorySolves = stats.solvesByCategory.get(diffCategory) ?? [];
+
         // Check if team solved all challenges in this difficulty category
         if (teamCategorySolves.length >= categoryChallengeIds.length) {
           const solvedIds = new Set(teamCategorySolves.map((s) => s.challengeId));
@@ -144,8 +154,9 @@ export async function materialize(event: EventKey | "overall"): Promise<Leaderbo
             const maxTime = Math.max(...timestamps);
             const durationMs = maxTime - minTime;
 
-            if (durationMs <= 30 * 60 * 1000) {
-              stats.points += 50; // Award +50 time bonus once per category
+            if (durationMs <= limitMs) {
+              stats.points += 50; // Award +50 time bonus once per team ONLY
+              earnedBonus = true;
             }
           }
         }

@@ -72,7 +72,10 @@ async function checkSectionBonus(
   const challengeList = await challenges
     .find({
       type: "ctf",
-      "config.difficulty": difficulty,
+      $or: [
+        { "config.difficulty": { $regex: new RegExp(`^${diff}$`, "i") } },
+        { "config.category": { $regex: new RegExp(`^${diff}$`, "i") } },
+      ],
     })
     .toArray();
 
