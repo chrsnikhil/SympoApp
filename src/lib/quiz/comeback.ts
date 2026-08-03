@@ -74,6 +74,11 @@ export async function getComebackStatus(teamId: ObjectId, round: QuizRound) {
  * and grants a fresh ability if the threshold was just crossed.
  */
 export async function closeQuestionForComeback(teamId: ObjectId, round: QuizRound, slug: string): Promise<void> {
+  const serves = await collections.quizServes();
+  const serve = await serves.findOne({ teamId, challengeSlug: slug });
+  if (serve?.streakProcessed) return;
+  if (serve) await serves.updateOne({ _id: serve._id }, { $set: { streakProcessed: true } });
+
   const states = await collections.comebackStates();
   const state = await getOrInit(teamId, round);
 
