@@ -19,7 +19,7 @@ interface Round1Game {
   opensAt: string | null;
   closesAt: string | null;
   // image
-  referenceImage?: string | null;
+  referenceImage?: string | boolean | null;
   uploadedImage?: string | null;
   status?: "not-started" | "queued" | "running" | "done" | "error";
   verdict?: { correct: boolean; points: number } | null;
@@ -502,6 +502,19 @@ function ImageReplication({
 
   const isReferenceVisible = isInitialVisible || isMidGameVisible;
 
+  const [refDataUrl, setRefDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (game.referenceImage && !refDataUrl) {
+      fetch("/api/quiz/round1/reference")
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.dataUrl) setRefDataUrl(json.dataUrl);
+        })
+        .catch(console.error);
+    }
+  }, [game.referenceImage, refDataUrl]);
+
   async function handleFile(file: File) {
     setStatus("uploading");
     setError(null);
@@ -575,13 +588,19 @@ function ImageReplication({
                   Hides in {isInitialVisible ? initialSecondsLeft : midGameSecondsLeft}s
                 </span>
               </div>
-              <ProtectedImage
-                src={game.referenceImage}
-                alt="The reference image to recreate"
-                teamName={teamName}
-                className="border-2 border-paper-white/20 bg-ink-black/80"
-                protectFocusLoss
-              />
+              {refDataUrl ? (
+                <ProtectedImage
+                  src={refDataUrl}
+                  alt="The reference image to recreate"
+                  teamName={teamName}
+                  className="border-2 border-paper-white/20 bg-ink-black/80"
+                  protectFocusLoss
+                />
+              ) : (
+                <div className="flex h-64 items-center justify-center border-2 border-paper-white/20 bg-ink-black/80">
+                  <span className="font-comic text-paper-white/40">Loading Secure Image…</span>
+                </div>
+              )}
               <p className="text-[10px] text-paper-white/50 text-center">
                 🔒 Watermarked with your team name — screenshots or photos of this image are traceable.
               </p>

@@ -49,15 +49,11 @@ async function main() {
     process.exit(1);
   }
 
-  const publicName = `reference-${slug}${ext}`;
-  mkdirSync("public/quiz", { recursive: true });
-  writeFileSync(`public/quiz/${publicName}`, bytes);
-
   const dataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
 
   await challenges.updateOne(
     { _id: challenge._id },
-    { $set: { "config.referenceImage": `/quiz/${publicName}`, "config.referenceDataUrl": dataUrl } }
+    { $set: { "config.referenceImage": true, "config.referenceDataUrl": dataUrl } }
   );
 
   console.log(`\n  Reference set for ${slug}`);
