@@ -80,7 +80,7 @@ export async function closeQuestionForComeback(teamId: ObjectId, round: QuizRoun
   // The one-question window for a previously granted ability has now closed,
   // used or not (even if they skipped a question and this is a later one).
   if (state.usableOnSlug !== null) {
-    await states.updateOne({ teamId, round }, { $set: { ability: null, usableOnSlug: null, grantedAt: null } });
+    await states.updateOne({ teamId, round }, { $set: { ability: null, usableOnSlug: null, grantedAt: null, bottomStreak: 0 } });
   }
 
   const table = await standings(round);
@@ -128,7 +128,7 @@ export async function expireOldComebackAbilities(teamId: ObjectId, round: QuizRo
   const states = await collections.comebackStates();
   await states.updateOne(
     { teamId, round, usableOnSlug: { $ne: null, $ne: currentSlug } },
-    { $set: { ability: null, usableOnSlug: null, grantedAt: null } }
+    { $set: { ability: null, usableOnSlug: null, grantedAt: null, bottomStreak: 0 } }
   );
 }
 
