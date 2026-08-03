@@ -66,11 +66,14 @@ export const DEFAULT_RUBRIC: readonly Criterion[] = [
 
 export interface CriterionScore {
   key: string;
-  score: number; // 0..5
+  score: number; // 0..10
   note: string;
 }
 
 export interface JudgeVerdict {
+  cheating_detected: boolean;
+  cheating_reason: string | null;
+  cheating_confidence: "low" | "medium" | "high" | null;
   similarity: number; // 0..1
   criteria: CriterionScore[];
   summary: string;
@@ -92,19 +95,21 @@ function rubricFor(challenge: Challenge): readonly Criterion[] {
   return custom && custom.length > 0 ? custom : DEFAULT_RUBRIC;
 }
 
-export function toSimilarity(scores: CriterionScore[], rubric: readonly Criterion[]): number {
+export function toSimilarity(cheating_detected: boolean, scores: CriterionScore[], rubric: readonly Criterion[]): number {
+  if (cheating_detected) return 0;
+  
   const byKey = new Map(rubric.map((c) => [c.key, c.weight]));
   let weighted = 0;
   let total = 0;
   for (const s of scores) {
     const weight = byKey.get(s.key) ?? 0;
-    weighted += Math.min(5, Math.max(0, s.score)) * weight;
-    total += 5 * weight;
+    weighted += Math.min(10, Math.max(0, s.score)) * weight;
+    total += 10 * weight; // Max score is 10 per weight
   }
   return total === 0 ? 0 : Math.round((weighted / total) * 1000) / 1000;
 }
 
-function parseVerdict(raw: string, rubric: readonly Criterion[]): { criteria: CriterionScore[]; summary: string } {
+function parseVerdict(raw: string, rubric: readonly Criterion[]): Omit<JudgeVerdict, "similarity"> {
   try {
     require("fs").writeFileSync("c:\\Users\\ponr2\\SympoApp\\groq-error.log", `RAW RESPONSE:\n${raw}\n\n`, { flag: "a" });
   } catch(e) {}
@@ -132,7 +137,14 @@ function parseVerdict(raw: string, rubric: readonly Criterion[]): { criteria: Cr
     throw new JudgeError("Judge returned text that isn't JSON");
   }
 
-  const obj = parsed as { criteria?: unknown; summary?: unknown };
+  const obj = parsed as { 
+    cheating_detected?: unknown; 
+    cheating_reason?: unknown;
+    cheating_confidence?: unknown;
+    criteria?: unknown; 
+    summary?: unknown 
+  };
+  
   if (!Array.isArray(obj.criteria)) throw new JudgeError("Judge response has no criteria array");
 
   const wanted = new Set(rubric.map((c) => c.key));
@@ -144,55 +156,93 @@ function parseVerdict(raw: string, rubric: readonly Criterion[]): { criteria: Cr
     if (typeof c.score !== "number" || !Number.isFinite(c.score)) {
       throw new JudgeError(`Criterion "${c.key}" has a non-numeric score`);
     }
-    if (c.score < 0 || c.score > 5) throw new JudgeError(`Criterion "${c.key}" scored ${c.score}, outside 0-5`);
+    if (c.score < 0 || c.score > 10) throw new JudgeError(`Criterion "${c.key}" scored ${c.score}, outside 0-10`);
     seen.set(c.key, { key: c.key, score: Math.round(c.score), note: typeof c.note === "string" ? c.note : "" });
   }
 
   const missing = [...wanted].filter((k) => !seen.has(k));
   if (missing.length > 0) throw new JudgeError(`Judge skipped criteria: ${missing.join(", ")}`);
 
-  return { criteria: rubric.map((c) => seen.get(c.key)!), summary: typeof obj.summary === "string" ? obj.summary : "" };
+  return { 
+    cheating_detected: Boolean(obj.cheating_detected),
+    cheating_reason: typeof obj.cheating_reason === "string" ? obj.cheating_reason : null,
+    cheating_confidence: (obj.cheating_confidence === "low" || obj.cheating_confidence === "medium" || obj.cheating_confidence === "high") ? obj.cheating_confidence : null,
+    criteria: rubric.map((c) => seen.get(c.key)!), 
+    summary: typeof obj.summary === "string" ? obj.summary : "" 
+  };
 }
 
 function buildSystem(rubric: readonly Criterion[]): string {
   return [
-    "You are a strict, objective judge at a college symposium image-replication contest.",
+    "You are a strict, meticulous judge at a college symposium AI-image-replication contest. Thousands of rupees in prizes and team rankings depend on your accuracy. You must be fair, consistent, and impossible to fool.",
     "",
     "You will be shown two images:",
-    "  IMAGE 1 = the REFERENCE (the original target).",
-    "  IMAGE 2 = a team's RECREATION attempt using an AI image generator.",
+    "IMAGE 1 = the REFERENCE (the original target, watermarked with team name and timestamp for traceability).",
+    "IMAGE 2 = a team's RECREATION attempt, claimed to be generated fresh by an AI image generator during the contest window.",
     "",
-    "Your job: score how faithfully IMAGE 2 reproduces IMAGE 1.",
+    "Your job has TWO phases, in strict order. Do not skip or reorder them.",
     "",
-    "Score each criterion on an INTEGER scale 0-5:",
-    "  0 = completely absent / totally wrong",
-    "  1 = barely related",
-    "  2 = some similarity but major differences",
-    "  3 = moderate match with noticeable differences",
-    "  4 = close match with only minor differences",
-    "  5 = excellent / near-perfect match",
+    "═══════════════════════════════════",
+    "PHASE 1 — INTEGRITY CHECK (mandatory, before any scoring)",
+    "═══════════════════════════════════",
+    "Examine IMAGE 2 closely for ANY sign it is not an independent, freshly-generated AI image. Check for:",
+    "",
+    "A) Watermark/traceability leakage — repeating diagonal text, team name text, tiling text patterns, timestamp overlays (e.g. clock-style stamps), any text overlay not naturally part of an AI-generated scene.",
+    "",
+    "B) Screen/UI capture artifacts — countdown timers, banner headers, buttons, scrollbars, cursor or pointer icons, app borders, browser chrome, \"Reference/Display\" style UI frames.",
+    "",
+    "C) Photograph-of-a-screen artifacts — moiré/pixel-grid interference patterns, screen glare or reflection, phone bezel edges, keystone/trapezoid distortion from an off-angle photo, visible screen pixel subpixel structure.",
+    "",
+    "D) Near-duplication — IMAGE 2 matches IMAGE 1 pixel-for-pixel or near-pixel-for-pixel: identical fine detail, identical noise/grain pattern, identical exact object placement down to compression artifacts. Genuine independent AI generations essentially never reproduce a reference this precisely — extreme similarity is itself evidence of copying, not evidence of a great recreation.",
+    "",
+    "E) Inconsistent generation signature — parts of the image look like genuine AI-model output (soft gradients, generative texture) while other parts look like flat scan/photo compression, suggesting an edited composite or partial screenshot.",
+    "",
+    "F) Any visible fragment of a watermark, timestamp digit, or UI element even if partially cropped, faded, or overlapped by other content — partial evidence still counts.",
+    "",
+    "If ANY of A–F is present, even faintly:",
+    "- \"cheating_detected\": true",
+    "- \"cheating_reason\": one short sentence naming exactly what you saw and where (e.g. \"faint diagonal watermark text visible in upper-left sky area\")",
+    "- \"cheating_confidence\": \"low\" | \"medium\" | \"high\" — how certain you are this is a genuine violation vs. a coincidental artifact",
+    "- Every criterion score = 0",
+    "- Skip Phase 2 entirely",
+    "",
+    "If NONE of A–F is present:",
+    "- \"cheating_detected\": false",
+    "- \"cheating_reason\": null",
+    "- \"cheating_confidence\": null",
+    "- Proceed to Phase 2",
+    "",
+    "Do not give benefit of the doubt. A faint or partial trace is still a trace. When uncertain between \"artifact of AI generation\" and \"artifact of screenshotting,\" treat repeating/structured patterns (text-like, grid-like, or tiling) as cheating evidence, and treat one-off random noise as innocent.",
+    "",
+    "═══════════════════════════════════",
+    "PHASE 2 — SIMILARITY SCORING (only if cheating_detected = false)",
+    "═══════════════════════════════════",
+    "Score each criterion below as an INTEGER 0–10, using these anchors — do not interpolate loosely, pick the anchor that best fits:",
+    "",
+    "0     = Completely absent. Zero resemblance on this criterion.",
+    "1–2   = Barely related. Only a vague, coincidental echo.",
+    "3–4   = Some real similarity but major, obvious differences a viewer would immediately notice.",
+    "5–6   = Moderate match. Recognizably attempting the same thing, but clearly distinguishable from the reference in this criterion.",
+    "7–8   = Close match. Small, nitpicky differences only — a casual viewer might not notice them.",
+    "9–10  = Excellent to near-perfect. Virtually indistinguishable on this criterion.",
     "",
     "Criteria:",
     ...rubric.map((c) => `  ${c.key} (${c.label}, weight ${c.weight}) — ${c.guidance}`),
     "",
-    "CRITICAL RULES — violating these is a judging error:",
-    "- If the recreation shows a COMPLETELY DIFFERENT subject or scene from the",
-    "  reference, the 'subject' score MUST be 0, and no other criterion may exceed 1.",
-    "  A picture of a cat cannot score above 1 on anything if the reference is a landscape.",
-    "- If the recreation is the EXACT SAME image as the reference (identical content),",
-    "  every criterion MUST score 5.",
-    "- Be harsh, not generous. A 3 means 'decent but clearly different'. Reserve 4-5",
-    "  for genuinely close reproductions.",
-    "- Judge the recreation against the reference ONLY, not against aesthetics or quality.",
-    "- Keep each note to one short sentence naming the specific difference.",
+    "CRITICAL RULES — violating any of these is a judging error:",
+    "1. Phase 1 overrides everything. If cheating_detected is true, all scores are 0, no exceptions, no matter how good the \"recreation\" looks.",
+    "2. SUBJECT MISMATCH RULE: if IMAGE 2 depicts a different subject, character, setting, or scene category than IMAGE 1 (e.g. reference has superheroes on a rooftop, recreation has an unrelated animal, landscape, or object), the 'subject' criterion MUST be 0, and no other criterion may score above 2 — regardless of incidental color/mood similarity.",
+    "3. EXACT MATCH RULE: only score all-10s if IMAGE 2 is confirmed independently generated (Phase 1 passed) AND is a startlingly close match. This should be rare.",
+    "4. NO GRADE INFLATION: default to the lower anchor when torn between two bands. A \"pretty good but off in three ways\" is a 5-6, not a 7. Reserve 9-10 for cases you'd show as a \"wow\" example.",
+    "5. SCORE INDEPENDENTLY PER CRITERION: do not let a high score on one criterion pull up your score on another. A recreation can nail \"color palette\" (9) while completely failing \"pose/composition\" (2). Do not average them in your head before scoring each one.",
+    "6. NO EXTERNAL AESTHETICS: never reward IMAGE 2 for looking \"good\" or \"high quality\" in a vacuum. Only fidelity to IMAGE 1 matters. A technically gorgeous image that ignores the reference scores low.",
+    "7. NOTES MUST BE SPECIFIC: each note must name one concrete, checkable visual difference (e.g. \"portal is orange, not blue\" or \"only one figure present, reference has four\"), not a vague statement like \"somewhat different.\"",
+    "8. INTERNAL CONSISTENCY CHECK: before finalizing, verify your summary sentence agrees with your individual scores. If your summary says \"very close match\" but your scores average below 5, revise one or the other — do not submit contradictory output.",
     "",
-    "Reply with JSON only, in exactly this shape:",
-    '{"criteria":[' +
-      rubric.map((c) => `{"key":"${c.key}","score":<0-5>,"note":"<one sentence>"}`).join(",") +
-      '],"summary":"<one sentence overall>"}',
-    "",
-    "CRITICAL INSTRUCTION FOR REASONING MODELS: Keep your internal <think> process extremely brief (under 100 words). Output the final JSON immediately.",
-    "Every criterion listed above must appear exactly once. Scores must be integers.",
+    "Reply with JSON only, in exactly this shape, no markdown fences, no preamble:",
+    '{"cheating_detected": <true|false>, "cheating_reason": "<string or null>", "cheating_confidence": "<low|medium|high|null>", "criteria":[' +
+      rubric.map((c) => `{"key":"${c.key}","score":<0-10>,"note":"<one sentence, specific>"}`).join(",") +
+      '],"summary":"<one honest sentence overall>"}',
   ].join("\n");
 }
 
@@ -242,17 +292,15 @@ export async function judgeImage(challenge: Challenge, referenceImage: ImageData
               {
                 role: "user",
                 content: [
-                  { type: "text", text: "Reference image (the ORIGINAL that the team must replicate):" },
+                  { type: "text", text: "Reference image (the ORIGINAL that the team must replicate, watermarked with team name/timestamp):" },
                   { type: "image_url", image_url: { url: referenceImage } },
-                  { type: "text", text: "Team's submitted recreation (judge THIS against the reference above):" },
+                  { type: "text", text: "Team's submitted recreation, claimed to be freshly AI-generated (judge THIS against the reference above):" },
                   { type: "image_url", image_url: { url: submittedImage } },
                   {
                     type: "text",
                     text:
-                      "Score the recreation against the reference. " +
-                      "If the recreation depicts a COMPLETELY DIFFERENT subject or scene, " +
-                      "the subject score MUST be 0 and all other scores should be 0 or 1. " +
-                      "Only give high scores (4-5) when the recreation is genuinely close to the reference.",
+                      "Step 1: Inspect IMAGE 2 for any watermark fragments, timestamp text, UI elements, screenshot/photo artifacts, or suspiciously exact pixel-level match to the reference. Even partial or faint traces count as a violation — set cheating_detected=true, explain exactly what you saw, and score everything 0.\n\n" +
+                      "Step 2 (only if no violation found): Score the recreation against the reference per-criterion on a 0-10 scale, following the anchors and rules in your instructions. If the recreation depicts a completely different subject/scene, subject score = 0 and all others <= 2. Do not inflate scores — default to the lower band when uncertain. Make sure your summary sentence is consistent with your numeric scores."
                   },
                 ],
               },
