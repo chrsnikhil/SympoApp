@@ -195,7 +195,7 @@ async function main() {
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{spot_maze_traversed_99}"),
+        answerHash: sha256("SPIDER{mayday_safe_escape}"),
         difficulty: "Medium",
         category: "Logic / Encoding",
         description: "Carrying baby Mayday in his carrier, Peter B. Parker needs to sneak past hundreds of patrolling Spider-People inside the vast, multi-leveled Spider-Society Citadel to reach the ventilation shafts and escape.",
@@ -219,7 +219,7 @@ async function main() {
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{xor_cipher_pixel_master}"),
+        answerHash: sha256("SPIDER{punk_watch_schematic_v2}"),
         difficulty: "Medium",
         category: "Digital Forensics",
         description: "Hobie secretly built an unauthorized custom dimensional watch in his DIY garage using stolen Spider-Society tech. To hide the schematics from Miguel's surveillance drones, he visual-scrambled and encrypted the blueprint image into a piece of punk-rock collage art.Decrypt and un-scramble Hobie's punk poster image to reveal the hidden wire layout of his custom-made dimensional travel watch.",
@@ -238,20 +238,20 @@ async function main() {
     {
       type: "ctf",
       slug: "medium-03",
-      title: "Chat Leak",
+      title: "PAVITR PRABHAKAR - THE ALCHEMEX INDIA BREACH",
       points: 150,
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{miguel_chat_logs_intercepted}"),
+        answerHash: sha256("SPIDER{alchemex_pixel_mole_50101}"),
         difficulty: "Medium",
         category: "OSINT / Network Forensics",
-        description: "A leaked chat log between Kingpin's operatives has been intercepted by Spider-Byte. The conversation is partially obfuscated. Participants reference a hidden access key encoded in Hex.",
+        description: "During the supercollider collapse in Mumbattan (Earth-50101), internal messages between Alchemex executives were intercepted, revealing that the collider was intentionally destabilized. Pavitr recovered a screenshot of the leaked corporate chat. The conversation looks ordinary — and that is exactly the problem.",
         details: "Operative A: 'Did you transfer the vault key?' Operative B: 'Yes, it is hex-encoded in the chat payload: 6d696775656c5f636861745f6c6f67735f696e746572636570746564'",
         hints: [
-          { id: 1, text: "Look for raw hex strings inside the intercepted conversation transcript.", unlockSeconds: 300 },
-          { id: 2, text: "Convert hex string bytes to ASCII plain text.", unlockSeconds: 600 },
-          { id: 3, text: "The hex decodes to miguel_chat_logs_intercepted.", unlockSeconds: 900 },
+          { id: 1, text: "Run strings on the PNG and inspect the end of the file. Data is sometimes written after the normal image structure.", unlockSeconds: 300 },
+          { id: 2, text: "Check PNG metadata (Comment / Description). It may point you toward the correct technique.", unlockSeconds: 600 },
+          { id: 3, text: " If the appended data is not enough, try LSB extraction on the red channel (tools: zsteg, StegSolve, or a short Python script). The chat text is mostly noise", unlockSeconds: 900 },
         ],
         status: "open",
         attachments: [],
@@ -291,7 +291,7 @@ async function main() {
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{spider_byte_hidden_payload}"),
+        answerHash: sha256("SPIDER{spot_dark_matter_coords}"),
         difficulty: "Hard",
         category: "Steganography / Cryptography",
         description: "The Prowler has smuggled classified Spider Society data across dimensions by hiding it within an innocent-looking media file. Multiple layers of steganographic encoding have been applied to make it nearly undetectable. Only the sharpest analysts in the Spider Society can peel back all the layers and retrieve the hidden intelligence.",
