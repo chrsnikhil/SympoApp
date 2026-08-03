@@ -49,10 +49,21 @@ export function scoreMcq(challenge: Challenge, payload: string, serve: QuizServe
   }
 
   if (choice !== challenge.config.correctIndex) {
+    if (serve.abilitiesUsed?.includes("free-pass")) {
+      return { correct: true, points: challenge.points, meta: { reason: "free-pass", abilitiesUsed: serve.abilitiesUsed } };
+    }
+    if (serve.abilitiesUsed?.includes("safety-net")) {
+      return { correct: false, points: Math.floor(challenge.points / 2), meta: { reason: "safety-net", abilitiesUsed: serve.abilitiesUsed } };
+    }
     return { correct: false, points: 0 };
   }
 
-  return { correct: true, points: challenge.points, meta: { abilitiesUsed: serve.abilitiesUsed } };
+  let earnedPoints = challenge.points;
+  if (serve.abilitiesUsed?.includes("double-points")) {
+    earnedPoints *= 2;
+  }
+
+  return { correct: true, points: earnedPoints, meta: { abilitiesUsed: serve.abilitiesUsed } };
 }
 
 // ── Round 1, Game 3 — Guess the Number (deferred: needs everyone's guess) ───

@@ -29,7 +29,7 @@ interface Verdict {
 
 interface ComebackStatus {
   bottomStreak: number;
-  ability: "extra-time" | "fifty-fifty" | "hint" | "skip" | null;
+  ability: "fifty-fifty" | "double-points" | "safety-net" | "free-pass" | null;
   info: { label: string; icon: string; description: string } | null;
   usableOnSlug: string | null;
   used: boolean;
@@ -208,8 +208,22 @@ export default function Mcq2Phase({
       return;
     }
     await loadComeback();
-    if (body.effect?.ability === "skip") {
-      await loadQuestion();
+    if (body.effect?.ability === "free-pass") {
+      // Auto-submit a dummy choice. The backend sees "free-pass" and awards full points.
+      inFlight.current = true;
+      setSubmitting(true);
+      try {
+        const submitRes = await fetch("/api/submit", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ event: "quiz", challengeSlug: question.slug, payload: "-1" }),
+        });
+        const verdictData = await submitRes.json();
+        if (submitRes.ok) setVerdict(verdictData);
+      } finally {
+        inFlight.current = false;
+        setSubmitting(false);
+      }
     } else {
       const res2 = await fetch(`/api/quiz/serve?round=${round}`, { cache: "no-store" });
       if (res2.ok) setQuestion(await res2.json());

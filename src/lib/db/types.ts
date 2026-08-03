@@ -331,16 +331,16 @@ export interface RoundQualification {
 /**
  * Round 3's Comeback Meter — the one-time ability a team unlocks by finishing
  * in the bottom tier of the live Round 3 standings on three questions running.
- * Reuses the same four effects the original gadget-token design used
- * (extra-time / fifty-fifty / hint / skip); the only thing that changed is how
- * a team gets one — earned by standing, not by scanning a physical card.
+ * Reuses the original gadget system used (fifty-fifty / double-points / safety-net / free-pass);
+ * the only thing that changed is how a team gets one — earned by standing,
+ * not by scanning a physical card.
  *
  * One doc per team per round. `bottomStreak` increments each time a team's
  * live rank lands in the bottom quarter of the round after a question closes,
  * and resets to 0 otherwise. Reaching the threshold grants an ability and
  * resets the streak, so the same run of bad answers can't grant two.
  */
-export type ComebackAbility = "extra-time" | "fifty-fifty" | "hint" | "skip";
+export type ComebackAbility = "fifty-fifty" | "double-points" | "safety-net" | "free-pass";
 
 export interface ComebackState {
   _id?: ObjectId;
