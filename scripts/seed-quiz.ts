@@ -453,7 +453,7 @@ async function main() {
       type: "quiz",
       slug: `r3-q${i + 1}`,
       title: m.q,
-      points: isFunQuestionIndex(i) ? FUN_QUESTION_POINTS : 100,
+      points: i >= 17 && i <= 19 ? FUN_QUESTION_POINTS : 100,
       opensAt: null,
       closesAt: null,
       config: { round: 3, format: "mcq", order: i + 1, options: m.options, correctIndex: m.correct, hint: m.hint, image: m.image },

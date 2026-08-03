@@ -411,3 +411,241 @@ RAW RESPONSE:
   "summary": "The recreation depicts entirely different characters and composition, failing to match the reference's subject and scene."
 }
 
+RAW RESPONSE:
+{
+  "criteria": [
+    {
+      "key": "subject",
+      "score": 5,
+      "note": "All main characters (Spider-Man, Iron Spider, Iron Man, Black Cat) are present and in correct positions."
+    },
+    {
+      "key": "composition",
+      "score": 4,
+      "note": "Slight difference in Spider-Man's pose, but overall framing is similar."
+    },
+    {
+      "key": "colour",
+      "score": 4,
+      "note": "Color palette is very close, with minor variations in lighting intensity."
+    },
+    {
+      "key": "style",
+      "score": 5,
+      "note": "Art style and medium appear nearly identical to the reference."
+    },
+    {
+      "key": "detail",
+      "score": 4,
+      "note": "Some small details differ, but most elements (buildings, lightning, debris) are accurately reproduced."
+    }
+  ],
+  "summary": "Excellent recreation with only minor differences in specific details and poses."
+}
+
+
+RAW RESPONSE:
+{
+  "criteria": [
+    {
+      "key": "subject",
+      "score": 0,
+      "note": "The recreation is a certificate, while the reference is a superhero scene."
+    },
+    {
+      "key": "composition",
+      "score": 0,
+      "note": "The certificate has a standard layout, unlike the dynamic superhero composition."
+    },
+    {
+      "key": "colour",
+      "score": 0,
+      "note": "The certificate uses formal colors, unlike the vibrant superhero scene."
+    },
+    {
+      "key": "style",
+      "score": 0,
+      "note": "The certificate is a document, while the reference is a digital illustration."
+    },
+    {
+      "key": "detail",
+      "score": 0,
+      "note": "The certificate contains text and signatures, unlike the superhero details."
+    }
+  ],
+  "summary": "The recreation is completely different from the reference, failing to match any criteria."
+}
+
+
+RAW RESPONSE:
+```json
+{"criteria":[{"key":"subject","score":0,"note":"The subject is a cartoon doctor instead of superheroes in a city scene."},{"key":"composition","score":0,"note":"The framing is a centered character portrait rather than a wide cinematic landscape."},{"key":"colour","score":0,"note":"The palette is bright and clean instead of dark and moody with lightning."},{"key":"style","score":0,"note":"The medium is 3D cartoon animation instead of a cinematic digital painting."},{"key":"detail","score":0,"note":"None of the specific environmental or character details from the reference are present."}],"summary":"The recreation is a completely different subject and style from the reference."}
+```
+
+RAW RESPONSE:
+{
+  "criteria": [
+    {
+      "key": "subject",
+      "score": 0,
+      "note": "The recreation shows a single Spider-Woman instead of the multiple Spider-Man characters and portal in the reference."
+    },
+    {
+      "key": "composition",
+      "score": 1,
+      "note": "Both are city scenes with a character swinging, but the reference's rooftop and portal layout differ greatly."
+    },
+    {
+      "key": "colour",
+      "score": 1,
+      "note": "The reference uses a dark, rainy palette with reds and blues, while the recreation uses bright pink and teal tones."
+    },
+    {
+      "key": "style",
+      "score": 1,
+      "note": "The reference is a detailed digital painting, whereas the recreation is a comic‑book style illustration."
+    },
+    {
+      "key": "detail",
+      "score": 1,
+      "note": "The reference contains many specific elements like the portal and debris; the recreation lacks these details."
+    }
+  ],
+  "summary": "The recreation depicts a completely different subject and scene, so subject score is 0 and all other scores are 1."
+}
+
+RAW RESPONSE:
+{
+  "criteria": [
+    {
+      "key": "subject",
+      "score": 0,
+      "note": "The recreation depicts a completely different scene with multiple characters, while the reference shows only three Spider-Man variants."
+    },
+    {
+      "key": "composition",
+      "score": 1,
+      "note": "Both images show characters on a rooftop, but the recreation has a much more crowded composition."
+    },
+    {
+      "key": "colour",
+      "score": 1,
+      "note": "The recreation uses a brighter, more colorful palette compared to the reference's darker tones."
+    },
+    {
+      "key": "style",
+      "score": 1,
+      "note": "The recreation has a more cartoonish style compared to the reference's realistic comic book art."
+    },
+    {
+      "key": "detail",
+      "score": 1,
+      "note": "The recreation includes many additional elements not present in the reference image."
+    }
+  ],
+  "summary": "The recreation is a completely different scene with multiple characters, scoring very low across all criteria."
+}
+
+
+RAW RESPONSE:
+{
+  "criteria": [
+    {
+      "key": "subject",
+      "score": 0,
+      "note": "The recreation features a completely different set of characters and a different central focus compared to the reference."
+    },
+    {
+      "key": "composition",
+      "score": 0,
+      "note": "Framing, angles, and placement of characters are entirely different from the reference."
+    },
+    {
+      "key": "colour",
+      "score": 0,
+      "note": "The palette, lighting, and mood are opposite—rainy dark tones versus bright neon colors."
+    },
+    {
+      "key": "style",
+      "score": 0,
+      "note": "The rendering style shifts from a detailed digital painting to a comic‑book illustration style."
+    },
+    {
+      "key": "detail",
+      "score": 0,
+      "note": "Specific elements like the portal, rain, and rooftop debris are absent or replaced with unrelated items."
+    }
+  ],
+  "summary": "The recreation is a wholly different scene with different characters, composition, colour, style, and details, so it scores 0 across all criteria."
+}
+
+RAW RESPONSE:
+{
+  "criteria": [
+    {
+      "key": "subject",
+      "score": 0,
+      "note": "The recreation shows a man with sunglasses instead of Spider-Man characters, a completely different subject."
+    },
+    {
+      "key": "composition",
+      "score": 0,
+      "note": "The framing and camera angle are unrelated to the rooftop city scene."
+    },
+    {
+      "key": "colour",
+      "score": 0,
+      "note": "The recreation is black‑and‑white while the reference is colorful, so colour and lighting differ entirely."
+    },
+    {
+      "key": "style",
+      "score": 0,
+      "note": "The illustration style is a sketch portrait, not the comic‑book digital art of the reference."
+    },
+    {
+      "key": "detail",
+      "score": 0,
+      "note": "No matching props, background, or characters are present."
+    }
+  ],
+  "summary": "The recreation is a completely different subject and scene, resulting in a score of 0 across all criteria."
+}
+
+RAW RESPONSE:
+{"criteria":[{"key":"subject","score":0,"note":"The subject is a completely different character design and scene composition."},{"key":"composition","score":1,"note":"The framing is a vertical poster layout rather than a cinematic landscape."},{"key":"colour","score":0,"note":"The palette is monochrome/black and white instead of vibrant colors."},{"key":"style","score":1,"note":"The style is a graphic poster/illustration rather than a digital painting."},{"key":"detail","score":0,"note":"The background elements like the portal and city skyline are entirely missing."}],"summary":"The recreation is a completely different subject and style, failing to capture the scene or characters of the reference."}
+
+RAW RESPONSE:
+{"criteria":[{"key":"subject","score":0,"note":"The recreation depicts a different scene with different characters and no portals."},{"key":"composition","score":1,"note":"The framing is a wide shot on a rooftop, but lacks the central character and circular portals."},{"key":"colour","score":2,"note":"The color palette is dark and moody, but lacks the vibrant red and blue of the original."},{"key":"style","score":1,"note":"The recreation is a digital painting while the reference is a comic book illustration."},{"key":"detail","score":0,"note":"None of the specific elements like the portals or text are present."}],"summary":"The recreation fails to capture the subject, composition, or specific stylistic elements of the comic book reference."}
+
+RAW RESPONSE:
+{
+  "criteria": [
+    {
+      "key": "subject",
+      "score": 0,
+      "note": "The recreation shows a timer icon with a spider logo, not the superhero scene from the reference."
+    },
+    {
+      "key": "composition",
+      "score": 0,
+      "note": "There is no compositional similarity; the reference is a detailed rooftop scene while the recreation is a centered icon."
+    },
+    {
+      "key": "colour",
+      "score": 0,
+      "note": "The reference uses a dark, rainy, multicolored palette, whereas the recreation is monochrome with red and gray."
+    },
+    {
+      "key": "style",
+      "score": 0,
+      "note": "The reference is a realistic, illustrated superhero illustration, while the recreation is a flat, minimalist icon."
+    },
+    {
+      "key": "detail",
+      "score": 0,
+      "note": "No specific elements from the reference (characters, portal, cityscape) appear in the recreation."
+    }
+  ],
+  "summary": "The recreation is a simple timer icon with a spider logo, completely unrelated to the reference superhero scene."
+}
+

@@ -89,7 +89,8 @@ export async function closeQuestionForComeback(teamId: ObjectId, round: QuizRoun
   if (rank === -1) return;
 
   const bottomTierSize = Math.max(1, Math.ceil(table.length * BOTTOM_TIER_FRACTION));
-  const inBottomTier = rank >= table.length - bottomTierSize;
+  // TEST MODE: Anyone gets comeback meter
+  const inBottomTier = true;
 
   const fresh = await states.findOne({ teamId, round });
   const currentStreak = fresh?.bottomStreak ?? 0;

@@ -212,7 +212,7 @@ function PhaseCard({
 
   const currentNow = now > 0 ? now : Date.now();
 
-  const RULES_DURATION_MS = 10_000; // 10-second pre-game rules gate
+  const RULES_DURATION_MS = 15_000; // 15-second pre-game rules gate
 
   const phaseStartRef = useRef<Record<string, number>>({});
   if (!phaseStartRef.current[phase]) {
@@ -234,12 +234,12 @@ function PhaseCard({
 
   // Dedicated 10-second pre-game rules gate shown for 10s on entering each game phase
   const [seenRules, setSeenRules] = useState<Record<string, boolean>>({});
-  const [rulesTimer, setRulesTimer] = useState<number>(10);
+  const [rulesTimer, setRulesTimer] = useState<number>(15);
 
   useEffect(() => {
     if (phase === "done") return;
     if (!seenRules[phase]) {
-      setRulesTimer(10);
+      setRulesTimer(15);
       const timer = setInterval(() => {
         setRulesTimer((prev) => {
           if (prev <= 1) {
@@ -411,7 +411,7 @@ function PreGameRulesGate({
         <div className="flex justify-center my-2">
           <SpiderTimer
             secondsLeft={secondsLeft}
-            totalSeconds={10}
+            totalSeconds={15}
             urgent={secondsLeft <= 3}
             size={95}
             format="seconds"

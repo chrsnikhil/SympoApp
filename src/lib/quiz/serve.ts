@@ -27,6 +27,44 @@ const SELECT_SECONDS = 10;
  *  — absorbs an answer that was in flight when the clock hit zero. */
 const LATE_GRACE_MS = 2_000;
 
+function parseQuestionTitle(title: string) {
+  if (!title) return { prompt: "", code: null };
+  const lines = title.split("\n");
+
+  const isCodeLine = (line: string) => {
+    const t = line.trim();
+    return (
+      t.startsWith("#include") ||
+      t.startsWith("using namespace") ||
+      t.startsWith("def ") ||
+      t.startsWith("class ") ||
+      t.startsWith("import ") ||
+      t.startsWith("int main") ||
+      t.startsWith("int f(") ||
+      t.startsWith("int ") ||
+      t.startsWith("void ") ||
+      t.startsWith("struct ") ||
+      t.startsWith("public static") ||
+      t.startsWith("x = ") ||
+      t.startsWith("print(") ||
+      t.startsWith("cout") ||
+      t.startsWith("return ") ||
+      t.includes("nonlocal ") ||
+      (t.includes("{") && !t.toLowerCase().startsWith("what")) ||
+      (t.includes("}") && t.length < 5)
+    );
+  };
+
+  const firstCodeIdx = lines.findIndex(isCodeLine);
+  if (firstCodeIdx !== -1) {
+    const prompt = lines.slice(0, firstCodeIdx).join("\n").trim();
+    const code = lines.slice(firstCodeIdx).join("\n").trim();
+    return { prompt: prompt || title, code };
+  }
+
+  return { prompt: title, code: null };
+}
+
 /** What the client is allowed to see. Note what is NOT here: correctIndex,
  *  answerHash, answerValue — and `hint` is populated only once paid for. */
 export interface ServedQuestion {
@@ -105,10 +143,28 @@ export async function serveNext(teamId: ObjectId, round: QuizRound): Promise<Ser
 
   // 15s pre-round rules interlude gate (matches RoundTransition countdown in QuizClient)
   const RULES_INTERLUDE_MS = 15_000;
-  // 16s question time (6s read + 10s select) per question step
-  const QUESTION_STEP_MS = 16_000;
   const elapsedMs = Math.max(0, now - (roundStart.getTime() + RULES_INTERLUDE_MS));
-  const activeIndex = Math.floor(elapsedMs / QUESTION_STEP_MS);
+
+  let activeIndex = questions.length;
+  let accumulatedMs = 0;
+  let currentReadSeconds = READ_SECONDS;
+  let currentSelectSeconds = SELECT_SECONDS;
+
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i];
+    const isSnippet = !!parseQuestionTitle(q.title).code;
+    const rSec = isSnippet ? 10 : READ_SECONDS;
+    const sSec = isSnippet ? 15 : SELECT_SECONDS;
+    const stepMs = (rSec + sSec) * 1000;
+    
+    if (elapsedMs < accumulatedMs + stepMs) {
+      activeIndex = i;
+      currentReadSeconds = rSec;
+      currentSelectSeconds = sSec;
+      break;
+    }
+    accumulatedMs += stepMs;
+  }
 
   if (activeIndex >= questions.length) {
     return { ok: true, done: true };
@@ -118,9 +174,9 @@ export async function serveNext(teamId: ObjectId, round: QuizRound): Promise<Ser
   const serves = await collections.quizServes();
   let serve = await serves.findOne({ teamId, challengeSlug: q.slug });
 
-  const questionServedAt = new Date(roundStart.getTime() + RULES_INTERLUDE_MS + activeIndex * QUESTION_STEP_MS);
-  const readUntil = new Date(questionServedAt.getTime() + READ_SECONDS * 1000);
-  const answerableUntil = new Date(questionServedAt.getTime() + (READ_SECONDS + SELECT_SECONDS) * 1000);
+  const questionServedAt = new Date(roundStart.getTime() + RULES_INTERLUDE_MS + accumulatedMs);
+  const readUntil = new Date(questionServedAt.getTime() + currentReadSeconds * 1000);
+  const answerableUntil = new Date(questionServedAt.getTime() + (currentReadSeconds + currentSelectSeconds) * 1000);
 
   if (!serve) {
     const fresh: QuizServe = {

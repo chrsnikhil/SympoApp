@@ -216,6 +216,10 @@ export default function Mcq2Phase({
     }
   }
 
+  const parsed = question ? parseQuestionTitle(question.title) : { prompt: "", code: null };
+  const isSnippet = !!parsed.code;
+  const readTotalSeconds = isSnippet ? 10 : 6;
+  const selectTotalSeconds = isSnippet ? 15 : 10;
   const readSecondsLeft = Math.max(0, Math.ceil((readUntilMs - syncedNow) / 1000));
   const selectSecondsLeft = Math.max(0, Math.ceil((answerableUntilMs - syncedNow) / 1000));
   const urgent = phase === "select" && selectSecondsLeft <= 3;
@@ -260,7 +264,7 @@ export default function Mcq2Phase({
             <div className="bg-surface comic-border-sm p-2 flex items-center gap-3 comic-tilt-left">
               <SpiderTimer
                 secondsLeft={phase === "read" ? readSecondsLeft : selectSecondsLeft}
-                totalSeconds={phase === "read" ? 6 : 10}
+                totalSeconds={phase === "read" ? readTotalSeconds : selectTotalSeconds}
                 urgent={urgent}
                 size={80}
                 format="seconds"
@@ -277,8 +281,8 @@ export default function Mcq2Phase({
                     Math.min(
                       100,
                       phase === "read"
-                        ? ((readUntilMs - syncedNow) / 6000) * 100
-                        : ((answerableUntilMs - syncedNow) / 10000) * 100
+                        ? ((readUntilMs - syncedNow) / (readTotalSeconds * 1000)) * 100
+                        : ((answerableUntilMs - syncedNow) / (selectTotalSeconds * 1000)) * 100
                     )
                   )}%`,
                 }}
@@ -317,7 +321,7 @@ export default function Mcq2Phase({
                         CODE SNIPPET
                       </span>
                     </div>
-                    <pre className="p-4 sm:p-6 font-mono text-sm md:text-base text-glitch-cyan leading-relaxed overflow-x-auto whitespace-pre bg-[#0a0b0e] border-t border-paper-white/10">
+                    <pre className="p-4 sm:p-6 font-mono text-sm md:text-base text-glitch-cyan leading-relaxed overflow-x-auto whitespace-pre bg-[#0a0b0e] border-t border-paper-white/10 select-none">
                       <code>{parsed.code}</code>
                     </pre>
                   </div>

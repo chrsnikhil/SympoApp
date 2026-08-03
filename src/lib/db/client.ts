@@ -112,7 +112,10 @@ async function createClient(): Promise<MongoClient> {
 
 function clientPromise(): Promise<MongoClient> {
   if (!global.__mongoClientPromise) {
-    global.__mongoClientPromise = createClient();
+    global.__mongoClientPromise = createClient().catch((err) => {
+      global.__mongoClientPromise = undefined;
+      throw err;
+    });
     if (!global.__mongoIndexesEnsured) {
       global.__mongoIndexesEnsured = true;
       void global.__mongoClientPromise.then(() => ensureIndexes().catch(() => {}));

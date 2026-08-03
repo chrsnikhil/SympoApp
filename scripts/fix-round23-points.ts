@@ -11,7 +11,7 @@ import { collections } from "../src/lib/db/client";
 
 const FUN_QUESTION_SLUGS = [
   "r2-q15", "r2-q16", "r2-q17", "r2-q18", "r2-q19", "r2-q20",
-  "r3-q15", "r3-q16", "r3-q17", "r3-q18", "r3-q19", "r3-q20",
+  "r3-q18", "r3-q19", "r3-q20",
 ];
 const REMOVED_SLUG = "r3-q21";
 
