@@ -33,6 +33,7 @@ interface ComebackStatus {
   info: { label: string; icon: string; description: string } | null;
   usableOnSlug: string | null;
   used: boolean;
+  isRankOne: boolean;
 }
 
 const AUTO_ADVANCE_DELAY_MS = 3400;
@@ -195,40 +196,27 @@ export default function Mcq2Phase({
     }
   }
 
-  async function useAbility() {
-    if (!question) return;
-    const res = await fetch("/api/quiz/power", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ challengeSlug: question.slug }),
-    });
-    const body = await res.json();
-    if (!res.ok) {
-      setError(body.error ?? "Could not use your ability");
-      return;
-    }
-    await loadComeback();
-    if (body.effect?.ability === "free-pass") {
-      // Auto-submit a dummy choice. The backend sees "free-pass" and awards full points.
+  // Auto-activate Free Pass
+  useEffect(() => {
+    if (question && comeback?.ability === "free-pass" && !verdict && !inFlight.current) {
       inFlight.current = true;
       setSubmitting(true);
-      try {
-        const submitRes = await fetch("/api/submit", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ event: "quiz", challengeSlug: question.slug, payload: "-1" }),
+      fetch("/api/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ event: "quiz", challengeSlug: question.slug, payload: "-1" }),
+      })
+        .then((res) => res.json().then((data) => ({ res, data })))
+        .then(({ res, data }) => {
+          if (res.ok) setVerdict(data);
+        })
+        .catch(() => setError("Failed to apply Free Pass"))
+        .finally(() => {
+          inFlight.current = false;
+          setSubmitting(false);
         });
-        const verdictData = await submitRes.json();
-        if (submitRes.ok) setVerdict(verdictData);
-      } finally {
-        inFlight.current = false;
-        setSubmitting(false);
-      }
-    } else {
-      const res2 = await fetch(`/api/quiz/serve?round=${round}`, { cache: "no-store" });
-      if (res2.ok) setQuestion(await res2.json());
     }
-  }
+  }, [question, comeback, verdict]);
 
   const parsed = question ? parseQuestionTitle(question.title) : { prompt: "", code: null };
   const isSnippet = !!parsed.code;
@@ -303,9 +291,37 @@ export default function Mcq2Phase({
               />
             </div>
 
-            <div className="bg-tertiary-fixed comic-border-sm p-3 comic-tilt-right">
-              <span className="font-label-sm uppercase text-[10px] block leading-none">Points</span>
-              <span className="font-display-xl text-headline-lg-mobile">{question.points}</span>
+            <div className="flex items-center gap-3">
+              {/* Active Ability Badge */}
+              {(() => {
+                const activeAbilities = verdict?.abilitiesUsed || (comeback?.ability && (!comeback.usableOnSlug || comeback.usableOnSlug === question.slug) ? [comeback.ability] : []);
+                if (activeAbilities.length === 0) return null;
+                
+                const getAbilityLabel = (id: string) => {
+                  if (comeback?.ability === id && comeback?.info) return comeback.info.label;
+                  if (id === "fifty-fifty") return "Spider-Sense";
+                  if (id === "double-points") return "Symbiote Surge";
+                  if (id === "safety-net") return "Iron Spider Armor";
+                  if (id === "free-pass") return "Web-Slinger's Pass";
+                  return id;
+                };
+
+                return (
+                  <div className="bg-glitch-cyan text-ink-black comic-border-sm p-3 comic-tilt-left flex flex-col items-center justify-center">
+                    <span className="font-label-sm uppercase text-[10px] block leading-none mb-1 font-bold">Power Active</span>
+                    {activeAbilities.map(id => (
+                      <span key={id} className="font-display-xl text-sm tracking-wider leading-none">
+                        {getAbilityLabel(id)}
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              <div className="bg-tertiary-fixed comic-border-sm p-3 comic-tilt-right flex flex-col items-center">
+                <span className="font-label-sm uppercase text-[10px] block leading-none">Points</span>
+                <span className="font-display-xl text-headline-lg-mobile">{question.points}</span>
+              </div>
             </div>
           </div>
 
@@ -481,7 +497,7 @@ export default function Mcq2Phase({
       )}
 
       {/* Comeback Meter for Round 3 */}
-      {round === 3 && (
+      {round === 3 && !comeback?.isRankOne && (
         <section className="bg-surface comic-border p-6 mt-8 comic-tilt-left">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -508,22 +524,14 @@ export default function Mcq2Phase({
             </div>
           </div>
 
-          {comeback?.ability && !comeback.used && (!comeback.usableOnSlug || comeback.usableOnSlug === question?.slug) && !verdict && (
+          {comeback?.ability && (!comeback.usableOnSlug || comeback.usableOnSlug === question?.slug) && !verdict && (
             <div className="mt-4 pt-4 border-t-2 border-dashed border-on-surface/20 flex flex-wrap items-center justify-between gap-4">
               <div>
                 <div className="font-display-xl text-headline-lg-mobile text-primary">
-                  UNLOCKED: {comeback.info?.label}
+                  {comeback.used ? "ACTIVE POWER" : "POWER READY"}: {comeback.info?.label}
                 </div>
                 <div className="font-label-sm text-xs text-on-surface-variant uppercase">{comeback.info?.description}</div>
               </div>
-              <button
-                type="button"
-                onClick={useAbility}
-                disabled={phase !== "select"}
-                className="bg-primary text-on-primary font-display-xl text-caption-bold px-6 py-3 comic-border comic-tilt-right hover:scale-105 transition-transform"
-              >
-                Use Ability
-              </button>
             </div>
           )}
         </section>

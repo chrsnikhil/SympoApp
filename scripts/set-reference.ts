@@ -58,7 +58,7 @@ async function main() {
 
   console.log(`\n  Reference set for ${slug}`);
   console.log(`    source:  ${basename(file)} (${Math.round(bytes.length / 1024)}KB, ${mime})`);
-  console.log(`    shown at: /quiz/${publicName}`);
+  console.log(`    shown at: /api/quiz/round1/reference`);
   console.log(`    judge:   ${Math.round(dataUrl.length / 1024)}KB base64 stored on the challenge`);
   console.log("\n  The vision judge can now score this question.\n");
   process.exit(0);

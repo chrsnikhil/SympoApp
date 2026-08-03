@@ -11,13 +11,30 @@ export async function GET() {
 
     const challenges = await collections.challenges();
     const challenge = await challenges.findOne({ type: "quiz", "config.format": "prompt-image" });
+
+    if (!challenge) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
     
-    if (!challenge || !challenge.config.referenceDataUrl) {
+    let dataUrl = challenge.config.referenceDataUrl;
+    
+    if (!dataUrl && challenge.config.referenceImage) {
+      // Fallback: read from filesystem if not in DB
+      const fs = await import("fs");
+      const path = await import("path");
+      const refPath = path.join(process.cwd(), "public", challenge.config.referenceImage.replace(/^\//, ""));
+      if (fs.existsSync(refPath)) {
+        const ext = path.extname(refPath).slice(1) || "jpeg";
+        dataUrl = `data:image/${ext};base64,${fs.readFileSync(refPath).toString("base64")}`;
+      }
+    }
+
+    if (!dataUrl) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     return NextResponse.json(
-      { dataUrl: challenge.config.referenceDataUrl },
+      { dataUrl },
       { headers: { "Cache-Control": "private, max-age=3600" } }
     );
   } catch (err) {

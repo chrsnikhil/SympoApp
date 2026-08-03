@@ -264,6 +264,9 @@ export async function judgeImage(challenge: Challenge, referenceImage: ImageData
       similarity: 1.0,
       criteria,
       summary: "Exact 100% match with the reference image.",
+      cheating_detected: false,
+      cheating_reason: "Exact byte match with reference image.",
+      cheating_confidence: null,
     };
   }
 
@@ -312,8 +315,8 @@ export async function judgeImage(challenge: Challenge, referenceImage: ImageData
           const payload = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
           const content = payload.choices?.[0]?.message?.content;
           if (content) {
-            const { criteria, summary } = parseVerdict(content, rubric);
-            return { similarity: toSimilarity(criteria, rubric), criteria, summary };
+            const parsed = parseVerdict(content, rubric);
+            return { similarity: toSimilarity(parsed.cheating_detected, parsed.criteria, rubric), ...parsed };
           }
         } else {
           const errBody = await response.text();

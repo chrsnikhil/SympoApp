@@ -90,7 +90,6 @@ export type ServeResult =
 
 function toPublic(challenge: Challenge, serve: QuizServe | import("mongodb").WithId<QuizServe>, index: number, total: number): ServedQuestion {
   const cfg = challenge.config;
-  const hintPaidFor = serve.abilitiesUsed.includes("hint");
   return {
     slug: challenge.slug,
     title: challenge.title,
@@ -100,7 +99,7 @@ function toPublic(challenge: Challenge, serve: QuizServe | import("mongodb").Wit
     readUntil: serve.readUntil.toISOString(),
     answerableUntil: serve.answerableUntil.toISOString(),
     eliminated: serve.eliminated ?? [],
-    hint: hintPaidFor ? (cfg.hint ?? null) : null,
+    hint: null,
     index,
     total,
     serverNow: new Date().toISOString(),
@@ -196,8 +195,8 @@ export async function serveNext(teamId: ObjectId, round: QuizRound): Promise<Ser
       serve = (await serves.findOne({ teamId, challengeSlug: q.slug })) ?? (fresh as import("mongodb").WithId<QuizServe>);
     }
   } else if (serve.readUntil.getTime() !== readUntil.getTime() || serve.answerableUntil.getTime() !== answerableUntil.getTime()) {
-    // Keep in-flight serve timestamps synced with the global clock (unless extra-time ability was used)
-    if (!serve.abilitiesUsed.includes("extra-time")) {
+    // Keep in-flight serve timestamps synced with the global clock
+    if (true) {
       serve.readUntil = readUntil;
       serve.answerableUntil = answerableUntil;
       await serves.updateOne({ _id: serve._id }, { $set: { readUntil, answerableUntil } });

@@ -57,13 +57,18 @@ async function getOrInit(teamId: ObjectId, round: QuizRound): Promise<ComebackSt
 }
 
 export async function getComebackStatus(teamId: ObjectId, round: QuizRound) {
+  const table = await standings(round);
+  const rank = table.findIndex((r) => r.teamId === String(teamId));
+  const isRankOne = rank === 0;
+
   const s = await getOrInit(teamId, round);
   return {
-    bottomStreak: s.ability && !s.usedAt ? STREAK_THRESHOLD : s.bottomStreak,
+    bottomStreak: s.bottomStreak,
     ability: s.ability,
     info: s.ability ? ABILITY_INFO[s.ability] : null,
     usableOnSlug: s.usableOnSlug,
     used: s.usedAt !== null,
+    isRankOne,
   };
 }
 
@@ -93,19 +98,26 @@ export async function closeQuestionForComeback(teamId: ObjectId, round: QuizRoun
   const rank = table.findIndex((r) => r.teamId === teamId.toString());
   if (rank === -1) return;
 
-  const bottomTierSize = Math.max(1, Math.ceil(table.length * BOTTOM_TIER_FRACTION));
-  // TEST MODE: Anyone gets comeback meter
-  const inBottomTier = true;
+  const isRankOne = rank === 0;
 
   const fresh = await states.findOne({ teamId, round });
   const currentStreak = fresh?.bottomStreak ?? 0;
-  const newStreak = inBottomTier ? Math.min(STREAK_THRESHOLD, currentStreak + 1) : 0;
+  
+  const challenges = await collections.challenges();
+  const challenge = await challenges.findOne({ slug });
+  const subs = await collections.submissions();
+  const sub = await subs.findOne({ teamId, challengeId: challenge?._id });
+  const isCorrect = sub?.verdict?.correct === true;
+
+  // A correct answer never fills the meter. If they are Rank 1, it also doesn't fill.
+  // Otherwise, if they got it wrong, fill by 1.
+  const newStreak = (!isCorrect && !isRankOne) ? Math.min(STREAK_THRESHOLD, currentStreak + 1) : currentStreak;
 
   if (newStreak >= STREAK_THRESHOLD && !fresh?.ability) {
     const ability = ABILITIES[randomInt(ABILITIES.length)];
     await states.updateOne(
       { teamId, round },
-      { $set: { bottomStreak: STREAK_THRESHOLD, ability, grantedAt: new Date(), usableOnSlug: null, usedAt: null, usedOnSlug: null } }
+      { $set: { bottomStreak: 0, ability, grantedAt: new Date(), usableOnSlug: null, usedAt: null, usedOnSlug: null } }
     );
   } else {
     await states.updateOne({ teamId, round }, { $set: { bottomStreak: newStreak } });
@@ -132,7 +144,7 @@ export async function attachPendingAbility(teamId: ObjectId, round: QuizRound, s
 export async function expireOldComebackAbilities(teamId: ObjectId, round: QuizRound, currentSlug: string): Promise<void> {
   const states = await collections.comebackStates();
   await states.updateOne(
-    { teamId, round, usableOnSlug: { $ne: null, $ne: currentSlug } },
+    { teamId, round, usableOnSlug: { $nin: [null, currentSlug] } },
     { $set: { ability: null, usableOnSlug: null, grantedAt: null, bottomStreak: 0 } }
   );
 }

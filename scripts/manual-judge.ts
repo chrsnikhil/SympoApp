@@ -1,5 +1,5 @@
-import { collections } from './src/lib/db/client.ts';
-import { judgeImage } from './src/lib/quiz/judge.ts';
+import { collections } from '../src/lib/db/client';
+import { judgeImage } from '../src/lib/quiz/judge';
 
 async function test() {
   console.log("Fetching images...");
@@ -20,7 +20,7 @@ async function test() {
 
   console.log("Judging image...");
   try {
-    const res = await judgeImage(challenge, challenge.config.referenceDataUrl, promptImg.dataUrl);
+    const res = await judgeImage(challenge, challenge.config.referenceDataUrl as string, promptImg.dataUrl);
     console.log("SUCCESS:", res);
   } catch (e) {
     console.log("FAILED:", e);

@@ -146,7 +146,7 @@ export async function GET() {
           frozenReason,
           game: {
             ...base,
-            referenceImage: !!challenge.config.referenceDataUrl,
+            referenceImage: !!(challenge.config.referenceDataUrl || challenge.config.referenceImage),
             uploadedImage: userImg?.dataUrl ?? null,
             status: sub?.status ?? "not-started",
             verdict: sub?.verdict ? { correct: sub.verdict.correct, points: sub.verdict.points } : null,

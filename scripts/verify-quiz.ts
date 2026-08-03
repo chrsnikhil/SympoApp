@@ -355,53 +355,37 @@ async function main() {
     check("a finalist is served round 3", r3served.status === 200 && !!r3served.body?.slug, r3served.body);
 
     if (r3served.body?.slug) {
-      // Force-grant every ability once and check its effect deterministically
-      // — activation itself is random, so this is what actually exercises all
-      // four on every run instead of whichever one chance produced.
       const comebackStates = await collections.comebackStates();
       const finalistId = new ObjectId(finalist.teamId);
 
-      for (const ability of ["fifty-fifty", "hint", "extra-time", "skip"] as const) {
-        const q = await finalist.client.get("/api/quiz/serve?round=3");
-        if (q.body?.done || !q.body?.slug) break;
+      for (const ability of ["fifty-fifty", "double-points", "safety-net", "free-pass"] as const) {
+        const prevQ = await finalist.client.get("/api/quiz/serve?round=3");
+        if (prevQ.body?.done || !prevQ.body?.slug) break;
 
         await comebackStates.updateOne(
           { teamId: finalistId, round: 3 },
-          { $set: { ability, usableOnSlug: q.body.slug, usedAt: null, usedOnSlug: null, bottomStreak: 0, grantedAt: new Date() } },
+          { $set: { ability, usableOnSlug: null, usedAt: null, usedOnSlug: null, bottomStreak: 0, grantedAt: new Date() } },
           { upsert: true }
         );
 
-        const effect = await finalist.client.post("/api/quiz/power", { challengeSlug: q.body.slug });
-        check(`comeback ability '${ability}' can be spent`, effect.body?.ok === true, effect.body);
+        const q = await finalist.client.get("/api/quiz/serve?round=3");
+        
+        const stateAfter = await comebackStates.findOne({ teamId: finalistId, round: 3 });
+        check(`comeback ability '${ability}' auto-activates`, stateAfter?.usedAt !== null, stateAfter);
 
-        if (ability === "extra-time" && effect.body?.ok) {
-          check(
-            "extra-time actually extends the deadline",
-            new Date(effect.body.effect.answerableUntil).getTime() > new Date(q.body.answerableUntil).getTime(),
-            effect.body
-          );
-        }
-        if (ability === "fifty-fifty" && effect.body?.ok) {
-          check("fifty-fifty removes exactly two options", effect.body.effect.eliminated?.length === 2, effect.body.effect);
-        }
-        if (ability === "hint" && effect.body?.ok) {
-          check("hint returns text", typeof effect.body.effect.hint === "string", effect.body.effect);
-        }
-        if (ability === "skip") {
-          const again = await finalist.client.get("/api/quiz/serve?round=3");
-          check("skip moves the team past that question", again.body?.slug !== q.body.slug || again.body?.done, { before: q.body?.slug, after: again.body?.slug });
+        if (ability === "fifty-fifty") {
+          const serves = await collections.quizServes();
+          const res = await serves.findOne({ teamId: finalistId, challengeSlug: q.body?.slug });
+          check("fifty-fifty removes exactly two options", res?.eliminated?.length === 2, res);
         }
 
-        const spendAgain = await finalist.client.post("/api/quiz/power", { challengeSlug: q.body.slug });
-        check(`comeback ability '${ability}' cannot be spent twice`, spendAgain.status !== 200, spendAgain.status);
-
-        // Move past this question for the next iteration (skip already did).
-        if (ability !== "skip") {
-          const opts = q.body.options as string[];
-          const wrongIndex = opts.findIndex((_: string, i: number) => i !== answerBySlug.get(q.body.slug));
-          await sleep(Math.max(0, new Date(q.body.readUntil).getTime() - Date.now()) + 150);
-          await finalist.client.post("/api/submit", { event: "quiz", challengeSlug: q.body.slug, payload: String(wrongIndex) });
-        }
+        const choice = "1";
+        const grade = await finalist.client.post("/api/submit", {
+          event: "quiz",
+          challengeSlug: q.body?.slug,
+          payload: choice,
+        });
+        check(`answer submitted after '${ability}'`, grade.status === 200, grade.body);
       }
     }
   } else {

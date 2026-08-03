@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
-import { attachPendingAbility, expireOldComebackAbilities, closeQuestionForComeback } from "@/lib/quiz/comeback";
+import { attachPendingAbility, expireOldComebackAbilities, closeQuestionForComeback, spendComeback } from "@/lib/quiz/comeback";
 import { collections } from "@/lib/db/client";
 import { isQualified } from "@/lib/quiz/rounds";
 import { serveNext } from "@/lib/quiz/serve";
+import { gradeQuiz } from "@/lib/graders/quiz";
 import type { QuizRound } from "@/lib/db/types";
 
 /**
@@ -59,6 +60,24 @@ export async function GET(request: Request) {
 
       await expireOldComebackAbilities(teamId, round, result.question.slug);
       await attachPendingAbility(teamId, round, result.question.slug);
+      
+      const challenges = await collections.challenges();
+      const challenge = await challenges.findOne({ slug: result.question.slug });
+      if (challenge) {
+        const spendRes = await spendComeback(teamId, round, result.question.slug, challenge);
+        
+        // If it's a Free Pass, auto-submit the correct answer instantly
+        if (spendRes.ok && spendRes.effect.ability === "free-pass" && challenge.config.correctIndex !== undefined) {
+          await gradeQuiz({
+            teamId,
+            participantId: new ObjectId(session.sub),
+            challenge,
+            payload: String(challenge.config.correctIndex),
+            receivedAt: new Date(),
+            submissionId: new ObjectId(), // Dummy ID, quiz submission endpoint doesn't strictly need it to be real for MCQ scoring
+          });
+        }
+      }
     }
 
     return NextResponse.json(result.question, { headers: { "Cache-Control": "no-store" } });

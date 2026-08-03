@@ -116,9 +116,6 @@ export async function gradeQuiz(input: GradeInput): Promise<GradeResult> {
   // still has their full window to answer for real.
   if (result.meta?.reason !== "too-early") {
     await markAnswered(teamId, challenge.slug, receivedAt);
-    if (round === 3) {
-      await closeQuestionForComeback(teamId, round, challenge.slug);
-    }
   }
 
   return result;
