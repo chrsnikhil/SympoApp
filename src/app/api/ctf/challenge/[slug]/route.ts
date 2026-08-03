@@ -109,9 +109,8 @@ export async function GET(
 
     // Dynamic hints structure (defaults if not in config)
     const defaultHints = [
-      { id: 1, text: "The key is hidden in plain sight.", unlockSeconds: 120 },
-      { id: 2, text: "Check the frequency of bytes.", unlockSeconds: 300 },
-      { id: 3, text: "It's encrypted... but not very well.", unlockSeconds: 600 },
+      { id: 1, text: "The key is hidden in plain sight.", unlockSeconds: 300 },
+      { id: 2, text: "Check the frequency of bytes.", unlockSeconds: 600 },
     ];
 
     const lastResetDoc = await db.collection("system_settings").findOne({ key: "ctf_last_reset" });
@@ -120,7 +119,7 @@ export async function GET(
     const rawHints = ch.config.hints && ch.config.hints.length > 0 ? ch.config.hints : defaultHints;
     const hintsList = rawHints.map((h, idx) => ({
       ...h,
-      unlockSeconds: idx === 0 ? 120 : idx === 1 ? 300 : 600,
+      unlockSeconds: idx === 0 ? 300 : 600,
     }));
 
     return NextResponse.json({
