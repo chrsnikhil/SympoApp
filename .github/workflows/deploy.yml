@@ -1,0 +1,87 @@
+name: Deploy to Azure Container Apps
+
+# Build the image, push to ACR, roll the Container App.
+#
+# SETUP (one-time):
+#   1. Create the Azure resources (see infra/README.md).
+#   2. Create a service principal scoped to the resource group:
+#        az ad sp create-for-rbac --name xplore26-deploy \
+#          --role contributor \
+#          --scopes /subscriptions/<SUB_ID>/resourceGroups/rg-xplore26 \
+#          --sdk-auth
+#   3. Save its JSON output as the repo secret AZURE_CREDENTIALS.
+#   4. Add repo variables: ACR_NAME, RESOURCE_GROUP, CONTAINER_APP.
+#
+# Preview environments: ACA revisions can serve traffic at their own URL, so a
+# PR can be deployed as a labelled revision. That's intentionally NOT wired up
+# yet — each preview revision holds a replica and writes to the same database,
+# so it needs a seeded scratch DB first. Track that separately.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false # never interrupt a half-finished rollout
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Built on the runner rather than with `az acr build`: ACR Tasks is not
+      # permitted on this subscription (TasksOperationsNotAllowed), which is a
+      # standing restriction on Azure for Students. `az acr login` mints a
+      # short-lived Docker credential from the service principal token, so the
+      # registry keeps its admin user disabled and no password is stored.
+      - name: Build and push image
+        run: |
+          set -euo pipefail
+          # Tag with the commit SHA so a rollback is just re-pointing at an
+          # older tag, and so revisions are traceable to source.
+          TAG="${GITHUB_SHA::7}"
+          REGISTRY="${{ vars.ACR_NAME }}.azurecr.io"
+          az acr login --name "${{ vars.ACR_NAME }}"
+          docker build \
+            --tag "${REGISTRY}/xplore26-events:${TAG}" \
+            --tag "${REGISTRY}/xplore26-events:latest" \
+            --file Dockerfile .
+          docker push "${REGISTRY}/xplore26-events:${TAG}"
+          docker push "${REGISTRY}/xplore26-events:latest"
+          echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
+
+      - name: Update Container App
+        run: |
+          set -euo pipefail
+          az containerapp update \
+            --name "${{ vars.CONTAINER_APP }}" \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --image "${{ vars.ACR_NAME }}.azurecr.io/xplore26-events:${IMAGE_TAG}"
+
+      - name: Wait for health
+        run: |
+          set -euo pipefail
+          FQDN=$(az containerapp show \
+            --name "${{ vars.CONTAINER_APP }}" \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          echo "Deployed to https://${FQDN}"
+          # Give the new revision a moment, then confirm it actually serves.
+          for i in $(seq 1 20); do
+            if curl -fsS "https://${FQDN}/api/health" > /dev/null; then
+              echo "Health check passed"; exit 0
+            fi
+            echo "waiting for health ($i/20)…"; sleep 10
+          done
+          echo "::error::New revision never became healthy"; exit 1

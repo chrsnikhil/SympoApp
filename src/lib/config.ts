@@ -1,0 +1,60 @@
+/**
+ * Central config + the subdomain → event map.
+ *
+ * One container serves all four events. `proxy.ts` reads the Host header and
+ * rewrites into the matching route group, so `hunt.example.com/clue/3` renders
+ * `app/(hunt)/clue/3`. Adding an event = adding a row here plus a route group.
+ */
+
+export const EVENTS = ["hunt", "ctf", "code", "quiz"] as const;
+export type EventKey = (typeof EVENTS)[number];
+
+/** Hosts that are NOT an event: the auth/entry surface. */
+export const APP_HOSTS = ["app", "www", "localhost"] as const;
+
+export type SubmissionStatus = "queued" | "running" | "done" | "error";
+
+/**
+ * Root domain the session cookie is scoped to. A leading dot makes the cookie
+ * valid on every subdomain, which is what lets one login carry across all four
+ * events. Must match the real domain in production.
+ */
+export const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN ?? undefined;
+
+export const SESSION_COOKIE = "session";
+
+/** How long a session lasts. Events run for hours, so a day is plenty. */
+export const SESSION_TTL_SECONDS = 60 * 60 * 24;
+
+/**
+ * Leaderboard snapshot interval. Clients poll at roughly this rate and the
+ * response carries a matching Cache-Control, so 500 pollers cost ~0.2 DB
+ * queries/sec rather than 100 req/s of aggregation.
+ */
+export const LEADERBOARD_REFRESH_MS = 5_000;
+
+/** Hard caps on what a single submission may carry. */
+export const LIMITS = {
+  /** Source files for the code event. Anything larger is a mistake or abuse. */
+  maxPayloadBytes: 64 * 1024,
+  /** Per-team submissions allowed per rolling window. */
+  rateLimit: { windowMs: 10_000, max: 20 },
+};
+
+/**
+ * Resolve a Host header to an event key.
+ * Handles ports (`hunt.localhost:3000`) and falsy hosts.
+ * Returns null for the app/entry hosts and anything unrecognised.
+ */
+export function eventFromHost(host: string | null | undefined): EventKey | null {
+  if (!host) return null;
+  const sub = host.split(":")[0].split(".")[0].toLowerCase();
+  return (EVENTS as readonly string[]).includes(sub) ? (sub as EventKey) : null;
+}
+
+/** Env var that must exist before the app can do anything meaningful. */
+export function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing required env var: ${name}`);
+  return v;
+}
