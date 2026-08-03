@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
-import { attachPendingAbility } from "@/lib/quiz/comeback";
+import { attachPendingAbility, expireOldComebackAbilities } from "@/lib/quiz/comeback";
 import { isQualified } from "@/lib/quiz/rounds";
 import { serveNext } from "@/lib/quiz/serve";
 import type { QuizRound } from "@/lib/db/types";
@@ -41,7 +41,9 @@ export async function GET(request: Request) {
 
     // Round 3 only: if this team is holding a granted comeback ability with
     // nowhere to land yet, this freshly-served question is where it attaches.
+    // We also expire any un-used abilities from past questions to prevent them getting stuck.
     if (round === 3) {
+      await expireOldComebackAbilities(teamId, round, result.question.slug);
       await attachPendingAbility(teamId, round, result.question.slug);
     }
 

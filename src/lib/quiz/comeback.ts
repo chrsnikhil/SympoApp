@@ -78,8 +78,8 @@ export async function closeQuestionForComeback(teamId: ObjectId, round: QuizRoun
   const state = await getOrInit(teamId, round);
 
   // The one-question window for a previously granted ability has now closed,
-  // used or not.
-  if (state.usableOnSlug === slug) {
+  // used or not (even if they skipped a question and this is a later one).
+  if (state.usableOnSlug !== null) {
     await states.updateOne({ teamId, round }, { $set: { ability: null, usableOnSlug: null, grantedAt: null } });
   }
 
@@ -117,6 +117,18 @@ export async function attachPendingAbility(teamId: ObjectId, round: QuizRound, s
   await states.updateOne(
     { teamId, round, ability: { $ne: null }, usableOnSlug: null, usedAt: null },
     { $set: { usableOnSlug: slug } }
+  );
+}
+
+/**
+ * Clears any ability that was attached to a previous question but never used
+ * (e.g. if the team let the clock run out instead of submitting).
+ */
+export async function expireOldComebackAbilities(teamId: ObjectId, round: QuizRound, currentSlug: string): Promise<void> {
+  const states = await collections.comebackStates();
+  await states.updateOne(
+    { teamId, round, usableOnSlug: { $ne: null, $ne: currentSlug } },
+    { $set: { ability: null, usableOnSlug: null, grantedAt: null } }
   );
 }
 
