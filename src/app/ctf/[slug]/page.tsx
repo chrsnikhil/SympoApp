@@ -271,9 +271,6 @@ export default function ChallengeDetailPage() {
                   {challenge.title}
                 </h2>
                 <div className="flex flex-wrap items-center gap-3 mt-3">
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-purple-950 border border-purple-500/40 rounded-lg text-xs font-bold text-purple-300">
-                    <span className="text-gray-400 font-normal">CATEGORY:</span> {challenge.category}
-                  </div>
                   <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-950 border border-amber-500/40 rounded-lg text-xs font-bold text-amber-400">
                     <span className="text-gray-400 font-normal">DIFFICULTY:</span> {challenge.difficulty}
                   </div>

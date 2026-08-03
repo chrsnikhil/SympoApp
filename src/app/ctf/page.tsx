@@ -485,10 +485,6 @@ function ChallengeCard({
       {/* Meta info */}
       <div className="flex justify-between items-center z-10">
         <div className="flex flex-col gap-3">
-          <div>
-            <div className="text-[9px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">Category</div>
-            <div className="text-gray-300 text-xs font-medium">{ch.category || "General"}</div>
-          </div>
           <div className="flex gap-6">
             <div>
               <div className="text-[9px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">Points</div>
