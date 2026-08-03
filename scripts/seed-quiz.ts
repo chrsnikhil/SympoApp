@@ -75,10 +75,10 @@ const CONNECTIONS_PUZZLES: ConnectionsPuzzle[] = [
     images: ["/quiz/p2-a.png", "/quiz/p2-b.png", "/quiz/p2-c.png"],
   },
   {
-    title: "Puzzle 3: Three pictures. One shared technical term.",
+    title: "Puzzle 3: Two pictures. One shared technical term.",
     clue: "A digital chain that remembers everything.",
     answer: "blockchain",
-    images: ["/quiz/p3-a.png", "/quiz/p3-b.png", "/quiz/p3-c.png"],
+    images: ["/quiz/p3-b.png", "/quiz/p3-c.png"],
   },
   {
     title: "Puzzle 4: Three pictures. One shared technical term.",
