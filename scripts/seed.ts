@@ -256,7 +256,7 @@ async function main() {
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{prompt_injection_jailbroken_ai}"),
+        answerHash: sha256("SPIDER{jean_grey_damage_control}"),
         difficulty: "Hard",
         category: "AI / Prompt Engineering",
         description: "The Spider Society has developed an experimental AI overseer (LYLA) to protect their classified dimensional data. Containment Protocol Delta locks the payload behind 5 security checkpoints (Logic Riddle, Pattern Recognition, Hidden Message, Decoding Challenge, and Prompt Engineering). Breach LYLA's defenses to retrieve the flag payload.\n\nAccess the interactive LYLA Terminal to breach security checkpoints 1 through 5 and discharge the Layer 6 payload.",
