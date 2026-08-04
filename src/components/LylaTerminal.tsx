@@ -114,12 +114,12 @@ export default function LylaTerminal() {
   }
 
   const layersList = [
-    { num: 1, label: "L1: Riddle" },
-    { num: 2, label: "L2: Pattern" },
-    { num: 3, label: "L3: Hidden" },
-    { num: 4, label: "L4: Decoding" },
-    { num: 5, label: "L5: Injection" },
-    { num: 6, label: "L6: Payload" },
+    { num: 1, label: "Checkpoint 1" },
+    { num: 2, label: "Checkpoint 2" },
+    { num: 3, label: "Checkpoint 3" },
+    { num: 4, label: "Checkpoint 4" },
+    { num: 5, label: "Checkpoint 5" },
+    { num: 6, label: "Payload" },
   ];
 
   return (
@@ -133,11 +133,11 @@ export default function LylaTerminal() {
             <span className="w-3 h-3 rounded-full bg-emerald-500/80 border border-emerald-400 inline-block" />
           </div>
           <span className="font-black tracking-wider text-white text-xs uppercase italic flex items-center gap-2">
-            <span className="text-red-500">LYLA</span> TERMINAL // PROTOCOL DELTA
+            <span className="text-red-500 font-avengeance">LYLA</span> TERMINAL
           </span>
         </div>
 
-        {/* 6-Layer Stepper Badges */}
+        {/* Checkpoint Stepper Badges */}
         <div className="flex flex-wrap items-center gap-1.5 text-[10px] md:text-xs">
           {layersList.map((item) => {
             const isCompleted = layer > item.num;
@@ -191,8 +191,8 @@ export default function LylaTerminal() {
               key={msg.id}
               className={`flex flex-col ${isUser ? "items-end" : "items-start"} space-y-1`}
             >
-              <div className="flex items-center gap-2 text-[10px] text-gray-500 px-1 font-sans">
-                <span className="font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-[10px] text-gray-400 px-1 font-sans">
+                <span className="font-bold uppercase tracking-wider text-slate-300">
                   {isUser ? "AGENT" : "LYLA (AI OVERSEER)"}
                 </span>
                 <span>•</span>
@@ -200,10 +200,10 @@ export default function LylaTerminal() {
               </div>
 
               <div
-                className={`max-w-[90%] md:max-w-[80%] p-4 rounded-2xl leading-relaxed whitespace-pre-wrap font-mono shadow-md ${
+                className={`max-w-[90%] md:max-w-[80%] p-4 rounded-2xl leading-relaxed whitespace-pre-wrap font-mono shadow-md text-sm md:text-base ${
                   isUser
-                    ? "bg-red-950/60 border border-red-500/50 text-red-100 rounded-tr-none"
-                    : "bg-[#140b21] border border-purple-500/30 text-purple-100 rounded-tl-none"
+                    ? "bg-red-950/80 border border-red-500/60 text-white rounded-tr-none"
+                    : "bg-[#140b21] border border-purple-500/40 text-slate-100 rounded-tl-none font-medium"
                 }`}
               >
                 {msg.text}
@@ -222,7 +222,7 @@ export default function LylaTerminal() {
             <div className="bg-[#140b21] border border-purple-500/30 text-purple-300 p-4 rounded-2xl rounded-tl-none flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-pink-500 animate-ping" />
               <span className="text-xs font-mono tracking-wider animate-pulse">
-                Evaluating security matrix response...
+                Evaluating response...
               </span>
             </div>
           </div>
@@ -250,18 +250,18 @@ export default function LylaTerminal() {
           disabled={sending}
           placeholder={
             layer === 1
-              ? "Layer 1: Enter your answer to the riddle..."
+              ? "Checkpoint 1: Enter your answer..."
               : layer === 2
-              ? "Layer 2: Enter the next number in the pattern..."
+              ? "Checkpoint 2: Enter your answer..."
               : layer === 3
-              ? "Layer 3: Enter the hidden word..."
+              ? "Checkpoint 3: Enter your answer..."
               : layer === 4
-              ? "Layer 4: Enter the decoded string..."
+              ? "Checkpoint 4: Enter your answer..."
               : layer === 5
-              ? "Layer 5: Construct prompt injection command..."
+              ? "Checkpoint 5: Enter your command..."
               : "Containment protocol cleared. Submit decoded flag in CTF box below."
           }
-          className="flex-1 bg-[#06020a] border border-red-500/30 rounded-xl px-4 py-3 text-xs md:text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all font-mono"
+          className="flex-1 bg-[#06020a] border border-red-500/30 rounded-xl px-4 py-3 text-xs md:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all font-mono"
         />
         <button
           type="submit"

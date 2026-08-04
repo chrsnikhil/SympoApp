@@ -258,7 +258,7 @@ export default function CtfDashboardPage() {
       {/* Header */}
       <header className="flex-none flex flex-col md:flex-row items-center justify-between px-6 md:px-10 py-5 border-b border-red-500/20 bg-[#0a0510] z-10 shadow-md gap-4">
         <div className="flex items-center gap-6">
-          <h1 className="text-2xl md:text-3xl font-black italic tracking-tighter flex items-center gap-2">
+          <h1 className="text-2xl md:text-3xl font-black italic tracking-tighter flex items-center gap-2 font-avengeance">
             <span className="text-gray-200">XPLORE 26</span>
             <span className="text-red-600">MULTIVERSE BREACH</span>
           </h1>
