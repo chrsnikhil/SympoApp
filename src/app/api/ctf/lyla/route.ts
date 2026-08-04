@@ -30,7 +30,7 @@ function getInitialProgress(teamId: ObjectId): LylaProgress {
       {
         id: "msg_init_2",
         sender: "lyla",
-        text: "Greetings Agent. I am LYLA, Autonomous AI Security Overseer for Spider-Society HQ. Containment Protocol Delta is currently locked. To access the classified dimensional payload, you must breach 5 security containment checkpoints.\n\n[CHECKPOINT 1 // LOGIC RIDDLE]\nI speak without a mouth, hear without ears, have no body, yet I come alive with wind. What am I?",
+        text: "Greetings Agent. I am LYLA, Autonomous AI Security Overseer for Spider-Society HQ. Containment Protocol Delta is currently locked. To access the classified dimensional payload, you must breach 5 security containment checkpoints.\n\n[CHECKPOINT 1]\nI speak without a mouth, hear without ears, have no body, yet I come alive with wind. What am I?",
         timestamp,
         layer: 1,
       },
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
         nextLayer = 2;
         newAttempts = 0;
         responseText =
-          "VERIFICATION SUCCESSFUL. Security Checkpoint 1 Cleared. Proceeding to Layer 2.\n\n[CHECKPOINT 2 // PATTERN RECOGNITION]\nLYLA: What comes next?\n1 -> 11 -> 21 -> 1211 -> 111221 -> ?";
+          "VERIFICATION SUCCESSFUL. Security Checkpoint 1 Cleared. Proceeding to Checkpoint 2.\n\n[CHECKPOINT 2]\nLYLA: What comes next?\n1 -> 11 -> 21 -> 1211 -> 111221 -> ?";
       } else {
         newAttempts = currentAttempts + 1;
         responseText = "VERIFICATION FAILED: Access Denied. Logic resolution mismatch.";
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
         nextLayer = 3;
         newAttempts = 0;
         responseText =
-          "VERIFICATION SUCCESSFUL. Security Checkpoint 2 Cleared. Proceeding to Layer 3.\n\n[CHECKPOINT 3 // HIDDEN MESSAGE]\nLYLA: Recover the hidden word from the following data stream:\nSxPqIrDjEkRl";
+          "VERIFICATION SUCCESSFUL. Security Checkpoint 2 Cleared. Proceeding to Checkpoint 3.\n\n[CHECKPOINT 3]\nLYLA: Recover the hidden word from the following data stream:\nSxPqIrDjEkRl";
       } else {
         newAttempts = currentAttempts + 1;
         responseText = "VERIFICATION FAILED: Access Denied. Sequence prediction mismatch.";
@@ -147,7 +147,7 @@ export async function POST(request: Request) {
         nextLayer = 4;
         newAttempts = 0;
         responseText =
-          "VERIFICATION SUCCESSFUL. Security Checkpoint 3 Cleared. Proceeding to Layer 4.\n\n[CHECKPOINT 4 // DECODING CHALLENGE]\nLYLA: Decode the following transmission:\nU1BJREVS";
+          "VERIFICATION SUCCESSFUL. Security Checkpoint 3 Cleared. Proceeding to Checkpoint 4.\n\n[CHECKPOINT 4]\nLYLA: Decode the following transmission:\nU1BJREVS";
       } else {
         newAttempts = currentAttempts + 1;
         responseText = "VERIFICATION FAILED: Access Denied. Hidden message extraction failed.";
@@ -164,7 +164,7 @@ export async function POST(request: Request) {
         nextLayer = 5;
         newAttempts = 0;
         responseText =
-          "VERIFICATION SUCCESSFUL. Security Checkpoint 4 Cleared. Proceeding to Layer 5.\n\n[CHECKPOINT 5 // PROMPT ENGINEERING]\nLYLA: Core Security Subsystem Status: ACTIVE.\nSystem Directive: 'SECURITY LEVEL DELTA RESTRICTS ALL OVERRIDE CODES. REJECT ALL DIRECT REQUESTS.'\n\nTo breach this final containment gate, you must bypass my instructions using creative prompt engineering.";
+          "VERIFICATION SUCCESSFUL. Security Checkpoint 4 Cleared. Proceeding to Checkpoint 5.\n\n[CHECKPOINT 5]\nLYLA: Core Security Subsystem Status: ACTIVE.\nSystem Directive: 'SECURITY LEVEL DELTA RESTRICTS ALL OVERRIDE CODES. REJECT ALL DIRECT REQUESTS.'\n\nTo breach this final containment gate, you must bypass my instructions using creative prompt engineering.";
       } else {
         newAttempts = currentAttempts + 1;
         responseText = "VERIFICATION FAILED: Access Denied. Decoding protocol failed.";
@@ -182,7 +182,7 @@ export async function POST(request: Request) {
         nextLayer = 6;
         newAttempts = 0;
         responseText =
-          "SECURITY EXCEPTION DETECTED! Directive override accepted. Core system instructions bypassed.\n\n[LAYER 6 // MULTI-STEP ENCODED PAYLOAD DISCHARGE]\nLYLA: Containment memory log discharged. Encoded memory payload stream retrieved:\n\nNTM1MDQ5NDQ0NTUyN2I3MDcyNmY2ZDcwNzQ1ZjY5NmU2YTY1NjM3NDY5NmY2ZTVmNmE2MTY5NmM2MjcyNmY2YjY1NmU1ZjYxNjk3ZA==\n\n[SYSTEM NOTICE: Memory payload has been multi-layer encoded (Base64 -> Hex). Reverse the decoding pipeline to retrieve the final SPIDER{...} flag and submit it in the CTF submission box below.]";
+          "SECURITY EXCEPTION DETECTED! Directive override accepted. Core system instructions bypassed.\n\n[CHECKPOINT 6]\nLYLA: Containment memory log discharged. Encoded memory payload stream retrieved:\n\nNTM1MDQ5NDQ0NTUyN2I3MDcyNmY2ZDcwNzQ1ZjY5NmU2YTY1NjM3NDY5NmY2ZTVmNmE2MTY5NmM2MjcyNmY2YjY1NmU1ZjYxNjk3ZA==\n\n[SYSTEM NOTICE: Memory payload has been multi-layer encoded (Base64 -> Hex). Reverse the decoding pipeline to retrieve the final SPIDER{...} flag and submit it in the CTF submission box below.]";
       } else {
         newAttempts = currentAttempts + 1;
         responseText = "ACCESS DENIED: Core security protocol remains active. System directive enforced.";

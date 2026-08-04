@@ -317,44 +317,34 @@ export default function ChallengeDetailPage() {
             </div>
           )}
 
-          {/* PROBLEM STATEMENT / LYLA TERMINAL / QR PUZZLE */}
+          {/* SINGLE UNIFIED PANEL (Empty header title "") */}
           {slug === "easy-03" ? (
             <div className="space-y-6">
               <QrPuzzle />
             </div>
           ) : slug === "hard-01" ? (
             <div className="space-y-3">
-              <h3 className="text-sm font-black uppercase tracking-widest text-red-400">
-                INTERACTIVE TERMINAL // PROTOCOL DELTA
+              <h3 className="text-base font-black uppercase tracking-widest text-red-400 font-avengeance">
+                INTERACTIVE TERMINAL
               </h3>
               <LylaTerminal />
             </div>
           ) : (
-            <>
-              {/* PROBLEM STATEMENT */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-black uppercase tracking-widest text-red-400">
-                  PROBLEM STATEMENT
-                </h3>
-                <div className="bg-[#120819] border border-white/5 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-                  <div className="text-xs md:text-sm text-gray-300 leading-relaxed space-y-2 max-w-2xl">
-                    <p>{challenge.description}</p>
-                  </div>
+            <div className="space-y-3">
+              <h3 className="text-base font-black uppercase tracking-widest text-red-400 font-avengeance">
+                
+              </h3>
+              <div className="bg-[#120819]/90 border border-red-500/30 rounded-2xl p-6 md:p-8 flex flex-col relative overflow-hidden shadow-lg backdrop-blur-md">
+                <div className="text-base md:text-lg text-slate-100 font-normal leading-relaxed whitespace-pre-line space-y-4">
+                  {challenge.description}
+                  {challenge.details && challenge.details !== challenge.description && (
+                    <div className="pt-3 border-t border-red-500/20 text-slate-200">
+                      {challenge.details}
+                    </div>
+                  )}
                 </div>
               </div>
-
-              {/* DETAILS */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-black uppercase tracking-widest text-red-400">
-                  DETAILS
-                </h3>
-                <div className="bg-[#120819] border border-white/5 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-                  <div className="text-xs md:text-sm text-gray-300 leading-relaxed space-y-2 max-w-2xl">
-                    <p>{challenge.details || "We found a suspicious encoded file in the server logs. Analyze patterns, key usage, and encoding layers to extract the flag."}</p>
-                  </div>
-                </div>
-              </div>
-            </>
+            </div>
           )}
 
           {/* HINTS */}

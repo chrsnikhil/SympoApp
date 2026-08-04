@@ -198,9 +198,72 @@ export default function SpiderBackgroundFX() {
       ctx.restore();
     };
 
+    // Helper: Draw detailed static/glowing spider web designs in corners & sides
+    const drawSpiderWebs = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
+      ctx.save();
+      ctx.strokeStyle = "rgba(239, 68, 68, 0.25)";
+      ctx.lineWidth = 1;
+      ctx.shadowColor = "rgba(220, 38, 38, 0.4)";
+      ctx.shadowBlur = 4;
+
+      const drawCornerWeb = (cx: number, cy: number, radius: number, numRays: number, numRings: number) => {
+        const rayAngles: number[] = [];
+        for (let i = 0; i <= numRays; i++) {
+          const angle = (i / numRays) * (Math.PI / 2);
+          const startAngle = cx === 0 && cy === 0 ? angle :
+                             cx === w && cy === 0 ? Math.PI - angle :
+                             cx === 0 && cy === h ? -angle :
+                             Math.PI + angle;
+          rayAngles.push(startAngle);
+
+          // Radial ray line
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + Math.cos(startAngle) * radius, cy + Math.sin(startAngle) * radius);
+          ctx.stroke();
+        }
+
+        // Concentric web rings (arcs connecting rays)
+        for (let ring = 1; ring <= numRings; ring++) {
+          const r = (ring / numRings) * radius;
+          ctx.beginPath();
+          for (let i = 0; i < rayAngles.length; i++) {
+            const a1 = rayAngles[i];
+            const px = cx + Math.cos(a1) * r;
+            const py = cy + Math.sin(a1) * r;
+            if (i === 0) {
+              ctx.moveTo(px, py);
+            } else {
+              const aPrev = rayAngles[i - 1];
+              const midA = (aPrev + a1) / 2;
+              const sag = r * 0.92;
+              const ctrlX = cx + Math.cos(midA) * sag;
+              const ctrlY = cy + Math.sin(midA) * sag;
+              ctx.quadraticCurveTo(ctrlX, ctrlY, px, py);
+            }
+          }
+          ctx.stroke();
+        }
+      };
+
+      // Top-Left Corner Web
+      drawCornerWeb(0, 0, Math.min(w, h) * 0.35, 6, 5);
+      // Top-Right Corner Web
+      drawCornerWeb(w, 0, Math.min(w, h) * 0.35, 6, 5);
+      // Bottom-Left Corner Web
+      drawCornerWeb(0, h, Math.min(w, h) * 0.28, 5, 4);
+      // Bottom-Right Corner Web
+      drawCornerWeb(w, h, Math.min(w, h) * 0.28, 5, 4);
+
+      ctx.restore();
+    };
+
     // Main render loop
     const render = () => {
       ctx.clearRect(0, 0, width, height);
+
+      // Draw background Spider Web Designs
+      drawSpiderWebs(ctx, width, height);
 
       // 1:1 Instant Tip tracking for precise clicking
       cursorX = mouseX;
