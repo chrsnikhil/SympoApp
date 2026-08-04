@@ -26,6 +26,14 @@ export const SESSION_COOKIE = "session";
 /** How long a session lasts. Events run for hours, so a day is plenty. */
 export const SESSION_TTL_SECONDS = 60 * 60 * 24;
 
+/** Image judging mode switch for Round 1: "siglip" (FastAPI service) or "groq" (Groq Vision) */
+export const IMAGE_JUDGE_MODE: "siglip" | "groq" =
+  (process.env.IMAGE_JUDGE_MODE?.toLowerCase() as "siglip" | "groq") ?? "siglip";
+
+/** Server-only URL for the Python/FastAPI AI evaluation service */
+export const AI_EVAL_SERVICE_URL =
+  process.env.AI_EVAL_SERVICE_URL ?? "http://localhost:8000/api/v1";
+
 /**
  * Leaderboard snapshot interval. Clients poll at roughly this rate and the
  * response carries a matching Cache-Control, so 500 pollers cost ~0.2 DB

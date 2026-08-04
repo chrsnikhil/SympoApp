@@ -482,12 +482,16 @@ function ImageReplication({
   teamName: string;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
-  const [status, setStatus] = useState<"idle" | "uploading">("idle");
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "uploading" | "judging" | "scored" | "rejected_watermark" | "failed">("idle");
+  const [evalResult, setEvalResult] = useState<{ similarity?: number; final_score?: number; model_used?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [watermarkError, setWatermarkError] = useState<boolean>(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const hasSubmission = game.status !== undefined && game.status !== "not-started";
   const displayImage = preview || game.uploadedImage;
+  const isJudged = game.verdict !== undefined && game.verdict !== null;
 
   // Reference Image Visibility Timing
   const elapsedSeconds = Math.max(0, Math.floor((currentNow - openMs) / 1000));
@@ -515,39 +519,77 @@ function ImageReplication({
     }
   }, [game.referenceImage, refDataUrl]);
 
+  // Handle active evaluation polling
+  useEffect(() => {
+    if (!submissionId || status !== "judging") return;
+
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/round1/submit?id=${encodeURIComponent(submissionId)}&challengeSlug=${encodeURIComponent(game.slug)}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (cancelled) return;
+
+        if (json.status === "scored") {
+          setStatus("scored");
+          setEvalResult({
+            similarity: json.similarity,
+            final_score: json.final_score,
+            model_used: json.model_used,
+          });
+          onChanged();
+        } else if (json.status === "rejected_watermark") {
+          setStatus("rejected_watermark");
+          setWatermarkError(true);
+          setError("that's the reference image, not your generation");
+        } else if (json.status === "failed") {
+          setStatus("failed");
+          setError(json.error || "Image evaluation failed. Please try uploading again.");
+        }
+      } catch (err) {
+        console.error("[ImageReplication] Polling error:", err);
+      }
+    };
+
+    void poll();
+    const interval = setInterval(poll, 1500);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [submissionId, status, game.slug, onChanged]);
+
   async function handleFile(file: File) {
+    if (disabled) return;
     setStatus("uploading");
     setError(null);
+    setWatermarkError(false);
     try {
       const dataUrl = await shrinkImage(file);
       setPreview(dataUrl);
 
-      const uploadRes = await fetch("/api/quiz/image", {
+      // Submit via the new unified /api/round1/submit route
+      const submitRes = await fetch("/api/round1/submit", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ challengeSlug: game.slug, dataUrl }),
       });
-      const uploadBody = await uploadRes.json();
-      if (!uploadRes.ok) {
-        setError(uploadBody.error ?? "Upload failed");
-        setStatus("idle");
-        return;
-      }
 
-      const submitRes = await fetch("/api/submit", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ event: "quiz", challengeSlug: game.slug, payload: uploadBody.imageId }),
-      });
+      const body = await submitRes.json();
       if (!submitRes.ok) {
-        const b = await submitRes.json();
-        setError(b.error ?? "Submission failed");
+        setError(body.error ?? "Submission failed");
         setStatus("idle");
         return;
       }
 
-      setStatus("idle");
-      onChanged();
+      if (body.submissionId) {
+        setSubmissionId(body.submissionId);
+        setStatus("judging");
+      } else {
+        setStatus("idle");
+        onChanged();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not read that file");
       setStatus("idle");
@@ -557,6 +599,7 @@ function ImageReplication({
   async function handleDelete() {
     setDeleting(true);
     setError(null);
+    setWatermarkError(false);
     try {
       const res = await fetch(`/api/quiz/image?challengeSlug=${encodeURIComponent(game.slug)}`, { method: "DELETE" });
       const body = await res.json();
@@ -565,13 +608,16 @@ function ImageReplication({
         return;
       }
       setPreview(null);
+      setSubmissionId(null);
+      setStatus("idle");
+      setEvalResult(null);
       onChanged();
     } finally {
       setDeleting(false);
     }
   }
 
-  const points = game.verdict?.points;
+  const currentPoints = evalResult?.final_score ?? game.verdict?.points;
 
   return (
     <div>
@@ -619,66 +665,145 @@ function ImageReplication({
       )}
 
       <p className="mb-3 text-xs text-paper-white/70 font-semibold">
-        Use any AI tool to recreate the image, then upload your result before the 3m 30s deadline.
+        Use any AI tool to recreate the image, then drag & drop or upload your result before the deadline.
       </p>
 
-      {hasSubmission || displayImage ? (
+      {/* Watermark Error Banner */}
+      {watermarkError && (
+        <div className="mb-4 border-2 border-signal-wrong bg-signal-wrong/15 p-4 rounded text-center space-y-2">
+          <p className="font-display text-sm text-signal-wrong uppercase tracking-wide flex items-center justify-center gap-2">
+            ⚠️ Watermark Violation Detected!
+          </p>
+          <p className="text-xs text-paper-white/90 font-mono">
+            "That's the reference image, not your generation!"
+          </p>
+          <p className="text-[11px] text-paper-white/60">
+            Copying or re-uploading the original reference image is not allowed. Please generate an authentic AI image recreation.
+          </p>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="mt-2 inline-block px-4 py-1.5 text-xs font-comic uppercase tracking-wider border border-paper-white/30 bg-ink-black hover:bg-paper-white/10 text-paper-white rounded"
+          >
+            {deleting ? "Clearing…" : "Try Again with Fresh Image"}
+          </button>
+        </div>
+      )}
+
+      {/* Uploaded / Judging / Scored View */}
+      {displayImage && !watermarkError ? (
         <div className="halftone panel border-2 border-glitch-cyan/60 p-4 relative space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-paper-white/10 pb-3">
             <div>
               <span className="font-comic text-base text-glitch-cyan flex items-center gap-1.5">
-                Image Saved & Uploaded
+                {status === "uploading"
+                  ? "Uploading Image…"
+                  : status === "judging"
+                  ? "Evaluating AI Image…"
+                  : isJudged || status === "scored"
+                  ? "Image Evaluated & Scored"
+                  : "Image Saved & Uploaded"}
               </span>
             </div>
-          </div>
 
-          <div className="flex justify-center p-2 bg-ink-black/60 border border-paper-white/15">
-            {displayImage ? (
-              <ProtectedImage src={displayImage} alt="Your uploaded recreation" teamName={teamName} className="rounded" />
-            ) : (
-              <div className="py-8 text-center text-xs text-paper-white/45">Image uploaded and submitted</div>
+            {/* Score Badge */}
+            {(isJudged || status === "scored") && currentPoints !== undefined && (
+              <div className="flex items-center gap-2 border border-comic-yellow/50 bg-comic-yellow/10 px-3 py-1 rounded">
+                <span className="text-xs font-mono uppercase text-comic-yellow font-bold">Score:</span>
+                <span className="text-sm font-comic text-comic-yellow">{currentPoints} / 10 pts</span>
+                {evalResult?.similarity !== undefined && (
+                  <span className="text-[10px] text-paper-white/60 font-mono">
+                    ({Math.round(evalResult.similarity * 100)}% match)
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
-          {!disabled && (
-            <label className="block text-center cursor-pointer text-xs text-glitch-cyan hover:underline py-1">
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="sr-only"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) void handleFile(file);
-                }}
-              />
-              {status === "uploading" ? "Uploading new image…" : "Click to replace with a different image"}
-            </label>
+          <div className="flex justify-center p-2 bg-ink-black/60 border border-paper-white/15 relative">
+            <ProtectedImage src={displayImage} alt="Your uploaded recreation" teamName={teamName} className="rounded" />
+
+            {/* Judging Spinner Overlay */}
+            {status === "judging" && (
+              <div className="absolute inset-0 bg-ink-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center space-y-3">
+                <div className="w-10 h-10 border-4 border-glitch-cyan border-t-transparent rounded-full animate-spin"></div>
+                <p className="font-comic text-base text-glitch-cyan animate-pulse">
+                  ⚡ AI Evaluation in Progress…
+                </p>
+                <p className="text-xs text-paper-white/70 font-mono">
+                  Calculating SigLIP similarity embedding & inspecting watermarks…
+                </p>
+              </div>
+            )}
+          </div>
+
+          {!disabled && status !== "judging" && (
+            <div className="flex items-center justify-center gap-4 pt-1">
+              <label className="cursor-pointer text-xs text-glitch-cyan hover:underline py-1">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleFile(file);
+                  }}
+                />
+                Replace image
+              </label>
+
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="text-xs text-signal-wrong hover:underline py-1"
+              >
+                {deleting ? "Deleting…" : "Delete & start over"}
+              </button>
+            </div>
           )}
 
           {disabled && <p className="text-xs text-paper-white/45 text-center">Window closed — submission final.</p>}
         </div>
       ) : (
+        /* Drag and Drop Dropzone */
         <label
-          className={`grid cursor-pointer place-items-center border-2 border-dashed px-4 py-8 text-center transition-colors border-paper-white/25 hover:border-paper-white/45 ${
-            disabled ? "pointer-events-none opacity-40" : ""
-          }`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            const file = e.dataTransfer.files?.[0];
+            if (file) void handleFile(file);
+          }}
+          className={`grid cursor-pointer place-items-center border-2 border-dashed px-4 py-8 text-center transition-all rounded ${
+            isDragging
+              ? "border-glitch-cyan bg-glitch-cyan/15 scale-[1.01]"
+              : "border-paper-white/25 hover:border-paper-white/45 bg-ink-black/40"
+          } ${disabled || status === "uploading" ? "pointer-events-none opacity-40" : ""}`}
         >
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
             className="sr-only"
-            disabled={disabled}
+            disabled={disabled || status === "uploading"}
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) void handleFile(file);
             }}
           />
-          <span className="font-comic text-2xl text-paper-white/70">Upload your image</span>
-          <span className="mt-1 text-xs text-paper-white/45">JPEG, PNG or WebP — resized automatically</span>
+          <span className="font-comic text-2xl text-paper-white/80">
+            {status === "uploading" ? "Uploading Image…" : isDragging ? "Drop your image here!" : "Drag & drop or upload your image"}
+          </span>
+          <span className="mt-1.5 text-xs text-paper-white/50 font-mono">
+            Supports JPEG, PNG or WebP (max 10MB)
+          </span>
         </label>
       )}
 
-      {error && <p className="mt-2 text-xs text-signal-wrong">{error}</p>}
+      {error && !watermarkError && <p className="mt-2 text-xs text-signal-wrong text-center">{error}</p>}
     </div>
   );
 }

@@ -1,0 +1,64 @@
+# Production compose. Frontend is intentionally NOT defined here — this
+# backend is designed to be called from a separately-deployed frontend
+# (see frontend/API_CONTRACT.md). CORS_ORIGINS in .env must include its URL.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: eval_user
+      POSTGRES_PASSWORD: eval_pass
+      POSTGRES_DB: eval_platform
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eval_user"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        BASE_IMAGE: python:3.11-slim   # override to a CUDA base image for GPU
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    volumes:
+      - storage_data:/data/storage
+      - model_cache:/data/models
+    # Uncomment for NVIDIA GPU access (requires nvidia-container-toolkit on the host):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+volumes:
+  db_data:
+  minio_data:
+  storage_data:
+  model_cache:

@@ -294,7 +294,7 @@ export default function Mcq2Phase({
             <div className="flex items-center gap-3">
               {/* Active Ability Badge */}
               {(() => {
-                const activeAbilities = verdict?.abilitiesUsed || (comeback?.ability && (!comeback.usableOnSlug || comeback.usableOnSlug === question.slug) ? [comeback.ability] : []);
+                const activeAbilities = (verdict as { abilitiesUsed?: string[] } | null)?.abilitiesUsed || (comeback?.ability && (!comeback.usableOnSlug || comeback.usableOnSlug === question.slug) ? [comeback.ability] : []);
                 if (activeAbilities.length === 0) return null;
                 
                 const getAbilityLabel = (id: string) => {
@@ -309,7 +309,7 @@ export default function Mcq2Phase({
                 return (
                   <div className="bg-glitch-cyan text-ink-black comic-border-sm p-3 comic-tilt-left flex flex-col items-center justify-center">
                     <span className="font-label-sm uppercase text-[10px] block leading-none mb-1 font-bold">Power Active</span>
-                    {activeAbilities.map(id => (
+                    {activeAbilities.map((id: string) => (
                       <span key={id} className="font-display-xl text-sm tracking-wider leading-none">
                         {getAbilityLabel(id)}
                       </span>
