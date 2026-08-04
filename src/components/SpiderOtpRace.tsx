@@ -4,10 +4,9 @@ import { useEffect, useState, useRef } from "react";
 
 const FLAG = "SPIDEY{fr0nt3nd_s3cr3ts_4r3_n0t_s3cr3ts}";
 
-async function computeOtp(secretB64: string): Promise<string> {
+async function otpForWindow(secretB64: string, windowIdx: number): Promise<string> {
   const decoded = atob(secretB64);
-  const currentWindow = Math.floor(Date.now() / 30000);
-  const message = decoded + currentWindow;
+  const message = decoded + windowIdx;
   const buf = new TextEncoder().encode(message);
   const hashBuf = await crypto.subtle.digest("SHA-256", buf);
   const hex = Array.from(new Uint8Array(hashBuf))
@@ -15,6 +14,18 @@ async function computeOtp(secretB64: string): Promise<string> {
     .join("");
   const tail = hex.slice(-6);
   return (parseInt(tail, 16) % 1000000).toString().padStart(6, "0");
+}
+
+// Accept the OTP for the current window OR the previous window, so a
+// solver isn't punished if they cross a 30-second boundary between
+// reading their tool and hitting Verify.
+async function validOtps(secretB64: string): Promise<string[]> {
+  const w = Math.floor(Date.now() / 30000);
+  const [now, prev] = await Promise.all([
+    otpForWindow(secretB64, w),
+    otpForWindow(secretB64, w - 1),
+  ]);
+  return [now, prev];
 }
 
 export default function SpiderOtpRace() {
@@ -66,8 +77,8 @@ export default function SpiderOtpRace() {
     }
     setVerifying(true);
     try {
-      const expected = await computeOtp(secretRef.current);
-      if (submitted === expected) {
+      const accepted = await validOtps(secretRef.current);
+      if (accepted.includes(submitted)) {
         setScreen("success");
         setFeedback(null);
       } else {
