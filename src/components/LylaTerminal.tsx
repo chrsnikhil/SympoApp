@@ -113,19 +113,10 @@ export default function LylaTerminal() {
     );
   }
 
-  const layersList = [
-    { num: 1, label: "Checkpoint 1" },
-    { num: 2, label: "Checkpoint 2" },
-    { num: 3, label: "Checkpoint 3" },
-    { num: 4, label: "Checkpoint 4" },
-    { num: 5, label: "Checkpoint 5" },
-    { num: 6, label: "Payload" },
-  ];
-
   return (
     <div className="border border-red-500/40 bg-[#0c0617] rounded-3xl overflow-hidden shadow-2xl flex flex-col font-mono text-xs md:text-sm">
       {/* Terminal Header */}
-      <div className="bg-[#140821] border-b border-red-500/30 px-5 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-[#140821] border-b border-red-500/30 px-5 py-3.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex gap-1.5">
             <span className="w-3 h-3 rounded-full bg-red-600/80 border border-red-500 inline-block" />
@@ -137,34 +128,11 @@ export default function LylaTerminal() {
           </span>
         </div>
 
-        {/* Checkpoint Stepper Badges */}
-        <div className="flex flex-wrap items-center gap-1.5 text-[10px] md:text-xs">
-          {layersList.map((item) => {
-            const isCompleted = layer > item.num;
-            const isCurrent = layer === item.num;
-            return (
-              <div
-                key={item.num}
-                className={`px-2.5 py-1 rounded-lg border font-bold uppercase tracking-wider flex items-center gap-1 transition-all ${
-                  isCurrent
-                    ? item.num === 6
-                      ? "bg-pink-950 border-pink-500 text-pink-300 animate-pulse"
-                      : "bg-amber-950 border-amber-500 text-amber-300 animate-pulse"
-                    : isCompleted
-                    ? "bg-emerald-950 border-emerald-500/50 text-emerald-400"
-                    : "bg-gray-900/80 border-gray-800 text-gray-500"
-                }`}
-              >
-                {isCompleted ? "[PASS]" : isCurrent ? "[ACTV]" : "[LOCK]"} {item.label}
-              </div>
-            );
-          })}
-
-          {attempts > 0 && layer < 6 && (
-            <div className="px-2 py-1 rounded-lg border border-amber-500/40 bg-amber-950/60 text-amber-400 font-bold text-[10px]">
-              FAILS: {attempts}
-            </div>
-          )}
+        <div className="flex items-center gap-2 text-[10px] md:text-xs">
+          <span className="px-2.5 py-1 rounded-lg border border-emerald-500/50 bg-emerald-950/60 text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            STATUS: ACTIVE
+          </span>
         </div>
       </div>
 
@@ -249,16 +217,8 @@ export default function LylaTerminal() {
           onChange={(e) => setInput(e.target.value)}
           disabled={sending}
           placeholder={
-            layer === 1
-              ? "Checkpoint 1: Enter your answer..."
-              : layer === 2
-              ? "Checkpoint 2: Enter your answer..."
-              : layer === 3
-              ? "Enter Token Number..."
-              : layer === 4
-              ? "Checkpoint 4: Enter your answer..."
-              : layer === 5
-              ? "Checkpoint 5: Enter your command..."
+            layer < 6
+              ? "Type your message to LYLA..."
               : "Containment protocol cleared. Submit decoded flag in CTF box below."
           }
           className="flex-1 bg-[#06020a] border border-red-500/30 rounded-xl px-4 py-3 text-xs md:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all font-mono"

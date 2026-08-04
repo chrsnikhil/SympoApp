@@ -62,7 +62,7 @@ export default function CanonProtocolPage() {
       <SpiderBackgroundFX />
       <div className="fixed inset-0 pointer-events-none -z-10 bg-[#0a0510]" />
 
-      <header className="max-w-5xl mx-auto w-full flex items-center justify-between border-b border-red-500/30 pb-4 mb-8 z-10">
+      <header className="max-w-5xl mx-auto w-full flex flex-wrap items-center justify-between gap-4 border-b border-red-500/30 pb-4 mb-8 z-10">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-red-950 border border-red-500/40 flex items-center justify-center font-bold text-red-500 font-avengeance">
             CP
@@ -77,11 +77,23 @@ export default function CanonProtocolPage() {
           </div>
         </div>
 
-        {userInfo && (
-          <div className="px-3 py-1.5 rounded-xl border border-red-500/40 bg-red-950/60 text-red-300 text-xs font-bold uppercase">
-            User: {userInfo.username} ({userInfo.tenant})
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <a
+            href="/ctf/medium-02"
+            className="px-4 py-2 bg-red-950/80 hover:bg-red-900 border border-red-500/40 rounded-xl text-red-300 hover:text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-md"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span>Back to Challenge</span>
+          </a>
+
+          {userInfo && (
+            <div className="px-3 py-1.5 rounded-xl border border-red-500/40 bg-red-950/60 text-red-300 text-xs font-bold uppercase">
+              User: {userInfo.username} ({userInfo.tenant})
+            </div>
+          )}
+        </div>
       </header>
 
       <div className="max-w-5xl mx-auto w-full grid grid-cols-1 md:grid-cols-2 gap-8 z-10">

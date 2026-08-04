@@ -175,9 +175,6 @@ export default function SpiderOtpRace() {
             <h4 className="text-xs font-black uppercase tracking-widest text-red-400">
               Decrypted Data Output
             </h4>
-            <span className="text-[10px] font-mono text-gray-500 uppercase">
-              Encoding: Base64
-            </span>
           </div>
 
           {!activeRevealedCode ? (
