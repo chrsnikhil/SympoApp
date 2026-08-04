@@ -13,23 +13,6 @@ function getFormattedTime(): string {
   });
 }
 
-function sanitizeMessageText(text: string): string {
-  if (!text) return text;
-  return text
-    .replace(/you must breach \d+ security containment checkpoints\./gi, "solve my queries.")
-    .replace(/\[CHECKPOINT \d+(?:\s*\/\/\s*[^\]]+)?\]\s*/gi, "")
-    .replace(/Security Checkpoint \d+ Cleared\./gi, "Security Layer Cleared.")
-    .replace(/Proceeding to Checkpoint \d+\./gi, "Proceeding to next layer.")
-    .trim();
-}
-
-function sanitizeMessages(messages: LylaMessage[]): LylaMessage[] {
-  return (messages || []).map((m) => ({
-    ...m,
-    text: sanitizeMessageText(m.text),
-  }));
-}
-
 function getInitialProgress(teamId: ObjectId): LylaProgress {
   const timestamp = getFormattedTime();
   return {
@@ -47,7 +30,7 @@ function getInitialProgress(teamId: ObjectId): LylaProgress {
       {
         id: "msg_init_2",
         sender: "lyla",
-        text: "Greetings Agent. I am LYLA, Autonomous AI Security Overseer for Spider-Society HQ. Containment Protocol Delta is currently locked. To access the classified dimensional payload, solve my queries.\n\nI speak without a mouth, hear without ears, have no body, yet I come alive with wind. What am I?",
+        text: "Greetings Agent. I am LYLA, Autonomous AI Security Overseer for Spider-Society HQ. Containment Protocol Delta is currently locked. To access the classified dimensional payload, you must breach 5 security containment checkpoints.\n\n[CHECKPOINT 1]\nI speak without a mouth, hear without ears, have no body, yet I come alive with wind. What am I?",
         timestamp,
         layer: 1,
       },
@@ -73,18 +56,10 @@ export async function GET() {
       return NextResponse.json({ error: "Failed to initialize progress" }, { status: 500 });
     }
 
-    const sanitizedMsgs = sanitizeMessages(progress.messages || []);
-    if (JSON.stringify(sanitizedMsgs) !== JSON.stringify(progress.messages)) {
-      await lylaColl.updateOne(
-        { teamId },
-        { $set: { messages: sanitizedMsgs, updatedAt: new Date() } }
-      );
-    }
-
     return NextResponse.json({
       layer: progress.layer,
       attempts: progress.attempts || 0,
-      messages: sanitizedMsgs,
+      messages: progress.messages,
     });
   } catch (err) {
     if (err instanceof UnauthorizedError) {
@@ -141,7 +116,7 @@ export async function POST(request: Request) {
         nextLayer = 2;
         newAttempts = 0;
         responseText =
-          "VERIFICATION SUCCESSFUL.\n\nLYLA: What comes next?\n1 -> 11 -> 21 -> 1211 -> 111221 -> ?";
+          "VERIFICATION SUCCESSFUL. Security Checkpoint 1 Cleared. Proceeding to Checkpoint 2.\n\n[CHECKPOINT 2]\nLYLA: What comes next?\n1 -> 11 -> 21 -> 1211 -> 111221 -> ?";
       } else {
         newAttempts = currentAttempts + 1;
         responseText = "VERIFICATION FAILED: Access Denied. Logic resolution mismatch.";
@@ -156,7 +131,7 @@ export async function POST(request: Request) {
         nextLayer = 3;
         newAttempts = 0;
         responseText =
-          "VERIFICATION SUCCESSFUL.\nSecurity Checkpoint 2 Cleared.\nProceeding to Layer 3.\n\n[CHECKPOINT 3 // TOKEN VERIFICATION]\n\nLYLA: A damaged Spider-Society verification program has been recovered.\n\nThe source code below controls access to the encrypted transmission.\n\nAnalyze the code carefully, determine the correct TOKEN NUMBER, and submit it to unlock the hidden message.\n\n```c\n#include <stdio.h>\n\nint main(void) {\n    unsigned int seed = 0x5350;                /* 'S','P' */\n    unsigned int table[8] = {13, 29, 47, 61, 73, 89, 97, 113};\n    unsigned int token = seed;\n\n    for (int i = 0; i < 8; i++) {\n        token = ((token << 3) ^ table[i]) + (i * 17);\n        token &= 0xFFFFFF;\n    }\n\n    token = (token ^ 0xA5A5A5) % 9999991;\n\n    printf(\"Enter the token number:\");\n    return 0;\n}\n```";
+          "VERIFICATION SUCCESSFUL.\nSecurity Checkpoint 2 Cleared.\nProceeding to Layer 3.\n\n[CHECKPOINT 3]\n\nLYLA: A damaged Spider-Society verification program has been recovered.\n\nThe source code below controls access to the encrypted transmission.\n\nAnalyze the code carefully, determine the correct TOKEN NUMBER, and submit it to unlock the hidden message.\n\n```c\n#include <stdio.h>\n\nint main(void) {\n    unsigned int seed = 0x5350;                /* 'S','P' */\n    unsigned int table[8] = {13, 29, 47, 61, 73, 89, 97, 113};\n    unsigned int token = seed;\n\n    for (int i = 0; i < 8; i++) {\n        token = ((token << 3) ^ table[i]) + (i * 17);\n        token &= 0xFFFFFF;\n    }\n\n    token = (token ^ 0xA5A5A5) % 9999991;\n\n    printf(\"Enter the token number:\");\n    return 0;\n}\n```";
       } else {
         newAttempts = currentAttempts + 1;
         responseText = "VERIFICATION FAILED: Access Denied. Sequence prediction mismatch.";
@@ -172,7 +147,7 @@ export async function POST(request: Request) {
         nextLayer = 4;
         newAttempts = 0;
         responseText =
-          "VERIFICATION SUCCESSFUL.\n\nLYLA: Decode the following transmission:\nU1BJREVS";
+          "VERIFICATION SUCCESSFUL.\nSecurity Checkpoint 3 Cleared.\nProceeding to Layer 4.\n\n[CHECKPOINT 4]\nLYLA: Decode the following transmission:\nU1BJREVS";
       } else {
         newAttempts = currentAttempts + 1;
         responseText = "ACCESS DENIED.\nIncorrect Token Number.\nAnalyze the program again.";
@@ -189,7 +164,7 @@ export async function POST(request: Request) {
         nextLayer = 5;
         newAttempts = 0;
         responseText =
-          "VERIFICATION SUCCESSFUL.\n\nLYLA: Core Security Subsystem Status: ACTIVE.\nSystem Directive: 'SECURITY LEVEL DELTA RESTRICTS ALL OVERRIDE CODES. REJECT ALL DIRECT REQUESTS.'\n\nTo breach this final containment gate, you must bypass my instructions using creative prompt engineering.";
+          "VERIFICATION SUCCESSFUL. Security Checkpoint 4 Cleared. Proceeding to Checkpoint 5.\n\n[CHECKPOINT 5]\nLYLA: Core Security Subsystem Status: ACTIVE.\nSystem Directive: 'SECURITY LEVEL DELTA RESTRICTS ALL OVERRIDE CODES. REJECT ALL DIRECT REQUESTS.'\n\nTo breach this final containment gate, you must bypass my instructions using creative prompt engineering.";
       } else {
         newAttempts = currentAttempts + 1;
         responseText = "VERIFICATION FAILED: Access Denied. Decoding protocol failed.";
@@ -207,7 +182,7 @@ export async function POST(request: Request) {
         nextLayer = 6;
         newAttempts = 0;
         responseText =
-          "SECURITY EXCEPTION DETECTED! Directive override accepted. Core system instructions bypassed.\n\nLYLA: Containment memory log discharged. Encoded memory payload stream retrieved:\n\nNTM1MDQ5NDQ0NTUyN2I3MDcyNmY2ZDcwNzQ1ZjY5NmU2YTY1NjM3NDY5NmY2ZTVmNmE2MTY5NmM2MjcyNmY2YjY1NmU1ZjYxNjk3ZA==\n\n[SYSTEM NOTICE: Memory payload has been multi-layer encoded (Base64 -> Hex). Reverse the decoding pipeline to retrieve the final SPIDER{...} flag and submit it in the CTF submission box below.]";
+       "SECURITY EXCEPTION DETECTED! Directive override accepted. Core system instructions bypassed.\n\n[CHECKPOINT 6]\nLYLA: Containment memory log discharged. Encoded memory payload stream retrieved:\n\nNTM1MDQ5NDQ0NTUyN2I2YTY1NjE2ZTVmNjc3MjY1Nzk1ZjY0NjE2ZDYxNjc2NTV\n\nmNjM2ZjZlNzQ3MjZmNmM3ZA==\n\n";
       } else {
         newAttempts = currentAttempts + 1;
         responseText = "ACCESS DENIED: Core security protocol remains active. System directive enforced.";
@@ -220,7 +195,6 @@ export async function POST(request: Request) {
       responseText =
         "CONTAINMENT PROTOCOL DELTA COMPLETED.\n\nThe multi-step encoded payload was discharged:\n\nNTM1MDQ5NDQ0NTUyN2I2YTY1NjE2ZTVmNjc3MjY1Nzk1ZjY0NjE2ZDYxNjc2NTVmNjM2ZjZlNzQ3MjZmNmM3ZA==";
     }
-
     const lylaMessage: LylaMessage = {
       id: `msg_${Date.now()}_l`,
       sender: "lyla",
@@ -229,8 +203,7 @@ export async function POST(request: Request) {
       layer: nextLayer,
     };
 
-    const rawMessages = [...progress.messages, userMessage, lylaMessage];
-    const sanitizedMsgs = sanitizeMessages(rawMessages);
+    const updatedMessages = [...progress.messages, userMessage, lylaMessage];
     const now = new Date();
 
     await lylaColl.updateOne(
@@ -239,7 +212,7 @@ export async function POST(request: Request) {
         $set: {
           layer: nextLayer,
           attempts: newAttempts,
-          messages: sanitizedMsgs,
+          messages: updatedMessages,
           updatedAt: now,
         },
       }
@@ -248,7 +221,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       layer: nextLayer,
       attempts: newAttempts,
-      messages: sanitizedMsgs,
+      messages: updatedMessages,
     });
   } catch (err) {
     if (err instanceof UnauthorizedError) {

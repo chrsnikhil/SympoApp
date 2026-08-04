@@ -251,7 +251,7 @@ async function main() {
     {
       type: "ctf",
       slug: "hard-01",
-      title: "Lyla – Containment Protocol Delta",
+      title: "Lyla Containment Protocol Delta",
       points: 200,
       opensAt: null,
       closesAt: null,
