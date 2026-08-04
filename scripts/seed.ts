@@ -129,7 +129,7 @@ async function main() {
         description: "The Spider Society authentication portal uses temporary OTP tokens to grant access to secured data. Click 'Generate OTP' to issue a new verification code.\n\nOnce generated, locate your OTP token to verify your identity. Each successful verification reveals a single encrypted data fragment, replacing the previous fragment. Some fragments contain meaningful words, while others contain noise. Decode the fragments, filter out the noise, assemble the meaningful words in order, and submit the master flag.\n\nFlag format: SPIDER{...}",
         hints: [
           { id: 1, text: "Verifying an OTP reveals one encrypted Base64 data fragment at a time. Each new verification replaces the displayed code fragment.", unlockSeconds: 180 },
-          { id: 2, text: "Decode each Base64 fragment. Filter out non-meaningful junk values and assemble the real words into SPIDER{...}.", unlockSeconds: 300 },
+          { id: 2, text: "Decode each fragment. Filter out non-meaningful junk values and assemble the real words into SPIDER{...}.", unlockSeconds: 300 },
         ],
         status: "open",
         attachments: [],
