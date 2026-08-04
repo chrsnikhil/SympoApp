@@ -96,18 +96,23 @@ export default function GameUI() {
 
         <div id="game-wrapper">
           <header id="hud-bar">
-            <div id="hud-puzzle-name">
-              <span className="hud-label-small">PUZZLE</span>
-              <div id="level-display-text" className="level-title-text">
-                Level 1: Overload Prevention
+            <div id="hud-left-section">
+              <div id="hud-puzzle-name">
+                <span className="hud-label-small">PUZZLE</span>
+                <div id="level-display-text" className="level-title-text">
+                  Level 1: Overload Prevention
+                </div>
               </div>
+              <button id="hud-htp-btn" className="hud-htp-btn">
+                HOW TO PLAY
+              </button>
             </div>
 
             <div id="hud-voltage-section">
-              <div id="hud-target">
-                <span className="hud-label">TARGET VOLTAGE</span>
-                <span id="target-voltage-value" className="voltage-number target-highlight">
-                  2
+              <div id="hud-actual">
+                <span className="hud-label">ACTUAL VOLTAGE</span>
+                <span id="actual-voltage-value" className="voltage-number">
+                  0
                 </span>
               </div>
 
@@ -123,11 +128,11 @@ export default function GameUI() {
                 <div id="modifier-tracker"></div>
               </div>
 
-              <div id="hud-actual">
-                <span id="actual-voltage-value" className="voltage-number">
-                  0
+              <div id="hud-target">
+                <span id="target-voltage-value" className="voltage-number target-highlight">
+                  2
                 </span>
-                <span className="hud-label">ACTUAL VOLTAGE</span>
+                <span className="hud-label">TARGET VOLTAGE</span>
               </div>
             </div>
           </header>

@@ -5,6 +5,7 @@
 export function initLanding() {
   const playBtn = document.getElementById('landing-play-btn');
   const htpSkipBtn = document.getElementById('htp-skip-btn');
+  const hudHtpBtn = document.getElementById('hud-htp-btn');
   const landingPage = document.getElementById('landing-page');
   const htpPage = document.getElementById('how-to-play-page');
   const appContainer = document.getElementById('app-container');
@@ -21,17 +22,23 @@ export function initLanding() {
     });
   }
 
-  const startGame = () => {
-    if (gameStarted) return;
-    gameStarted = true;
-    if (autoSkipTimer) clearTimeout(autoSkipTimer);
+  const dismissHtp = () => {
+    if (autoSkipTimer) {
+      clearTimeout(autoSkipTimer);
+      autoSkipTimer = null;
+    }
     if (htpSkipBtn) htpSkipBtn.classList.add('glitch-burst');
     
     setTimeout(() => {
       htpPage.style.opacity = '0';
       setTimeout(() => {
         htpPage.style.display = 'none';
-        transitionToGame();
+        htpSkipBtn?.classList.remove('glitch-burst');
+        
+        if (!gameStarted) {
+          gameStarted = true;
+          transitionToGame();
+        }
       }, 500);
     }, 250);
   };
@@ -56,13 +63,22 @@ export function initLanding() {
         htpPage.style.opacity = '1';
         
         // Auto-skip after 60 seconds
-        autoSkipTimer = setTimeout(startGame, 60000);
+        autoSkipTimer = setTimeout(dismissHtp, 60000);
       }, 500); // Wait for opacity fade
     }, 250);
   });
 
   if (htpSkipBtn) {
-    htpSkipBtn.addEventListener('click', startGame);
+    htpSkipBtn.addEventListener('click', dismissHtp);
+  }
+
+  if (hudHtpBtn) {
+    hudHtpBtn.addEventListener('click', () => {
+       // Show How To Play Page without auto-skip when triggered from HUD
+       htpPage.style.display = 'flex';
+       htpPage.offsetHeight; // Force reflow
+       htpPage.style.opacity = '1';
+    });
   }
 
   const transitionToGame = () => {
