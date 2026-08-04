@@ -202,26 +202,26 @@ async function main() {
       },
     },
 
-    // ── MEDIUM 2: Image Encryption ────────────────────────────────────────
+    // ── MEDIUM 2: Spider OTP Race ─────────────────────────────────────────
     {
       type: "ctf",
       slug: "medium-02",
-      title: "HOBLE BROWN - THE ANTI-ESTABLISHMENT BLUEPRINT",
+      title: "SPIDER OTP RACE",
       points: 150,
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{punk_watch_schematic_v2}"),
+        answerHash: sha256("SPIDEY{fr0nt3nd_s3cr3ts_4r3_n0t_s3cr3ts}"),
         difficulty: "Medium",
-        category: "Digital Forensics",
-        description: "Hobie secretly built an unauthorized custom dimensional watch in his DIY garage using stolen Spider-Society tech. To hide the schematics from Miguel's surveillance drones, he visual-scrambled and encrypted the blueprint image into a piece of punk-rock collage art. Decrypt and un-scramble Hobie's punk poster image to reveal the hidden wire layout of his custom-made dimensional travel watch.\n\nAppended after the JPEG End-Of-File (EOF) marker FFD9 is a Base64-encoded comment payload:\nU1BJREVSe3hvcl9jaXBoZXJfcGl4ZWxfbWFzdGVyfQ==",
+        category: "Web Exploitation / Logic",
+        description: "The Spider Society recently deployed a new authentication portal for agents travelling across universes. To simplify development, one of the engineers accidentally implemented the OTP generation logic entirely in the frontend JavaScript.\n\nEvery 30 seconds a new 6-digit OTP is generated. Your mission is to inspect the frontend source code, discover how the OTP is generated, authenticate before it expires, and retrieve the flag.\n\nFlag format: SPIDEY{...}",
         hints: [
-          { id: 1, text: "Start with the basics — run 'strings' or inspect EXIF metadata.", unlockSeconds: 300 },
-          { id: 2, text: "Check if data has been appended after the image's EOF marker (FFD9 for JPEG).", unlockSeconds: 600 },
-          { id: 3, text: "Decode the trailing Base64 string to uncover the exact SPIDER{...} flag.", unlockSeconds: 600 },
+          { id: 1, text: "Open Browser DevTools and inspect the Network / Sources tab. The login flow loads a script called login.js.", unlockSeconds: 300 },
+          { id: 2, text: "The SECRET is Base64-encoded. Decode it before using it in the OTP formula.", unlockSeconds: 600 },
+          { id: 3, text: "OTP = last 6 digits of SHA256(decodedSecret + floor(Date.now()/30000)). Generate and submit before the 30s window expires.", unlockSeconds: 900 },
         ],
         status: "open",
-        attachments: ['medium-02-image-encryption.png'],
+        attachments: [],
       },
     },
 
@@ -291,12 +291,31 @@ async function main() {
         attachments: ["hard-02.zip"],
       },
     },
+
+    // ── HARD 3: The Auditor's Ledger ──────────────────────────────────────
+    {
+      type: "ctf",
+      slug: "hard-03",
+      title: "The Auditor's Ledger",
+      points: 400,
+      opensAt: null,
+      closesAt: null,
+      config: {
+        answerHash: sha256("SPIDER{aud1t0r_mem0ry_never_l13s}"),
+        difficulty: "Hard",
+        category: "Reverse Engineering / Memory Forensics",
+        description: "A rogue financial auditor has been quietly moving encrypted evidence across dimensions. The recovered executable — 'ledger.exe' — only ever prints 'Verification Failed.' No matter what username you feed it. The real flag never lives in the binary as plaintext, but a matching memory dump (ledger.dmp) was captured mid-execution.\n\nProvided files:\n  - ledger.exe   (Windows x64, MSVC)\n  - ledger.dmp   (MiniDumpWriteDump snapshot)\n  - README.md\n\nRecover the flag. Flag format: SPIDER{...}",
+        hints: [],
+        status: "open",
+        attachments: ["hard-03.zip"],
+      },
+    },
   ]);
 
   console.log("\n── SEEDED ALL CHALLENGES & ADMIN TEAM ─────────────────────────────");
   console.log("  CTF Easy:   easy-01, easy-02, easy-03 (100 pts each)");
   console.log("  CTF Medium: medium-01, medium-02, medium-03 (150 pts each)");
-  console.log("  CTF Hard:   hard-01, hard-02 (200 pts each)");
+  console.log("  CTF Hard:   hard-01, hard-02 (200 pts each), hard-03 (400 pts)");
   console.log("  All flags hashed with SHA-256 and structured under SPIDER{...}");
   console.log("────────────────────────────────────────────────────────\n");
 
