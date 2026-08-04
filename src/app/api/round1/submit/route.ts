@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
-import { IMAGE_JUDGE_MODE } from "@/lib/config";
 import { collections } from "@/lib/db/client";
-import { pollFastApiSubmission, submitToFastApi } from "@/lib/quiz/aiEvalClient";
-import { scheduleImageJudging } from "@/lib/quiz/judge";
-import { resolvePromptImage } from "@/lib/quiz/scoring";
+import { finalizeImageRound, imageRoundDeadline, uploadsLocked } from "@/lib/quiz/imageRound";
 
 const MAX_BYTES = 10_000_000; // 10MB upload limit
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 
 /**
- * POST /api/round1/submit
- * Receives the participant's uploaded recreation image.
- * Routes to either SigLIP (FastAPI backend service) or Groq based on IMAGE_JUDGE_MODE.
+ * POST /api/round1/submit — STORE ONLY.
+ *
+ * Receives the team's recreation and saves it, replacing whatever it had
+ * before. It does NOT judge: no similarity, no score, no call to the
+ * evaluator. Teams may re-upload freely until the clock hits zero, and only
+ * the last image they leave behind is ever evaluated (see lib/quiz/imageRound).
  */
 export async function POST(request: Request) {
   try {
@@ -61,97 +61,56 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Image too large (${Math.round(buffer.length / 1024)}KB). Maximum size is 10MB.` }, { status: 413 });
     }
 
-    const teams = await collections.teams();
-    const teamDoc = await teams.findOne({ _id: teamId });
-    const teamName = teamDoc?.name || `Team ${teamIdStr}`;
-
     const challenges = await collections.challenges();
     const challenge = await challenges.findOne({ type: "quiz", slug: challengeSlug });
     if (!challenge) {
       return NextResponse.json({ error: `Challenge "${challengeSlug}" not found` }, { status: 404 });
     }
 
-    // Save image into promptImages for persistence and reference
+    // Uploads close the instant the clock hits zero — after that the team's
+    // last image is what gets judged and nothing more can be swapped in.
+    if (uploadsLocked(challenge)) {
+      return NextResponse.json(
+        { error: "Time's up — uploads are closed. Your last submitted image is being judged.", locked: true },
+        { status: 403 }
+      );
+    }
+
+    // STORE ONLY. Nothing is judged while the clock runs: a team may upload as
+    // often as it likes and each upload REPLACES the previous one, so exactly
+    // one image per team survives to be evaluated when the timer ends.
+    // `evaluationClaimedAt` is reset so a replacement is judgeable again.
     const images = await collections.promptImages();
     await images.updateOne(
       { teamId, challengeSlug },
-      { $set: { teamId, challengeSlug, dataUrl, bytes: buffer.length, uploadedAt: new Date() } },
+      {
+        $set: {
+          teamId,
+          challengeSlug,
+          dataUrl,
+          bytes: buffer.length,
+          uploadedAt: new Date(),
+          evaluationClaimedAt: null,
+        },
+      },
       { upsert: true }
     );
     const storedImg = await images.findOne({ teamId, challengeSlug });
     const imageId = storedImg?._id;
 
-    if (IMAGE_JUDGE_MODE === "siglip") {
-      // MODE 2: FastAPI SigLIP service
-      try {
-        const fastApiRes = await submitToFastApi(buffer, mime, teamIdStr, teamName);
+    const deadline = imageRoundDeadline(challenge);
+    console.log(`[image-round] stored upload team=${teamIdStr} q=${challengeSlug} bytes=${buffer.length} (not judged yet)`);
 
-        // Store active submission record in MongoDB
-        const subs = await collections.submissions();
-        await subs.updateOne(
-          { challengeId: challenge._id, teamId },
-          {
-            $set: {
-              type: "quiz",
-              challengeId: challenge._id,
-              teamId,
-              participantId: new ObjectId(session.sub),
-              receivedAt: new Date(),
-              status: "running",
-              payload: fastApiRes.id, // Store FastAPI submission UUID in payload
-              meta: { mode: "siglip", fastApiId: fastApiRes.id },
-            },
-          },
-          { upsert: true }
-        );
+    return NextResponse.json({
+      ok: true,
+      status: "saved",
+      imageId: imageId?.toString(),
+      submissionId: imageId?.toString(),
+      bytes: buffer.length,
+      deadline: deadline ? deadline.toISOString() : null,
+      note: "Saved. You can replace it until the timer ends; only your last image is judged.",
+    });
 
-        return NextResponse.json({
-          ok: true,
-          submissionId: fastApiRes.id,
-          imageId: imageId?.toString(),
-          status: "pending",
-          mode: "siglip",
-        });
-      } catch (fastApiErr) {
-        console.error("[round1/submit] FastAPI error:", fastApiErr);
-        return NextResponse.json(
-          { error: fastApiErr instanceof Error ? fastApiErr.message : "AI Evaluation Service unavailable" },
-          { status: 502 }
-        );
-      }
-    } else {
-      // MODE 1: Groq Vision judging code path
-      const subs = await collections.submissions();
-      await subs.updateOne(
-        { challengeId: challenge._id, teamId },
-        {
-          $set: {
-            type: "quiz",
-            challengeId: challenge._id,
-            teamId,
-            participantId: new ObjectId(session.sub),
-            receivedAt: new Date(),
-            status: "running",
-            payload: imageId?.toString(),
-            meta: { mode: "groq" },
-          },
-        },
-        { upsert: true }
-      );
-
-      const subDoc = await subs.findOne({ challengeId: challenge._id, teamId });
-      if (subDoc?._id) {
-        scheduleImageJudging(challenge, teamId, subDoc._id);
-      }
-
-      return NextResponse.json({
-        ok: true,
-        submissionId: subDoc?._id?.toString() || imageId?.toString(),
-        imageId: imageId?.toString(),
-        status: "pending",
-        mode: "groq",
-      });
-    }
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -162,8 +121,14 @@ export async function POST(request: Request) {
 }
 
 /**
- * GET /api/round1/submit?id={submissionId}&challengeSlug={slug}
- * Polls for the judging result of an uploaded image.
+ * GET /api/round1/submit?challengeSlug={slug}
+ *
+ * Reports where this team's ONE image stands: saved and waiting for the clock,
+ * or judged. Never awards points itself — the finalizer owns scoring.
+ *
+ * Crossing the deadline is what triggers the round's single evaluation pass;
+ * any client poll may set it off, and it is safe for all of them to try
+ * because the finalizer claims each team's image atomically.
  */
 export async function GET(request: Request) {
   try {
@@ -172,94 +137,78 @@ export async function GET(request: Request) {
     const teamId = new ObjectId(teamIdStr);
 
     const { searchParams } = new URL(request.url);
-    const submissionId = searchParams.get("id");
     const challengeSlug = searchParams.get("challengeSlug") || "prompt-image";
 
-    if (!submissionId) {
-      return NextResponse.json({ error: "Missing submission ID parameter (?id=...)" }, { status: 400 });
+    const subs = await collections.submissions();
+    const challenges = await collections.challenges();
+    const challenge = await challenges.findOne({ type: "quiz", slug: challengeSlug });
+    const gamePoints = challenge?.points ?? 10;
+
+    const images = await collections.promptImages();
+    const myImage = await images.findOne({ teamId, challengeSlug });
+    const deadline = challenge ? imageRoundDeadline(challenge) : null;
+    const locked = challenge ? uploadsLocked(challenge) : false;
+
+    // The clock has run out — run the round's one evaluation pass. Idempotent
+    // and single-flight, so the whole field's browsers hitting this in the
+    // same second still produce exactly one evaluation per team.
+    if (locked && challenge) {
+      await finalizeImageRound(challengeSlug);
     }
 
-    const teams = await collections.teams();
-    const teamDoc = await teams.findOne({ _id: teamId });
-    const teamName = teamDoc?.name || `Team ${teamIdStr}`;
+    const sub = await subs.findOne({ type: "quiz", challengeId: challenge?._id, teamId });
 
-    if (IMAGE_JUDGE_MODE === "siglip") {
-      // MODE 2: Poll FastAPI SigLIP service
-      try {
-        const result = await pollFastApiSubmission(submissionId, teamIdStr, teamName);
+    const meta = (sub?.verdict?.meta ?? {}) as {
+      evalStatus?: string;
+      similarity?: number;
+      modelUsed?: string | null;
+      errorMessage?: string;
+      watermarkConfidence?: number | null;
+    };
 
-        if (result.status === "scored") {
-          const similarity = result.similarity ?? (result.final_score ? result.final_score / 10 : 0);
-          const finalScore = result.final_score ?? Math.round(similarity * 10);
-
-          // Write score into Round 1 score aggregation
-          await resolvePromptImage(challengeSlug, { [teamIdStr]: similarity });
-
-          return NextResponse.json({
-            ok: true,
-            status: "scored",
-            similarity,
-            final_score: finalScore,
-            model_used: result.model_used ?? "SigLIP 2",
-          });
-        }
-
-        if (result.status === "rejected_watermark") {
-          return NextResponse.json({
-            ok: true,
-            status: "rejected_watermark",
-            watermarkDetected: true,
-            error: "that's the reference image, not your generation",
-          });
-        }
-
-        if (result.status === "failed") {
-          return NextResponse.json({
-            ok: false,
-            status: "failed",
-            error: result.error_message || "AI image evaluation failed",
-          });
-        }
-
-        return NextResponse.json({
-          ok: true,
-          status: result.status, // "pending" or "processing"
-          pending: true,
-        });
-      } catch (err) {
-        console.error("[round1/submit GET] FastAPI polling error:", err);
-        return NextResponse.json(
-          { error: err instanceof Error ? err.message : "Error polling AI Evaluation Service" },
-          { status: 502 }
-        );
-      }
-    } else {
-      // MODE 1: Poll MongoDB submission status for Groq vision judging
-      const subs = await collections.submissions();
-      const challenges = await collections.challenges();
-      const challenge = await challenges.findOne({ type: "quiz", slug: challengeSlug });
-
-      const sub = ObjectId.isValid(submissionId)
-        ? await subs.findOne({ _id: new ObjectId(submissionId), teamId })
-        : await subs.findOne({ challengeId: challenge?._id, teamId });
-
-      if (sub?.status === "done" && sub.verdict) {
-        const similarity = (sub.verdict.meta as { similarity?: number })?.similarity ?? sub.verdict.points / 10;
-        return NextResponse.json({
-          ok: true,
-          status: "scored",
-          similarity,
-          final_score: sub.verdict.points,
-          model_used: "Groq Vision",
-        });
-      }
-
+    if (meta.evalStatus === "rejected_watermark") {
       return NextResponse.json({
         ok: true,
-        status: sub?.status ?? "pending",
-        pending: true,
+        status: "rejected_watermark",
+        watermarkDetected: true,
+        watermarkConfidence: meta.watermarkConfidence ?? null,
+        error: "That's the reference image, not your generation — upload the image YOUR AI generated.",
       });
     }
+
+    if (meta.evalStatus === "failed" || sub?.status === "error") {
+      return NextResponse.json({
+        ok: false,
+        status: "failed",
+        error: meta.errorMessage || "Image evaluation failed — please upload again",
+      });
+    }
+
+    if (sub?.status === "done" && sub.verdict) {
+      return NextResponse.json({
+        ok: true,
+        status: "scored",
+        similarity: meta.similarity ?? sub.verdict.points / gamePoints,
+        // Always the game's own scale, so the number a team reads is the
+        // number they were awarded. The service's 0..100 value used to be
+        // shown here verbatim: a 9/10 submission displayed as "80".
+        final_score: sub.verdict.points,
+        max_score: gamePoints,
+        model_used: meta.modelUsed ?? "Vision judge",
+      });
+    }
+
+    // Nothing judged yet. Before the deadline that is the CORRECT state: the
+    // image is banked and replaceable, and no evaluator has seen it.
+    return NextResponse.json({
+      ok: true,
+      status: myImage ? (locked ? "judging" : "saved") : "none",
+      pending: true,
+      locked,
+      hasUpload: Boolean(myImage),
+      uploadedAt: myImage?.uploadedAt ? new Date(myImage.uploadedAt).toISOString() : null,
+      deadline: deadline ? deadline.toISOString() : null,
+    });
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });

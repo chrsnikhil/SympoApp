@@ -21,7 +21,30 @@ RUN if ! command -v python3 >/dev/null; then \
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+
+# PyTorch, CPU-only.
+#
+# `pip install torch` from PyPI pulls the CUDA build on Linux even when the
+# base image has no GPU — ~2.5GB of nvidia_cudnn / cublas / triton wheels that
+# can never be used on a CPU deployment, for a ~7GB image. Installing torch
+# and torchvision from PyTorch's CPU index FIRST pins the CPU builds, so the
+# requirements.txt install below is satisfied by what is already present and
+# never reaches for the CUDA variants.
+#
+# Versions are read out of requirements.txt rather than hardcoded, so this
+# stays correct if the pins there ever move.
+#
+# For a GPU deployment, build with
+#   --build-arg BASE_IMAGE=nvidia/cuda:12.1.0-runtime-ubuntu22.04 --build-arg TORCH_INDEX=
+# and the CUDA wheels are used instead.
+ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu
+RUN pip install --upgrade pip && \
+    if [ -n "$TORCH_INDEX" ]; then \
+      TORCH_PIN=$(grep -E '^torch==' requirements.txt) && \
+      VISION_PIN=$(grep -E '^torchvision==' requirements.txt) && \
+      pip install --index-url "$TORCH_INDEX" "$TORCH_PIN" "$VISION_PIN"; \
+    fi && \
+    pip install -r requirements.txt
 
 COPY app ./app
 COPY alembic ./alembic

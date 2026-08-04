@@ -45,7 +45,7 @@ interface Overview {
     }>;
   };
   judgeQueue?: Array<{ teamId: string; teamName: string; submittedAt: string; imageId: string | null; dataUrl?: string | null }>;
-  judgedImages?: Array<{ teamId: string; teamName: string; points: number; similarity: number | null; summary: string | null; dataUrl: string | null; judgedAt: string }>;
+  judgedImages?: Array<{ teamId: string; teamName: string; points: number; similarity: number | null; summary: string | null; dataUrl: string | null; judgedAt: string; judgedBy?: string | null }>;
   connectionsPuzzles?: ConnectionsPuzzleInfo[];
   comeback?: Array<{ teamId: string; teamName: string; bottomStreak: number; ability: string | null; usableOnSlug: string | null; used: boolean }>;
   flags?: Array<{ teamId: string; teamName: string; tabSwitch: number; windowBlur: number; fullscreenExit: number; lastAt: string }>;
@@ -540,8 +540,19 @@ export default function AdminDashboard() {
                               {j.similarity !== null ? `${j.similarity}% Match` : "Graded"}
                             </span>
                           </td>
-                          <td className="text-xs text-paper-white/80 max-w-md truncate">
-                            {j.summary ?? "Graded automatically"}
+                          <td className="text-xs text-paper-white/80 max-w-md">
+                            <div className="truncate">{j.summary ?? "Graded automatically"}</div>
+                            {/* WHICH judge produced this. A mock-produced score
+                                is fabricated and must be obvious on sight. */}
+                            {j.judgedBy && (
+                              <div
+                                className={`mt-0.5 font-mono text-[10px] ${
+                                  j.judgedBy.includes("MOCK") ? "text-spider-red font-bold" : "text-paper-white/45"
+                                }`}
+                              >
+                                {j.judgedBy}
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))}

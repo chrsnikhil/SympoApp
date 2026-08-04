@@ -65,6 +65,71 @@ src/
 
 Nothing in the pipeline, auth, scoring or leaderboard changes.
 
+## Running the quiz from a fresh clone
+
+**`.env.local` alone is not enough.** A clone has code but no *data* — no
+questions, no coins, no reference image — and the quiz will render an empty
+round if you skip the seed. These four steps are all required:
+
+```bash
+npm install
+
+# 1. Config. Fill in an API key + IMAGE_JUDGE_MODEL for Round 1 judging.
+cp .env.example .env.local
+
+# 2. Database. Either start the bundled local one (downloads a mongod binary
+#    on first run — needs internet), or point MONGODB_URI at your own/Atlas.
+npm run db:local                    # leave running, uses port 27117
+
+# 3. Seed. WITHOUT THIS THERE ARE NO QUESTIONS.
+#    Prints the coordinator code (1684) and team coins (01-60).
+npm run seed:quiz
+
+# 4. Round 1's single reference image, for the vision judge.
+npx tsx --env-file=.env.local scripts/set-reference.ts image-1 ./public/quiz/reference-1.jpg
+
+npm run dev
+```
+
+Then: coordinator at `/admin/quiz` (code **1684**), teams at `/enter` with a
+coin number.
+
+`npm run db:local` rewrites `MONGODB_URI` and `JWT_SECRET` in `.env.local` to
+point at the instance it just started — expected, not a bug.
+
+### What Round 1 image judging needs
+
+Game 1 is scored by one vision model over HTTP. No Docker, no companion
+service. Set in `.env.local`:
+
+```
+OPENROUTER_API_KEY="..."          # or GROQ_API_KEY
+IMAGE_JUDGE_MODEL="model-id,fallback-id"
+```
+
+Model ids change and an invalid one fails every request, so there is no
+default. Discover ids your key can actually use:
+
+```bash
+npx tsx --env-file=.env.local scripts/find-vision-model.ts
+```
+
+The similarity→marks ladder is `IMAGE_SCORE_BANDS`, tunable without code
+changes. `ai-image-eval-platform/` holds a self-contained FastAPI + SigLIP
+alternative, preserved but **not wired into the web app**.
+
+### Verifying a fresh setup
+
+```bash
+npx tsx scripts/verify-comeback.ts                          # Round 3 meter/powers, no server needed
+npx tsx --env-file=.env.local scripts/test-round3-e2e.ts    # needs npm run dev
+npx tsx --env-file=.env.local scripts/test-vision-live.ts   # one real vision API call
+```
+
+`scripts/test-game1-flow.ts` additionally needs the counting stand-in
+(`npx tsx scripts/mock-vision-api.ts`) and `VISION_API_URL` pointed at it —
+never leave that set during a real event.
+
 ## Local development
 
 ```bash

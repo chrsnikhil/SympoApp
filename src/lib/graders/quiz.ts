@@ -1,9 +1,7 @@
 import { collections } from "@/lib/db/client";
-import { closeQuestionForComeback } from "@/lib/quiz/comeback";
 import { scoreConnections } from "@/lib/quiz/connections";
-import { scheduleImageJudging } from "@/lib/quiz/judge";
 import { isQualified } from "@/lib/quiz/rounds";
-import { markAnswered, serveFor } from "@/lib/quiz/serve";
+import { claimAnswer, serveFor } from "@/lib/quiz/serve";
 import { acceptEstimate, acceptPromptImage, scoreMcq } from "@/lib/quiz/scoring";
 import type { QuizRound } from "@/lib/db/types";
 import type { GradeInput, GradeResult } from "./types";
@@ -115,7 +113,14 @@ export async function gradeQuiz(input: GradeInput): Promise<GradeResult> {
   // a client bug firing a fraction early shouldn't cost a question a team
   // still has their full window to answer for real.
   if (result.meta?.reason !== "too-early") {
-    await markAnswered(teamId, challenge.slug, receivedAt);
+    // ATOMIC. The claim is what makes this the one scoring attempt: two
+    // submits arriving together both passed the `serve.answeredAt` check
+    // above and both scored, so a double-click paid out twice. Whoever loses
+    // the claim scores nothing and is reported as a duplicate.
+    const won = await claimAnswer(teamId, challenge.slug, receivedAt);
+    if (!won) {
+      return { correct: false, points: 0, meta: { reason: "already-answered" } };
+    }
   }
 
   return result;

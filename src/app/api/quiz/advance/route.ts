@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { ForbiddenError, requireAdmin, UnauthorizedError } from "@/lib/auth/guard";
 import { collections } from "@/lib/db/client";
-import { judgeAll, judgeAvailable } from "@/lib/quiz/judge";
+import { judgeAvailable } from "@/lib/quiz/judge";
+import { finalizeImageRound } from "@/lib/quiz/imageRound";
 import { ROUNDS, advanceFrom, eliminateTeam, restoreTeam } from "@/lib/quiz/rounds";
 import { resolveEstimate, resolvePromptImage } from "@/lib/quiz/scoring";
 import { avatarForCoin, formatCoin, parseCoin } from "@/lib/quiz/avatars";
@@ -123,76 +124,44 @@ async function handlePOST(request: Request) {
       }
 
       case "judge-image": {
-        // Triggering Turbopack reload openrouter
+        // The coordinator's manual trigger for the round's ONE evaluation
+        // pass. It runs the exact same finalizer the expiring timer runs —
+        // same claim, same evaluator, same scoring — so a manual run can
+        // never score a team twice or by a different route than the automatic
+        // one. `force` only bypasses the "is the clock up yet" check.
         if (!body.slug) return NextResponse.json({ error: "Missing slug" }, { status: 400 });
+
         if (!judgeAvailable()) {
-          return NextResponse.json({ error: "No GROQ_API_KEY configured" }, { status: 503 });
-        }
-
-        const [challenges, subs, images] = await Promise.all([
-          collections.challenges(),
-          collections.submissions(),
-          collections.promptImages(),
-        ]);
-        const challenge = await challenges.findOne({ type: "quiz", slug: body.slug });
-        if (!challenge?._id) return NextResponse.json({ error: "No such quiz challenge" }, { status: 404 });
-
-        const reference = challenge.config.referenceDataUrl;
-        if (!reference) {
           return NextResponse.json(
-            { error: "This challenge has no referenceDataUrl — run scripts/set-reference.ts first." },
-            { status: 409 }
+            { error: "Vision judge not configured — set an API key and IMAGE_JUDGE_MODEL" },
+            { status: 503 }
           );
         }
 
-        // Find teams that have already been judged (status "done") so we skip them
-        const doneSubs = await subs.find({ challengeId: challenge._id, status: "done" }).toArray();
-        const judgedTeamIds = new Set(doneSubs.map((s) => String(s.teamId)));
-
-        // Find all uploaded prompt images for this challenge
-        const allPromptImages = await images.find({ challengeSlug: body.slug }).toArray();
-        const latestPromptImageByTeam = new Map<string, (typeof allPromptImages)[number]>();
-        for (const img of [...allPromptImages].sort((a, b) => b._id.getTimestamp().getTime() - a._id.getTimestamp().getTime())) {
-          const key = String(img.teamId);
-          if (!latestPromptImageByTeam.has(key)) latestPromptImageByTeam.set(key, img);
-        }
-
-        const entries: Array<{ teamId: string; image: string }> = [];
-        for (const [teamId, img] of latestPromptImageByTeam) {
-          if (!judgedTeamIds.has(teamId)) {
-            entries.push({ teamId, image: img.dataUrl });
-            if (entries.length === 1) break; // FREE TIER LIMIT: Only process 1 team per minute to avoid HTTP 429 TPM errors
-          }
-        }
-
-        if (entries.length === 0) {
-          return NextResponse.json({ ok: true, slug: body.slug, judged: [], failed: [], note: "No unjudged images found." });
-        }
-
-        // Run synchronously so the admin sees real results / errors
         try {
-          const { judged, failed } = await judgeAll(challenge, reference, entries);
-          const scores = Object.fromEntries(judged.map((j) => [j.teamId, j.similarity]));
-          if (judged.length > 0) {
-            await resolvePromptImage(body.slug!, scores);
-          }
-          if (failed.length > 0) {
-            console.error(`[judge-image] ${failed.length} team(s) failed:`, failed.map((f) => `${f.teamId}: ${f.reason}`).join("; "));
+          const result = await finalizeImageRound(body.slug, { force: true });
+          if (!result.ok && result.reason === "no-challenge") {
+            return NextResponse.json({ error: "No such quiz challenge" }, { status: 404 });
           }
           return NextResponse.json({
             ok: true,
             slug: body.slug,
-            judgedCount: judged.length,
-            failedCount: failed.length,
-            failures: failed.map((f) => ({ teamId: f.teamId, reason: f.reason })),
-            note: judged.length > 0
-              ? `Judged ${judged.length} team(s).${failed.length > 0 ? ` ${failed.length} failed — check server logs.` : ""}`
-              : `All ${failed.length} team(s) failed vision judging — check server logs and GROQ_API_KEY.`,
+            judgedCount: result.evaluated,
+            failedCount: result.failed,
+            alreadyJudged: result.alreadyDone,
+            note:
+              result.evaluated > 0
+                ? `Judged ${result.evaluated} team(s) with the vision judge.` +
+                  (result.failed > 0 ? ` ${result.failed} failed — check server logs.` : "") +
+                  (result.alreadyDone > 0 ? ` ${result.alreadyDone} already scored.` : "")
+                : result.alreadyDone > 0
+                  ? `Nothing new — all ${result.alreadyDone} uploaded image(s) already scored.`
+                  : "No uploaded images to judge.",
           });
         } catch (err) {
           console.error("[judge-image] Unexpected error:", err);
           return NextResponse.json(
-            { error: err instanceof Error ? err.message : "Vision judging failed unexpectedly" },
+            { error: err instanceof Error ? err.message : "Image judging failed unexpectedly" },
             { status: 500 }
           );
         }

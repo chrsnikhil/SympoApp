@@ -218,3 +218,24 @@ export async function markAnswered(teamId: ObjectId, challengeSlug: string, at: 
   const serves = await collections.quizServes();
   await serves.updateOne({ teamId, challengeSlug, answeredAt: null }, { $set: { answeredAt: at } });
 }
+
+/**
+ * Atomically claim the one answer a team gets for a question. Returns true for
+ * the request that won the claim and false for every other one.
+ *
+ * This is the gate that makes a question score EXACTLY once. Checking
+ * `serve.answeredAt` and then writing it is a read-then-write: two submits
+ * landing together both saw a null and both scored, so a double-click paid
+ * out twice. That was invisible for an ordinary wrong answer (both rows are
+ * worth 0 and never reach the ledger) but real for anything that scores —
+ * a correct answer, or a wrong one carrying Iron Spider Armor's 50%.
+ */
+export async function claimAnswer(teamId: ObjectId, challengeSlug: string, at: Date): Promise<boolean> {
+  const serves = await collections.quizServes();
+  const claimed = await serves.findOneAndUpdate(
+    { teamId, challengeSlug, answeredAt: null },
+    { $set: { answeredAt: at } },
+    { returnDocument: "after" }
+  );
+  return claimed !== null;
+}

@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
-import { attachPendingAbility, expireOldComebackAbilities, closeQuestionForComeback, spendComeback } from "@/lib/quiz/comeback";
+import {
+  activateForServe,
+  awardFreePass,
+  getComebackView,
+  sweepClosedQuestions,
+  type ActivationResult,
+} from "@/lib/quiz/comeback";
 import { collections } from "@/lib/db/client";
 import { isQualified } from "@/lib/quiz/rounds";
 import { serveNext } from "@/lib/quiz/serve";
-import { gradeQuiz } from "@/lib/graders/quiz";
 import type { QuizRound } from "@/lib/db/types";
 
 /**
@@ -13,6 +18,18 @@ import type { QuizRound } from "@/lib/db/types";
  * reaches a client, and calling it is what starts that question's two-phase
  * clock. Reloading returns the same question with the original deadlines
  * rather than fresh ones — see `lib/quiz/serve.ts`.
+ *
+ * Round 3 additionally carries the Comeback Meter. The order below is fixed
+ * and matters:
+ *
+ *   1. sweep — settle every question whose deadline has passed, so a timeout
+ *      or an abandoned tab fills its bar (and may earn a power) BEFORE the
+ *      next question is decided
+ *   2. activate — fire a stored power onto THIS question, while the payload
+ *      can still be amended
+ *   3. serialise — the response carries the elimination the power just made,
+ *      the active-power banner, and the meter, in ONE object, so the question
+ *      and the meter can never disagree on screen
  *
  * No caching, ever: two teams hitting this get different questions.
  */
@@ -37,50 +54,53 @@ export async function GET(request: Request) {
     if (!result.ok) {
       return NextResponse.json({ error: "No questions in this round yet" }, { status: 404 });
     }
+
     if ("done" in result) {
+      // The round is out of questions. Sweep once more here or the LAST
+      // question of Round 3 would never settle — the old code returned from
+      // this branch before any comeback work ran at all.
+      if (round === 3) {
+        await sweepClosedQuestions(teamId, 3);
+        return NextResponse.json(
+          { done: true, comeback: await getComebackView(teamId, 3) },
+          { headers: { "Cache-Control": "no-store" } }
+        );
+      }
       return NextResponse.json({ done: true }, { headers: { "Cache-Control": "no-store" } });
     }
 
-    // Round 3 only: if this team is holding a granted comeback ability with
-    // nowhere to land yet, this freshly-served question is where it attaches.
-    // We also process any past questions that were skipped (timer ran out without submit)
-    // so the team still gets their comeback meter updated for finishing in the bottom tier.
-    if (round === 3) {
-      const servesCol = await collections.quizServes();
-      const expiredServes = await servesCol.find({
-        teamId,
-        round,
-        streakProcessed: { $ne: true },
-        answerableUntil: { $lt: new Date() }
-      }).toArray();
+    if (round !== 3) {
+      return NextResponse.json(result.question, { headers: { "Cache-Control": "no-store" } });
+    }
 
-      for (const expired of expiredServes) {
-        await closeQuestionForComeback(teamId, round, expired.challengeSlug);
-      }
+    await sweepClosedQuestions(teamId, 3);
 
-      await expireOldComebackAbilities(teamId, round, result.question.slug);
-      await attachPendingAbility(teamId, round, result.question.slug);
-      
-      const challenges = await collections.challenges();
-      const challenge = await challenges.findOne({ slug: result.question.slug });
-      if (challenge) {
-        const spendRes = await spendComeback(teamId, round, result.question.slug, challenge);
-        
-        // If it's a Free Pass, auto-submit the correct answer instantly
-        if (spendRes.ok && spendRes.effect.ability === "free-pass" && challenge.config.correctIndex !== undefined) {
-          await gradeQuiz({
-            teamId,
-            participantId: new ObjectId(session.sub),
-            challenge,
-            payload: String(challenge.config.correctIndex),
-            receivedAt: new Date(),
-            submissionId: new ObjectId(), // Dummy ID, quiz submission endpoint doesn't strictly need it to be real for MCQ scoring
-          });
+    let activation: ActivationResult = { power: null, justActivated: false };
+    const challenges = await collections.challenges();
+    const challenge = await challenges.findOne({ type: "quiz", slug: result.question.slug });
+
+    if (challenge) {
+      activation = await activateForServe(teamId, 3, result.question.slug, challenge);
+
+      if (activation.power) {
+        // Same response, same object — this is the fix for Spider-Sense never
+        // visibly removing anything.
+        result.question.eliminated = activation.power.eliminated;
+
+        if (activation.justActivated && activation.power.id === "free-pass") {
+          await awardFreePass(teamId, new ObjectId(session.sub), challenge);
         }
       }
     }
 
-    return NextResponse.json(result.question, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(
+      {
+        ...result.question,
+        activePower: activation.power,
+        comeback: await getComebackView(teamId, 3),
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });

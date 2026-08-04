@@ -83,6 +83,8 @@ export async function GET(request: Request) {
         summary: string | null;
         dataUrl: string | null;
         judgedAt: string;
+        /** Which judge produced this. Carries the mock warning when applicable. */
+        judgedBy: string | null;
       }> = [];
       if (imageGame) {
         const promptImagesCol = await collections.promptImages();
@@ -145,6 +147,7 @@ export async function GET(request: Request) {
             summary: sumStr ?? null,
             dataUrl,
             judgedAt: s.receivedAt.toISOString(),
+            judgedBy: typeof meta?.modelUsed === "string" ? meta.modelUsed : null,
           });
         }
         judgedImages.sort((a, b) => b.points - a.points);

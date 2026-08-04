@@ -483,7 +483,11 @@ function ImageReplication({
 }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
-  const [status, setStatus] = useState<"idle" | "uploading" | "judging" | "scored" | "rejected_watermark" | "failed">("idle");
+  // "saved" is the normal state for the whole round: the image is banked and
+  // replaceable, and nothing is judged until the clock hits zero.
+  const [status, setStatus] = useState<
+    "idle" | "uploading" | "saved" | "judging" | "scored" | "rejected_watermark" | "failed"
+  >("idle");
   const [evalResult, setEvalResult] = useState<{ similarity?: number; final_score?: number; model_used?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [watermarkError, setWatermarkError] = useState<boolean>(false);
@@ -519,17 +523,23 @@ function ImageReplication({
     }
   }, [game.referenceImage, refDataUrl]);
 
-  // Handle active evaluation polling
+  // Poll from the moment an image is banked. Before the deadline this just
+  // reports "saved"; crossing the deadline is what makes the server run the
+  // round's single evaluation pass, and the result appears here.
   useEffect(() => {
-    if (!submissionId || status !== "judging") return;
+    if (status !== "saved" && status !== "judging") return;
 
     let cancelled = false;
     const poll = async () => {
       try {
-        const res = await fetch(`/api/round1/submit?id=${encodeURIComponent(submissionId)}&challengeSlug=${encodeURIComponent(game.slug)}`);
+        const res = await fetch(`/api/round1/submit?challengeSlug=${encodeURIComponent(game.slug)}`);
         if (!res.ok) return;
         const json = await res.json();
         if (cancelled) return;
+
+        if (json.status === "judging" && status === "saved") {
+          setStatus("judging");
+        }
 
         if (json.status === "scored") {
           setStatus("scored");
@@ -558,7 +568,7 @@ function ImageReplication({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [submissionId, status, game.slug, onChanged]);
+  }, [status, game.slug, onChanged]);
 
   async function handleFile(file: File) {
     if (disabled) return;
@@ -579,17 +589,16 @@ function ImageReplication({
       const body = await submitRes.json();
       if (!submitRes.ok) {
         setError(body.error ?? "Submission failed");
-        setStatus("idle");
+        // A 403 means the clock ran out mid-upload — the previously banked
+        // image stands, so don't drop back to "no upload".
+        setStatus(body.locked ? "judging" : "idle");
         return;
       }
 
-      if (body.submissionId) {
-        setSubmissionId(body.submissionId);
-        setStatus("judging");
-      } else {
-        setStatus("idle");
-        onChanged();
-      }
+      // Banked, not judged. The team can keep replacing it until time is up.
+      setSubmissionId(body.imageId ?? body.submissionId ?? null);
+      setStatus("saved");
+      onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not read that file");
       setStatus("idle");
@@ -699,9 +708,11 @@ function ImageReplication({
                 {status === "uploading"
                   ? "Uploading Image…"
                   : status === "judging"
-                  ? "Evaluating AI Image…"
+                  ? "Time's Up — Evaluating…"
                   : isJudged || status === "scored"
                   ? "Image Evaluated & Scored"
+                  : status === "saved"
+                  ? "Image Locked In — Replaceable Until Time"
                   : "Image Saved & Uploaded"}
               </span>
             </div>
@@ -723,7 +734,7 @@ function ImageReplication({
           <div className="flex justify-center p-2 bg-ink-black/60 border border-paper-white/15 relative">
             <ProtectedImage src={displayImage} alt="Your uploaded recreation" teamName={teamName} className="rounded" />
 
-            {/* Judging Spinner Overlay */}
+            {/* Judging only ever runs after the clock hits zero. */}
             {status === "judging" && (
               <div className="absolute inset-0 bg-ink-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center space-y-3">
                 <div className="w-10 h-10 border-4 border-glitch-cyan border-t-transparent rounded-full animate-spin"></div>
@@ -731,13 +742,19 @@ function ImageReplication({
                   ⚡ AI Evaluation in Progress…
                 </p>
                 <p className="text-xs text-paper-white/70 font-mono">
-                  Calculating SigLIP similarity embedding & inspecting watermarks…
+                  Judging your final image & inspecting watermarks…
                 </p>
               </div>
             )}
           </div>
 
-          {!disabled && status !== "judging" && (
+          {status === "saved" && (
+            <p className="text-center text-[11px] font-mono text-comic-yellow/90 pt-1">
+              Not judged yet — you can replace this as many times as you like. Only your LAST image is scored, when the timer ends.
+            </p>
+          )}
+
+          {!disabled && status !== "judging" && status !== "scored" && (
             <div className="flex items-center justify-center gap-4 pt-1">
               <label className="cursor-pointer text-xs text-glitch-cyan hover:underline py-1">
                 <input

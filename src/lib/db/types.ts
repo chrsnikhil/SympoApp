@@ -252,6 +252,19 @@ export interface PromptImage {
   dataUrl: string;
   bytes: number;
   uploadedAt: Date;
+  /**
+   * Set when this image has been claimed for judging at the end of the round.
+   *
+   * Nothing is judged while the clock is running — a team may re-upload as
+   * often as it likes and each upload simply replaces this document, so only
+   * the LAST image survives to be scored. When the timer hits zero the
+   * finalizer claims each team's surviving image exactly once by flipping
+   * this field, which is what guarantees one evaluation request per team no
+   * matter how many clients trigger the finalize at the same instant.
+   *
+   * Cleared on every fresh upload, so a replaced image is judgeable again.
+   */
+  evaluationClaimedAt?: Date | null;
 }
 
 /**
@@ -329,16 +342,22 @@ export interface RoundQualification {
 }
 
 /**
- * Round 3's Comeback Meter — the one-time ability a team unlocks by finishing
- * in the bottom tier of the live Round 3 standings on three questions running.
- * Reuses the original gadget system used (fifty-fifty / double-points / safety-net / free-pass);
- * the only thing that changed is how a team gets one — earned by standing,
- * not by scanning a physical card.
+ * Round 3's Comeback Meter. One document per team per round, and the ONLY
+ * place meter/power state lives — see `lib/quiz/comeback.ts`, which is the
+ * only module permitted to write it.
  *
- * One doc per team per round. `bottomStreak` increments each time a team's
- * live rank lands in the bottom quarter of the round after a question closes,
- * and resets to 0 otherwise. Reaching the threshold grants an ability and
- * resets the streak, so the same run of bad answers can't grant two.
+ * Every team except the live Rank #1 carries a 3-bar meter. Each unsuccessful
+ * question (wrong answer, timeout, or no submission) fills one bar; a correct
+ * answer never does. Filling all three rolls one ability at random, banks it,
+ * and empties the meter — the ability does NOT fire on the question that
+ * earned it. It fires automatically on the team's next question and is deleted
+ * when that question settles. While an ability is banked the meter is dormant,
+ * so a team can never hold two.
+ *
+ * The three-field power lifecycle reads:
+ *   ability=null                          → nothing banked
+ *   ability set, usableOnSlug=null        → banked, fires next question
+ *   ability set, usableOnSlug=<slug>      → firing on that question now
  */
 export type ComebackAbility = "fifty-fifty" | "double-points" | "safety-net" | "free-pass";
 
@@ -346,14 +365,26 @@ export interface ComebackState {
   _id?: ObjectId;
   teamId: ObjectId;
   round: QuizRound;
+  /** Bars filled, 0..3. Held at 0 while an ability is banked. */
   bottomStreak: number;
-  /** Rolled the moment a streak crosses the threshold; null until earned. */
+  /** Rolled the moment the meter fills; null until earned, null again once spent. */
   ability: ComebackAbility | null;
   grantedAt: Date | null;
-  /** The one question it's usable on — set to the next slug served after granting. */
+  /** The question it is firing on. Null while banked and waiting. */
   usableOnSlug: string | null;
   usedAt: Date | null;
   usedOnSlug: string | null;
+  /**
+   * Suspended because the team is Rank #1. Bars and any banked ability above
+   * are preserved untouched while this is set — nothing is cleared, so
+   * dropping out of the lead needs no restore step.
+   *
+   * This is a settle-time marker for the admin dashboard and the debug log
+   * only. Gameplay always recomputes "is this team frozen" from the LIVE
+   * leaderboard (`getComebackView`), never from this field, so the two can
+   * never disagree about who is actually leading.
+   */
+  frozen?: boolean;
 }
 
 /**

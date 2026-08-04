@@ -1,4 +1,5 @@
 import { ObjectId } from "mongodb";
+import { IMAGE_JUDGE_MODELS } from "@/lib/config";
 import { collections } from "@/lib/db/client";
 import { resolvePromptImage } from "@/lib/quiz/scoring";
 import type { Challenge } from "@/lib/db/types";
@@ -19,8 +20,19 @@ import type { Challenge } from "@/lib/db/types";
  * same way, which is what makes them comparable.
  */
 
-const API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const VISION_MODEL = "openrouter/free";
+// `||` not `??`: an env var set to an empty string is a misconfiguration, not
+// a deliberate override, and `?? ` would happily pass "" through to fetch().
+const API_URL = process.env.VISION_API_URL?.trim() || "https://openrouter.ai/api/v1/chat/completions";
+
+/**
+ * The model id was hardcoded to "openrouter/free" — an auto-router alias that
+ * resolves to a different model on every call, which is why the error log is
+ * full of `json_validate_failed`: some of the models it picked couldn't hold
+ * the JSON contract. Pinned ids from IMAGE_JUDGE_MODEL replace it, tried in
+ * order so a rate-limited free model falls through to the next instead of
+ * failing the whole judging pass.
+ */
+const VISION_MODELS = IMAGE_JUDGE_MODELS;
 
 export interface Criterion {
   key: string;
@@ -87,7 +99,7 @@ export class JudgeError extends Error {
 }
 
 export function judgeAvailable(): boolean {
-  return Boolean(process.env.OPENROUTER_API_KEY || process.env.GROQ_API_KEY);
+  return Boolean((process.env.OPENROUTER_API_KEY || process.env.GROQ_API_KEY) && VISION_MODELS.length > 0);
 }
 
 function rubricFor(challenge: Challenge): readonly Criterion[] {
@@ -110,10 +122,6 @@ export function toSimilarity(cheating_detected: boolean, scores: CriterionScore[
 }
 
 function parseVerdict(raw: string, rubric: readonly Criterion[]): Omit<JudgeVerdict, "similarity"> {
-  try {
-    require("fs").writeFileSync("c:\\Users\\ponr2\\SympoApp\\groq-error.log", `RAW RESPONSE:\n${raw}\n\n`, { flag: "a" });
-  } catch(e) {}
-  
   let parsed: unknown;
   try {
     let clean = raw.trim();
@@ -251,31 +259,37 @@ export type ImageDataUrl = string;
 export async function judgeImage(challenge: Challenge, referenceImage: ImageDataUrl, submittedImage: ImageDataUrl): Promise<JudgeVerdict> {
   const rubric = rubricFor(challenge);
 
-  // Exact image upload check — compare the raw base64 payload after the header
+  // Re-uploading the reference image itself is the single most obvious cheat
+  // in this game, and it used to score 1.0 — full marks — because the byte
+  // match was treated as a "perfect recreation" with cheating_detected false.
+  // It is a copy, not a recreation: it scores zero, like every other detected
+  // copy.
   const refBody = referenceImage.replace(/^data:[^,]+,/, "");
   const subBody = submittedImage.replace(/^data:[^,]+,/, "");
   if (refBody === subBody) {
-    const criteria = rubric.map((c) => ({
-      key: c.key,
-      score: 5,
-      note: `Perfect 100% ${c.label.toLowerCase()} match with reference image.`,
-    }));
     return {
-      similarity: 1.0,
-      criteria,
-      summary: "Exact 100% match with the reference image.",
-      cheating_detected: false,
-      cheating_reason: "Exact byte match with reference image.",
-      cheating_confidence: null,
+      similarity: 0,
+      criteria: rubric.map((c) => ({ key: c.key, score: 0, note: "Submission is the reference image itself." })),
+      summary: "Submitted file is byte-for-byte identical to the reference image.",
+      cheating_detected: true,
+      cheating_reason: "Exact byte match with the reference image — this is the reference, not a generation.",
+      cheating_confidence: "high",
     };
   }
 
   const key = process.env.OPENROUTER_API_KEY || process.env.GROQ_API_KEY;
 
+  if (VISION_MODELS.length === 0) {
+    throw new JudgeError(
+      "IMAGE_JUDGE_MODEL is not set — the vision judge has no model to call. " +
+        "Set it to one or more vision-capable model ids (comma-separated); " +
+        "`npx tsx --env-file=.env.local scripts/find-vision-model.ts` lists ones your key can use."
+    );
+  }
+
   if (key) {
     // Current working vision models
-    const visionModels = [VISION_MODEL];
-    for (const model of visionModels) {
+    for (const model of VISION_MODELS) {
       try {
         const response = await fetch(API_URL, {
           method: "POST",
@@ -320,24 +334,10 @@ export async function judgeImage(challenge: Challenge, referenceImage: ImageData
           }
         } else {
           const errBody = await response.text();
-          console.error(`[judgeImage] Groq error (${model}): HTTP ${response.status}`, errBody);
-          try {
-            require("fs").writeFileSync(
-              "c:\\Users\\ponr2\\SympoApp\\groq-error.log",
-              `HTTP ${response.status} ${errBody}\n`,
-              { flag: "a" }
-            );
-          } catch(e) {}
+          console.error(`[judgeImage] vision API error (${model}): HTTP ${response.status}`, errBody);
         }
       } catch (e) {
-        console.error(`[judgeImage] Groq model (${model}) failed:`, e);
-        try {
-          require("fs").writeFileSync(
-            "c:\\Users\\ponr2\\SympoApp\\groq-error.log",
-            `Exception ${e}\n`,
-            { flag: "a" }
-          );
-        } catch(err) {}
+        console.error(`[judgeImage] vision model (${model}) failed:`, e);
       }
     }
   }

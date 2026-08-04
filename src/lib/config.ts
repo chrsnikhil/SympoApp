@@ -26,13 +26,84 @@ export const SESSION_COOKIE = "session";
 /** How long a session lasts. Events run for hours, so a day is plenty. */
 export const SESSION_TTL_SECONDS = 60 * 60 * 24;
 
-/** Image judging mode switch for Round 1: "siglip" (FastAPI service) or "groq" (Groq Vision) */
-export const IMAGE_JUDGE_MODE: "siglip" | "groq" =
-  (process.env.IMAGE_JUDGE_MODE?.toLowerCase() as "siglip" | "groq") ?? "siglip";
+/**
+ * Image Replication (Round 1, Game 1) is judged by ONE evaluator: the vision
+ * model configured below. There is no mode switch — the app talks to nothing
+ * else and needs no companion service to score a picture.
+ *
+ * The local SigLIP service still lives in `ai-image-eval-platform/`, kept
+ * intact as a future alternative. Reconnecting it means restoring a client for
+ * its HTTP contract and branching in `lib/quiz/imageRound.ts` on a new flag —
+ * see that folder's README and API_CONTRACT.md. Nothing in the web app
+ * currently reaches for it, which is why there is no URL, no health check and
+ * no polling code here any more.
+ */
 
-/** Server-only URL for the Python/FastAPI AI evaluation service */
-export const AI_EVAL_SERVICE_URL =
-  process.env.AI_EVAL_SERVICE_URL ?? "http://localhost:8000/api/v1";
+/**
+ * Image Replication's similarity→marks ladder.
+ *
+ * This is a symposium game, not an evaluation benchmark: a team that clearly
+ * had a go at recreating the reference should walk away with marks, and only
+ * a copy of the reference or something unrelated to it should score nothing.
+ *
+ * Read as: the first band whose threshold the similarity meets, from the top
+ * down. Anything under the lowest band scores 0 — that is the "unrelated
+ * image" floor, and the only route to 0 marks other than cheating detection.
+ *
+ * Override the whole ladder with IMAGE_SCORE_BANDS as a comma-separated list
+ * of `similarity:marks` pairs, e.g.
+ *   IMAGE_SCORE_BANDS="0.95:10,0.85:9,0.7:8,0.55:6,0.4:4,0.25:2"
+ * and the floor with IMAGE_SCORE_MIN_SIMILARITY.
+ */
+export interface ScoreBand {
+  atLeast: number;
+  marks: number;
+}
+
+const DEFAULT_BANDS: ScoreBand[] = [
+  { atLeast: 0.95, marks: 10 },
+  { atLeast: 0.85, marks: 9 },
+  { atLeast: 0.7, marks: 8 },
+  { atLeast: 0.55, marks: 6 },
+  { atLeast: 0.4, marks: 4 },
+  { atLeast: 0.25, marks: 2 },
+];
+
+function parseBands(raw: string | undefined): ScoreBand[] {
+  if (!raw?.trim()) return DEFAULT_BANDS;
+  const parsed: ScoreBand[] = [];
+  for (const pair of raw.split(",")) {
+    const [sim, marks] = pair.split(":").map((s) => Number(s.trim()));
+    if (Number.isFinite(sim) && Number.isFinite(marks)) parsed.push({ atLeast: sim, marks });
+  }
+  if (parsed.length === 0) {
+    console.warn(`[config] IMAGE_SCORE_BANDS="${raw}" could not be parsed — falling back to defaults`);
+    return DEFAULT_BANDS;
+  }
+  return parsed.sort((a, b) => b.atLeast - a.atLeast);
+}
+
+export const IMAGE_SCORE_BANDS = parseBands(process.env.IMAGE_SCORE_BANDS);
+
+/** Below this, the image is treated as unrelated to the reference: 0 marks. */
+export const IMAGE_SCORE_MIN_SIMILARITY = Number(process.env.IMAGE_SCORE_MIN_SIMILARITY ?? 0.25) || 0.25;
+
+/**
+ * Vision model(s) for Game 1's image judging, via OpenRouter/Groq.
+ *
+ * Comma-separated, tried in order. A fallback list matters on free tiers: the
+ * models that cost nothing are exactly the ones that return 429 under load,
+ * and a Round 1 judging pass that dies on the first rate limit loses the whole
+ * game's scores.
+ *
+ * No default — ids change, and an invalid one fails every request. Discover
+ * working ids for your key with `scripts/find-vision-model.ts`.
+ */
+export const IMAGE_JUDGE_MODEL = process.env.IMAGE_JUDGE_MODEL ?? "";
+
+export const IMAGE_JUDGE_MODELS: string[] = IMAGE_JUDGE_MODEL.split(",")
+  .map((m) => m.trim())
+  .filter(Boolean);
 
 /**
  * Leaderboard snapshot interval. Clients poll at roughly this rate and the

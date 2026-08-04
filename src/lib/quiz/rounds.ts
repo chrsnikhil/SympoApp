@@ -145,30 +145,35 @@ export async function computeStandings(round: QuizRound): Promise<Standing[]> {
     }
   }
 
-  // Everyone who qualified for this round belongs in its table
-  const rawInvolved = new Set<string>([...points.keys(), ...tiebreak.keys()]);
+  // Who belongs in this round's table.
+  //
+  // A round's standings are the standings OF THAT ROUND'S FIELD — only the
+  // teams qualified to play it. Round 3 used to admit every team that owned a
+  // coin, scored on cumulative Round 1-3 points, which meant a team knocked
+  // out in Round 1 could sit at rank #1 of a round it wasn't playing. That is
+  // not a cosmetic problem: the Comeback Meter reads rank #1 off this table to
+  // decide who is barred from earning bars, so the real Round 3 leader was
+  // ranked #2 and collected powers, and the team the rule exists to exclude
+  // was never even in the room.
+  const playable = (t: (typeof teamDocs)[number]) => t.name !== "Quiz Control" && t.coin != null;
   const involved = new Set<string>();
-  for (const id of rawInvolved) {
-    const t = teamById.get(id);
-    if (t && t.name !== "Quiz Control" && t.coin != null) {
-      involved.add(id);
-    }
-  }
-  const isEnded = await isQuizEnded();
-  if (round === 3 || isEnded) {
-    for (const t of teamDocs) {
-      if (t.name !== "Quiz Control" && t.coin != null) involved.add(String(t._id));
-    }
-  } else if (round > 1) {
+
+  if (round === 1) {
+    for (const t of teamDocs) if (playable(t)) involved.add(String(t._id));
+  } else {
     const quals = await collections.roundQualifications();
     for (const q of await quals.find({ round }).toArray()) {
       const t = teamById.get(String(q.teamId));
-      if (t && t.coin != null) involved.add(String(q.teamId));
+      if (t && playable(t)) involved.add(String(q.teamId));
     }
-  } else {
-    for (const t of teamDocs) {
-      if (t.name !== "Quiz Control" && t.coin != null) involved.add(String(t._id));
-    }
+  }
+
+  // Once the coordinator ends the quiz the board stops being a round table and
+  // becomes the whole-event recap, so everyone is shown. No question is served
+  // after that, so this can't feed back into the meter.
+  const isEnded = await isQuizEnded();
+  if (isEnded) {
+    for (const t of teamDocs) if (playable(t)) involved.add(String(t._id));
   }
 
   // Ranking Comparator (Official Specification):

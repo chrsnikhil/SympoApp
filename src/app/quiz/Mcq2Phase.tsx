@@ -27,16 +27,37 @@ interface Verdict {
   meta?: Record<string, unknown>;
 }
 
-interface ComebackStatus {
-  bottomStreak: number;
-  ability: "fifty-fifty" | "double-points" | "safety-net" | "free-pass" | null;
-  info: { label: string; icon: string; description: string } | null;
-  usableOnSlug: string | null;
-  used: boolean;
-  isRankOne: boolean;
+type AbilityId = "fifty-fifty" | "double-points" | "safety-net" | "free-pass";
+
+interface PowerView {
+  id: AbilityId;
+  label: string;
+  description: string;
+  tagline: string;
 }
 
-const AUTO_ADVANCE_DELAY_MS = 3400;
+/** The power firing on the question currently on screen. */
+interface ActivePower extends PowerView {
+  eliminated: number[];
+  /** Web-Slinger's Pass answered it for them — there is nothing left to pick. */
+  autoAnswered: boolean;
+}
+
+/**
+ * The Comeback Meter, exactly as the server computed it. Delivered inside the
+ * question payload rather than fetched separately, so the meter on screen can
+ * never belong to a different question than the one being displayed.
+ */
+interface ComebackView {
+  rank: number | null;
+  isRankOne: boolean;
+  eligible: boolean;
+  bars: number;
+  maxBars: number;
+  stored: PowerView | null;
+  active: PowerView | null;
+  activeOnSlug: string | null;
+}
 
 function parseQuestionTitle(title: string) {
   if (!title) return { prompt: "", code: null };
@@ -91,12 +112,17 @@ export default function Mcq2Phase({
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [now, setNow] = useState(0);
-  const [comeback, setComeback] = useState<ComebackStatus | null>(null);
+  const [comeback, setComeback] = useState<ComebackView | null>(null);
+  const [activePower, setActivePower] = useState<ActivePower | null>(null);
 
   const inFlight = useRef(false);
-  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clockSkewMs = useRef(0);
 
+  /**
+   * One request for the question, the power firing on it, and the meter. They
+   * used to be two independent fetches on two cadences, which is how the
+   * screen ended up showing a meter that belonged to a different question.
+   */
   const loadQuestion = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -109,14 +135,19 @@ export default function Mcq2Phase({
       if (!res.ok) {
         setError(body.error ?? "Could not load the question");
         setQuestion(null);
+        setActivePower(null);
       } else if (body.done) {
         setDone(true);
         setQuestion(null);
+        setActivePower(null);
+        setComeback(body.comeback ?? null);
       } else {
         if (body.serverNow) {
           clockSkewMs.current = fetchStart - new Date(body.serverNow).getTime();
         }
         setQuestion(body);
+        setActivePower(body.activePower ?? null);
+        setComeback(body.comeback ?? null);
       }
     } catch {
       setError("Network problem — check your connection");
@@ -125,32 +156,20 @@ export default function Mcq2Phase({
     }
   }, [round]);
 
-  const loadComeback = useCallback(async () => {
-    if (round !== 3) return;
-    const res = await fetch("/api/quiz/comeback", { cache: "no-store" });
-    if (res.ok) setComeback(await res.json());
-  }, [round]);
-
   useEffect(() => {
     let cancelled = false;
-    async function run() {
+    void (async () => {
       await loadQuestion();
       if (cancelled) return;
-      await loadComeback();
-    }
-    void run();
+    })();
     return () => {
       cancelled = true;
     };
-  }, [loadQuestion, loadComeback]);
+  }, [loadQuestion]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 200);
     return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => () => {
-    if (advanceTimer.current) clearTimeout(advanceTimer.current);
   }, []);
 
   const syncedNow = (now > 0 ? now : Date.now()) - clockSkewMs.current;
@@ -169,11 +188,10 @@ export default function Mcq2Phase({
     if (phase === "closed") {
       const timer = setInterval(() => {
         void loadQuestion();
-        void loadComeback();
       }, 500);
       return () => clearInterval(timer);
     }
-  }, [phase, question, loadQuestion, loadComeback]);
+  }, [phase, question, loadQuestion]);
 
   async function submit() {
     if (!question || inFlight.current || choice === null) return;
@@ -196,27 +214,12 @@ export default function Mcq2Phase({
     }
   }
 
-  // Auto-activate Free Pass
-  useEffect(() => {
-    if (question && comeback?.ability === "free-pass" && !verdict && !inFlight.current) {
-      inFlight.current = true;
-      setSubmitting(true);
-      fetch("/api/submit", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ event: "quiz", challengeSlug: question.slug, payload: "-1" }),
-      })
-        .then((res) => res.json().then((data) => ({ res, data })))
-        .then(({ res, data }) => {
-          if (res.ok) setVerdict(data);
-        })
-        .catch(() => setError("Failed to apply Free Pass"))
-        .finally(() => {
-          inFlight.current = false;
-          setSubmitting(false);
-        });
-    }
-  }, [question, comeback, verdict]);
+  // NOTE: Web-Slinger's Pass is NOT auto-submitted from here. It used to be —
+  // the browser POSTed a sentinel "-1" while a second copy of the same logic
+  // ran on the server, and both fired during the read phase where the grader
+  // correctly rejects everything, so the strongest power in the game reliably
+  // scored zero. Powers are activated and awarded server-side, once, in
+  // /api/quiz/serve; this component only renders the result.
 
   const parsed = question ? parseQuestionTitle(question.title) : { prompt: "", code: null };
   const isSnippet = !!parsed.code;
@@ -292,32 +295,10 @@ export default function Mcq2Phase({
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Active Ability Badge */}
-              {(() => {
-                const activeAbilities = (verdict as { abilitiesUsed?: string[] } | null)?.abilitiesUsed || (comeback?.ability && (!comeback.usableOnSlug || comeback.usableOnSlug === question.slug) ? [comeback.ability] : []);
-                if (activeAbilities.length === 0) return null;
-                
-                const getAbilityLabel = (id: string) => {
-                  if (comeback?.ability === id && comeback?.info) return comeback.info.label;
-                  if (id === "fifty-fifty") return "Spider-Sense";
-                  if (id === "double-points") return "Symbiote Surge";
-                  if (id === "safety-net") return "Iron Spider Armor";
-                  if (id === "free-pass") return "Web-Slinger's Pass";
-                  return id;
-                };
-
-                return (
-                  <div className="bg-glitch-cyan text-ink-black comic-border-sm p-3 comic-tilt-left flex flex-col items-center justify-center">
-                    <span className="font-label-sm uppercase text-[10px] block leading-none mb-1 font-bold">Power Active</span>
-                    {activeAbilities.map((id: string) => (
-                      <span key={id} className="font-display-xl text-sm tracking-wider leading-none">
-                        {getAbilityLabel(id)}
-                      </span>
-                    ))}
-                  </div>
-                );
-              })()}
-
+              {/* The active power is announced by its own panel under the
+                  question — see ActivePowerBanner. It used to ALSO be squeezed
+                  into a chip here, off a different condition, so the two could
+                  contradict each other on the same screen. */}
               <div className="bg-tertiary-fixed comic-border-sm p-3 comic-tilt-right flex flex-col items-center">
                 <span className="font-label-sm uppercase text-[10px] block leading-none">Points</span>
                 <span className="font-display-xl text-headline-lg-mobile">{question.points}</span>
@@ -370,6 +351,10 @@ export default function Mcq2Phase({
             );
           })()}
 
+          {/* ACTIVE POWER — sits between the question and the options, so it
+              can't cover either one and is read on the way down to answering. */}
+          {activePower && <ActivePowerBanner power={activePower} />}
+
           {question.hint && (
             <div className="bg-tertiary-fixed p-4 comic-border comic-tilt-left">
               <span className="font-label-sm text-on-tertiary-fixed-variant uppercase text-[11px] block font-bold">Intel Hint</span>
@@ -377,8 +362,18 @@ export default function Mcq2Phase({
             </div>
           )}
 
+          {/* Web-Slinger's Pass answers for the team — there is nothing to pick. */}
+          {activePower?.autoAnswered && !verdict && (
+            <div className="pop-in bg-tertiary-fixed text-on-tertiary-fixed comic-border p-6 comic-tilt-left text-center">
+              <div className="font-display-xl text-[32px] uppercase leading-none">Locked In For You</div>
+              <div className="font-label-sm uppercase text-sm mt-2">
+                +{question.points} points banked. Sit tight for the next question.
+              </div>
+            </div>
+          )}
+
           {/* Options Grid */}
-          {!verdict && (
+          {!verdict && !activePower?.autoAnswered && (
             <div>
               {phase === "read" ? (
                 <div className="bg-surface comic-border p-8 text-center comic-tilt-right">
@@ -496,46 +491,83 @@ export default function Mcq2Phase({
         </article>
       )}
 
-      {/* Comeback Meter for Round 3 */}
-      {round === 3 && !comeback?.isRankOne && (
+      {/* COMEBACK METER — Round 3 only, and never for Rank #1. Rendered only
+          once the server has actually said this team is eligible: `comeback`
+          being null used to read as "not rank one" and painted a meter for the
+          leader whenever the status fetch hiccupped. */}
+      {round === 3 && comeback?.eligible && (
         <section className="bg-surface comic-border p-6 mt-8 comic-tilt-left">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <div className="font-display-xl text-headline-lg-mobile text-primary flex items-center gap-2">
                 <span>COMEBACK METER</span>
-                <span className="font-label-sm text-xs text-on-surface-variant">({comeback?.bottomStreak ?? 0} / 3 NOTCHES)</span>
+                <span className="font-label-sm text-xs text-on-surface-variant">
+                  ({comeback.bars} / {comeback.maxBars} BARS)
+                </span>
               </div>
               <div className="font-label-sm text-xs text-on-surface-variant uppercase mt-1">
-                Fills when finishing in bottom tier. Reaching 3 unlocks Multiverse Abilities!
+                {comeback.stored
+                  ? "Meter holds while a power is banked — it refills once the power is spent."
+                  : "Every missed question fills a bar. Fill all three to unlock a Spider Power!"}
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {[1, 2, 3].map((notch) => {
-                const filled = (comeback?.bottomStreak ?? 0) >= notch;
-                return (
-                  <div
-                    key={notch}
-                    className={`h-6 w-10 comic-border-sm transition-all duration-300 ${
-                      filled ? "bg-tertiary-fixed" : "bg-surface-container"
-                    }`}
-                  />
-                );
-              })}
+              {Array.from({ length: comeback.maxBars }, (_, i) => i + 1).map((notch) => (
+                <div
+                  key={notch}
+                  className={`h-6 w-10 comic-border-sm transition-all duration-300 ${
+                    comeback.bars >= notch ? "bg-tertiary-fixed" : "bg-surface-container"
+                  }`}
+                />
+              ))}
             </div>
           </div>
 
-          {comeback?.ability && (!comeback.usableOnSlug || comeback.usableOnSlug === question?.slug) && !verdict && (
-            <div className="mt-4 pt-4 border-t-2 border-dashed border-on-surface/20 flex flex-wrap items-center justify-between gap-4">
+          {/* Banked, not yet firing. The old UI could never show this state at
+              all — grant, attach and activation all happened in one request. */}
+          {comeback.stored && (
+            <div className="mt-4 pt-4 border-t-2 border-dashed border-on-surface/20 flex flex-wrap items-center gap-3">
+              <span className="text-2xl leading-none" aria-hidden="true">
+                🕷️
+              </span>
               <div>
-                <div className="font-display-xl text-headline-lg-mobile text-primary">
-                  {comeback.used ? "ACTIVE POWER" : "POWER READY"}: {comeback.info?.label}
+                <div className="font-display-xl text-headline-lg-mobile text-primary uppercase">
+                  Power Ready: {comeback.stored.label}
                 </div>
-                <div className="font-label-sm text-xs text-on-surface-variant uppercase">{comeback.info?.description}</div>
+                <div className="font-label-sm text-xs text-on-surface-variant uppercase">
+                  Fires automatically on your next question. {comeback.stored.description}
+                </div>
               </div>
             </div>
           )}
         </section>
       )}
     </div>
+  );
+}
+
+/**
+ * The "which power is firing right now" indicator, per the coordinator's spec:
+ * clearly visible, beside the question flow, covering neither the question nor
+ * the answer options.
+ */
+function ActivePowerBanner({ power }: { power: ActivePower }) {
+  return (
+    <section
+      aria-live="polite"
+      className="pop-in comic-border bg-glitch-cyan text-ink-black p-5 comic-tilt-right relative overflow-hidden"
+    >
+      <div className="absolute inset-0 ben-day pointer-events-none opacity-20" />
+      <div className="relative z-10 flex items-center gap-4">
+        <span className="text-[40px] leading-none shrink-0" aria-hidden="true">
+          🕷️
+        </span>
+        <div className="min-w-0">
+          <div className="font-label-sm uppercase text-[11px] tracking-[0.25em] font-bold">Active Power</div>
+          <div className="font-display-xl text-headline-lg-mobile uppercase leading-none mt-1">{power.label}</div>
+          <div className="font-body-md text-sm italic mt-1.5">{power.tagline}</div>
+        </div>
+      </div>
+    </section>
   );
 }
