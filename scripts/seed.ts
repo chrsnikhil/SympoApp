@@ -71,10 +71,9 @@ async function main() {
     "medium-03",
     "hard-01",
     "hard-02",
-    "hard-03",
   ];
 
-  await challenges.deleteMany({ slug: { $in: ["clue-1", "clue-2", "warmup", "q1", "sum-two", ...ctfSlugs] } });
+  await challenges.deleteMany({ slug: { $in: ["clue-1", "clue-2", "warmup", "q1", "sum-two", ...ctfSlugs, "hard-03"] } });
 
   await challenges.insertMany([
     // Hunt / Quiz / Code challenges
@@ -115,51 +114,51 @@ async function main() {
       config: { testsRef: "tests/sum-two.json" },
     },
 
-    // ── EASY 1: Web of Secrets ─────────────────────────────────────────────
+    // ── EASY 1: SPIDER OTP RACE ───────────────────────────────────────────
     {
       type: "ctf",
       slug: "easy-01",
-      title: "MILES MORALES - THE GLITCH & THE MULTIVERSAL SIGNATURE",
+      title: "SPIDER OTP RACE",
       points: 100,
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{earth_1610_glitch_signal}"),
+        answerHash: sha256("SPIDER{frontend_will_not_have_secrets}"),
         difficulty: "Easy",
-        category: "Cryptography",
-        description: "Miles is trying to send a vital message back to his home dimension (Earth-1610) while stuck at the Spider-Society HQ. Because he is an anomaly, his signal keeps getting distorted and intercepted across different dimensional frequencies. He must encode his communications so Miguel O'Hara’s Society doesn't trace his whereabouts. Help Miles encrypt (and later decrypt) his distress signal using a cipher key derived from his unique Earth-1610 dimensional frequency so the Spider-Society cannot intercept it.\n\nThe intercepted / encoded message Miles managed to transmit is:\nIFYTUH{uqhjx_1610_wbyjsx_iywdqb}\nCipher type: Classical Caesar cipher. The shift value is derived from Miles’ home dimension designation.",
+        category: "Web Exploitation / Logic",
+        description: "The Spider Society authentication portal uses temporary OTP tokens to grant access to secured data. Click 'Generate OTP' to issue a new verification code.\n\nOnce generated, locate your OTP token to verify your identity. Each successful verification reveals a single encrypted data fragment, replacing the previous fragment. Some fragments contain meaningful words, while others contain noise. Decode the fragments, filter out the noise, assemble the meaningful words in order, and submit the master flag.\n\nFlag format: SPIDER{...}",
         hints: [
-          { id: 1, text: "Miles’ home reality is designated Earth-1610. Numbers that appear in the story often become the key.", unlockSeconds: 300 },
-          { id: 2, text: "This is a classical shift cipher. Try shifting every letter by the same amount.", unlockSeconds: 600 },
+          { id: 1, text: "Verifying an OTP reveals one encrypted Base64 data fragment at a time. Each new verification replaces the displayed code fragment.", unlockSeconds: 180 },
+          { id: 2, text: "Decode each Base64 fragment. Filter out non-meaningful junk values and assemble the real words into SPIDER{...}.", unlockSeconds: 300 },
         ],
         status: "open",
         attachments: [],
       },
     },
 
-    // ── EASY 2: The Spot's Broken Portal ──────────────────────────────────
+    // ── EASY 2: Original Medium 3 (PAVITR PRABHAKAR) ─────────────────────
     {
       type: "ctf",
       slug: "easy-02",
-      title: "GWEN STACY - THE SECRET DIARY OF EARTH-65",
+      title: "PAVITR PRABHAKAR - THE ALCHEMEX INDIA BREACH",
       points: 100,
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{Gwen1965}"),
+        answerHash: sha256("SPIDER{alchemex_pixel_mole_50101}"),
         difficulty: "Easy",
-        category: "Password Cracking",
-        description: "Before joining the Spider-Society, Gwen stored her private logs, band rehearsals, and police intelligence on her father (Captain Stacy) inside a secured personal database in Earth-65. After being hunted by Jessica Drew and Miguel, she needs to bypass her own forgotten emergency lock system to recover evidence clearing her name in Peter Parker's death. Crack Gwen’s multi-layered security password by analyzing clues hidden within her drum sheet music and personal memory logs.\n\nThe emergency lock uses an 8-character password with a strict pattern: 1 uppercase letter + 3 lowercase letters + 4 digits\nFormat: [A-Z][a-z][a-z][a-z][0-9][0-9][0-9][0-9]\nEncrypted fragment — MD5 hash of the password: 9c7db174635bec31f1116306c0246156\nClue from Gwen’s drum notes (found in the recovered log): “The beat starts with my name, then the year my world was numbered.”",
+        category: "OSINT / Network Forensics",
+        description: "During the supercollider collapse in Mumbattan (Earth-50101), internal messages between Alchemex executives were intercepted, revealing that the collider was intentionally destabilized. Pavitr recovered a screenshot of the leaked corporate chat. The conversation looks ordinary — and that is exactly the problem.\n\nOperative A: 'Did you transfer the vault key?'\nOperative B: 'Yes, it is hex-encoded in the chat payload'",
         hints: [
-          { id: 1, text: "The password follows the exact structure given. The search space is finite.", unlockSeconds: 300 },
-          { id: 2, text: "Gwen’s home reality is Earth-65. Names and dimension numbers frequently appear in her personal systems.", unlockSeconds: 600 },
+          { id: 1, text: "Run strings on the PNG and inspect the end of the file. Data is sometimes written after the normal image structure.", unlockSeconds: 300 },
+          { id: 2, text: "Check PNG metadata (Comment / Description). It may point you toward the correct technique.", unlockSeconds: 600 },
         ],
         status: "open",
-        attachments: [],
+        attachments: ["easy-02-chat.png"],
       },
     },
 
-    // ── EASY 3: QR Puzzle ──────────────────────────────────────────────────
+    // ── EASY 3: Original Easy 3 (SPIDER-MAN 2099 QR) ──────────────────────
     {
       type: "ctf",
       slug: "easy-03",
@@ -168,10 +167,10 @@ async function main() {
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{qr_brooklyn_dimension_rift_42}"),
+        answerHash: sha256("SPIDER{go_home_machine_2099}"),
         difficulty: "Easy",
         category: "QR Code Analysis",
-        description: "Miguel O'Hara has locked down the Spider-Society transit hub to prevent any unauthorized dimensional travel. To activate the “Go-Home Machine” and return home, rogue Spider-People need to scan a visual dimensional matrix code that updates every few seconds on the central platform screens. Reconstruct a fragmented dimensional coordinate matrix code (QR code) from corrupted security monitor feeds to activate the Go-Home Machine.\n\nThe QR code has been tampered with by the lockdown protocol:\n• Split into tiles / blocks\n• Scrambled on the security monitors\n• Finder patterns still present for orientation",
+        description: "Miguel O'Hara has locked down the Spider-Society transit hub to prevent any unauthorized dimensional travel.",
         hints: [
           { id: 1, text: "QR codes have three square finder patterns — one in each corner except bottom-right.", unlockSeconds: 300 },
           { id: 2, text: "If the QR is split into tiles, reassemble it in an image editor using timing strips.", unlockSeconds: 600 },
@@ -181,7 +180,7 @@ async function main() {
       },
     },
 
-    // ── MEDIUM 1: Spot Maze ────────────────────────────────────────────────
+    // ── MEDIUM 1: Original Medium 1 (PETER B. PARKER CITADEL) ──────────────
     {
       type: "ctf",
       slug: "medium-01",
@@ -203,52 +202,52 @@ async function main() {
       },
     },
 
-    // ── MEDIUM 2: Spider OTP Race ─────────────────────────────────────────
+    // ── MEDIUM 2: Canon Protocol ──────────────────────────────────────────
     {
       type: "ctf",
       slug: "medium-02",
-      title: "SPIDER OTP RACE",
+      title: "Canon Protocol",
       points: 150,
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDEY{fr0nt3nd_s3cr3ts_4r3_n0t_s3cr3ts}"),
+        answerHash: sha256("SPIDER{burp_repeater_master}"),
         difficulty: "Medium",
-        category: "Web Exploitation / Logic",
-        description: "The Spider Society recently deployed a new authentication portal for agents travelling across universes. To simplify development, one of the engineers accidentally implemented the OTP generation logic entirely in the frontend JavaScript.\n\nEvery 30 seconds a new 6-digit OTP is generated. Your mission is to inspect the frontend source code, discover how the OTP is generated, authenticate before it expires, and retrieve the flag.\n\nFlag format: SPIDEY{...}",
+        category: "Web Exploitation",
+        description: "The Spider Society has restricted access to the Canon Protocol Archive. You have obtained valid guest credentials, but guests are not authorized to access the archive.\n\nAnalyze the web application, identify weaknesses in its implementation, and retrieve the classified archive.\n\nCredentials:\nUsername: guest\nPassword: guest123\n\nTarget URL: /canon-protocol\nPlayers are expected to use Burp Suite to inspect, modify, and replay HTTP requests.",
         hints: [
-          { id: 1, text: "Open Browser DevTools and inspect the Network / Sources tab. The login flow loads a script called login.js.", unlockSeconds: 300 },
-          { id: 2, text: "The SECRET is Base64-encoded. Decode it before using it in the OTP formula.", unlockSeconds: 600 },
-          { id: 3, text: "OTP = last 6 digits of SHA256(decodedSecret + floor(Date.now()/30000)). Generate and submit before the 30s window expires.", unlockSeconds: 900 },
+          { id: 1, text: "Authenticate using guest credentials and inspect HTTP requests sent to /api/canon/*. Look for commented endpoints or response leaks.", unlockSeconds: 300 },
+          { id: 2, text: "The endpoint /api/canon/v2/internal validates parameters. Try HTTP Parameter Pollution (HPP) by supplying duplicate tenant parameters.", unlockSeconds: 600 },
+          { id: 3, text: "The temporary session token expires in 2000ms. Redeem it immediately using Burp Intruder or Repeater. Then inspect reverse proxy host headers and loopback IP formats for SSRF.", unlockSeconds: 900 },
         ],
         status: "open",
         attachments: [],
       },
     },
 
-    // ── MEDIUM 3: Chat Leak ────────────────────────────────────────────────
+    // ── MEDIUM 3: Original Hard 2 (The Spot - Hidden Collider) ─────────────
     {
       type: "ctf",
       slug: "medium-03",
-      title: "PAVITR PRABHAKAR - THE ALCHEMEX INDIA BREACH",
+      title: "The Spot — The Hidden Collider Research",
       points: 150,
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{alchemex_pixel_mole_50101}"),
+        answerHash: sha256("SPIDER{the_spot_is_everywhere}"),
         difficulty: "Medium",
-        category: "OSINT / Network Forensics",
-        description: "During the supercollider collapse in Mumbattan (Earth-50101), internal messages between Alchemex executives were intercepted, revealing that the collider was intentionally destabilized. Pavitr recovered a screenshot of the leaked corporate chat. The conversation looks ordinary — and that is exactly the problem.\n\nOperative A: 'Did you transfer the vault key?'\nOperative B: 'Yes, it is hex-encoded in the chat payload: 6d696775656c5f636861745f6c6f67735f696e746572636570746564'",
+        category: "Steganography / Cryptography",
+        description: "The Prowler has smuggled classified Spider Society data across dimensions by hiding it within an innocent-looking media file. Multiple layers of steganographic encoding have been applied to make it nearly undetectable. Only the sharpest analysts in the Spider Society can peel back all the layers and retrieve the hidden intelligence.",
         hints: [
-          { id: 1, text: "Run strings on the PNG and inspect the end of the file. Data is sometimes written after the normal image structure.", unlockSeconds: 300 },
-          { id: 2, text: "Check PNG metadata (Comment / Description). It may point you toward the correct technique.", unlockSeconds: 600 },
+          { id: 1, text: "Start with LSB steganography tools like zsteg or StegSolve.", unlockSeconds: 300 },
+          { id: 2, text: "The output of Layer 1 is a Base64 string.", unlockSeconds: 600 },
         ],
         status: "open",
-        attachments: ["medium-03.png"],
+        attachments: ["medium-03.zip"],
       },
     },
 
-    // ── HARD 1: Lyla – Containment Protocol Delta ─────────────────────────
+    // ── HARD 1: Original Hard 1 (Lyla - Containment Protocol Delta) ────────
     {
       type: "ctf",
       slug: "hard-01",
@@ -271,52 +270,32 @@ async function main() {
       },
     },
 
-    // ── HARD 2: Steganography ──────────────────────────────────────────────
+    // ── HARD 2: Original Hard 2 (The Auditor's Ledger) ─────────────────────
     {
       type: "ctf",
       slug: "hard-02",
-      title: "The Spot — The Hidden Collider Research",
+      title: "The Auditor's Ledger",
       points: 200,
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{the_spot_is_everywhere}"),
-        difficulty: "Hard",
-        category: "Steganography / Cryptography",
-        description: "The Prowler has smuggled classified Spider Society data across dimensions by hiding it within an innocent-looking media file. Multiple layers of steganographic encoding have been applied to make it nearly undetectable. Only the sharpest analysts in the Spider Society can peel back all the layers and retrieve the hidden intelligence.\n\nLayer 1: LSB extraction on the digital media payload yields Base64 string 'c3BpZGVyX2J5dGVfaGlkZGVuX3BheWxvYWQ='.\nLayer 2: Decode Base64 to reveal final flag string.",
-        hints: [
-          { id: 1, text: "Start with LSB steganography tools like zsteg or StegSolve.", unlockSeconds: 300 },
-          { id: 2, text: "The output of Layer 1 is a Base64 string.", unlockSeconds: 600 },
-        ],
-        status: "open",
-        attachments: ["hard-02.zip"],
-      },
-    },
-
-    // ── HARD 3: The Auditor's Ledger ──────────────────────────────────────
-    {
-      type: "ctf",
-      slug: "hard-03",
-      title: "The Auditor's Ledger",
-      points: 400,
-      opensAt: null,
-      closesAt: null,
-      config: {
-        answerHash: sha256("SPIDER{aud1t0r_mem0ry_never_l13s}"),
+        answerHash: sha256("SPIDER{auditor_memory_never_lies}"),
         difficulty: "Hard",
         category: "Reverse Engineering / Memory Forensics",
         description: "A rogue financial auditor has been quietly moving encrypted evidence across dimensions. The recovered executable — 'ledger.exe' — only ever prints 'Verification Failed.' No matter what username you feed it. The real flag never lives in the binary as plaintext, but a matching memory dump (ledger.dmp) was captured mid-execution.\n\nProvided files:\n  - ledger.exe   (Windows x64, MSVC)\n  - ledger.dmp   (MiniDumpWriteDump snapshot)\n  - README.md\n\nRecover the flag. Flag format: SPIDER{...}",
         hints: [],
         status: "open",
-        attachments: ["hard-03.zip"],
+        attachments: ["hard-02.zip"],
       },
     },
   ]);
 
   console.log("\n── SEEDED ALL CHALLENGES & ADMIN TEAM ─────────────────────────────");
-  console.log("  CTF Easy:   easy-01, easy-02, easy-03 (100 pts each)");
-  console.log("  CTF Medium: medium-01, medium-02, medium-03 (150 pts each)");
-  console.log("  CTF Hard:   hard-01, hard-02 (200 pts each), hard-03 (400 pts)");
+  console.log("  CTF Easy:   easy-01, easy-02, easy-03");
+  console.log("  CTF Medium: medium-01, medium-02, medium-03");
+  console.log("  CTF Hard:   hard-01, hard-02");
+  console.log("  All flags hashed with SHA-256 and structured under SPIDER{...}");
+  console.log("────────────────────────────────────────────────────────\n");
   console.log("  All flags hashed with SHA-256 and structured under SPIDER{...}");
   console.log("────────────────────────────────────────────────────────\n");
 

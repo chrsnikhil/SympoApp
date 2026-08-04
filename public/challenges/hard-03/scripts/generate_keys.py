@@ -25,7 +25,7 @@ def main() -> None:
         # key must be recomputed from decrypted state.
         "chacha_nonce": secrets.token_hex(12),
         # Flag never appears in the binary.
-        "flag": "SPIDER{aud1t0r_mem0ry_never_l13s}",
+        "flag": "SPIDER{auditor_memory_never_lies}",
     }
     OUT.write_text(json.dumps(payload, indent=2))
     print(f"wrote {OUT}  ({os.path.getsize(OUT)} bytes)")

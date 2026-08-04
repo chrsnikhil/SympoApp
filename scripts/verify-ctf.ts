@@ -40,7 +40,7 @@ async function runVerification() {
   // Reset test data for CTF
   await subsCollection.deleteMany({ type: "ctf" });
   await scoresCollection.deleteMany({ event: "ctf" });
-  await challengesCollection.updateMany({ type: "ctf" }, { $unset: { "config.firstBloodTeamId": "" } });
+  await teamsCollection.deleteMany({ nameKey: { $in: ["verification_spider_alpha", "verification_spider_beta"] } });
 
   // Create two distinct test teams
   const teamAId = new ObjectId();
@@ -48,8 +48,8 @@ async function runVerification() {
   const partAId = new ObjectId();
   const partBId = new ObjectId();
 
-  await teamsCollection.updateOne({ _id: teamAId }, { $set: { name: "Verification Spider-Alpha", createdAt: new Date() } }, { upsert: true });
-  await teamsCollection.updateOne({ _id: teamBId }, { $set: { name: "Verification Spider-Beta", createdAt: new Date() } }, { upsert: true });
+  await teamsCollection.updateOne({ _id: teamAId }, { $set: { name: "Verification Spider-Alpha", nameKey: "verification_spider_alpha", createdAt: new Date() } }, { upsert: true });
+  await teamsCollection.updateOne({ _id: teamBId }, { $set: { name: "Verification Spider-Beta", nameKey: "verification_spider_beta", createdAt: new Date() } }, { upsert: true });
 
   const sessionA: SessionClaims = { sub: partAId.toString(), teamId: teamAId.toString(), role: "participant" };
   const sessionB: SessionClaims = { sub: partBId.toString(), teamId: teamBId.toString(), role: "participant" };
@@ -72,12 +72,12 @@ async function runVerification() {
   const correctResA = await submit({
     event: "ctf",
     challengeSlug: "easy-01",
-    payload: "SPIDER{web_of_secrets_multiverse_2026}",
+    payload: "SPIDER{frontend_will_not_have_secrets}",
     session: sessionA,
   });
   console.log("   Result Team A:", correctResA);
-  if (correctResA.ok && correctResA.status === 200 && correctResA.correct && correctResA.meta?.firstBlood === true) {
-    console.log("   ✅ CORRECT FLAG ACCEPTED & FIRST BLOOD BONUS AWARDED!\n");
+  if (correctResA.ok && correctResA.status === 200 && correctResA.correct && correctResA.meta?.solves === 1) {
+    console.log("   ✅ CORRECT FLAG ACCEPTED & FIRST BLOOD SOLVE RECORDED!\n");
   } else {
     throw new Error("❌ FAIL: Correct flag or first blood test failed");
   }
@@ -86,7 +86,7 @@ async function runVerification() {
   const dupRes = await submit({
     event: "ctf",
     challengeSlug: "easy-01",
-    payload: "SPIDER{web_of_secrets_multiverse_2026}",
+    payload: "SPIDER{frontend_will_not_have_secrets}",
     session: sessionA,
   });
   console.log("   Result Dup:", dupRes);
@@ -100,24 +100,24 @@ async function runVerification() {
   const correctResB = await submit({
     event: "ctf",
     challengeSlug: "easy-01",
-    payload: "SPIDER{web_of_secrets_multiverse_2026}",
+    payload: "SPIDER{frontend_will_not_have_secrets}",
     session: sessionB,
   });
   console.log("   Result Team B:", correctResB);
-  if (correctResB.ok && correctResB.status === 200 && correctResB.correct && correctResB.meta?.firstBlood === false) {
-    console.log("   ✅ SECOND TEAM SOLVED SUCCESSFULLY WITHOUT FIRST BLOOD BONUS!\n");
+  if (correctResB.ok && correctResB.status === 200 && correctResB.correct && correctResB.meta?.solves === 2) {
+    console.log("   ✅ SECOND TEAM SOLVED SUCCESSFULLY!\n");
   } else {
-    throw new Error("❌ FAIL: Second team first blood check failed");
+    throw new Error("❌ FAIL: Second team solve check failed");
   }
 
-  console.log("5. TEST: DYNAMIC SCORING FUNCTION");
+  console.log("5. TEST: STATIC SCORING FUNCTION");
   const v1 = calculateChallengeValue(100, 50, 3, 1);
   const v4 = calculateChallengeValue(100, 50, 3, 4);
   console.log(`   Initial (1 solve): ${v1} pts | Decayed (4 solves): ${v4} pts`);
-  if (v1 === 100 && v4 < 100 && v4 >= 50) {
-    console.log("   ✅ DYNAMIC SCORING DECAY LOGIC VERIFIED!\n");
+  if (v1 === 100 && v4 === 100) {
+    console.log("   ✅ STATIC SCORING LOGIC VERIFIED!\n");
   } else {
-    throw new Error("❌ FAIL: Dynamic scoring function test failed");
+    throw new Error("❌ FAIL: Static scoring function test failed");
   }
 
   console.log("6. TEST: CATEGORY TIME BONUS (+50 PTS)");
@@ -125,13 +125,13 @@ async function runVerification() {
   await submit({
     event: "ctf",
     challengeSlug: "easy-02",
-    payload: "SPIDER{broken_portal_dimension_42}",
+    payload: "SPIDER{alchemex_pixel_mole_50101}",
     session: sessionA,
   });
   await submit({
     event: "ctf",
     challengeSlug: "easy-03",
-    payload: "SPIDER{qr_spider_code_scanned_77}",
+    payload: "SPIDER{qr_brooklyn_dimension_rift_42}",
     session: sessionA,
   });
 

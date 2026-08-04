@@ -323,7 +323,7 @@ export default function ChallengeDetailPage() {
             <div className="space-y-6">
               <QrPuzzle />
             </div>
-          ) : slug === "medium-02" ? (
+          ) : slug === "easy-01" ? (
             <div className="space-y-6">
               <div className="bg-[#120819]/90 border border-red-500/30 rounded-2xl p-6 md:p-8 shadow-lg backdrop-blur-md">
                 <div className="text-base md:text-lg text-slate-100 font-normal leading-relaxed whitespace-pre-line">
@@ -331,6 +331,37 @@ export default function ChallengeDetailPage() {
                 </div>
               </div>
               <SpiderOtpRace />
+            </div>
+          ) : slug === "medium-02" ? (
+            <div className="space-y-6">
+              <div className="bg-[#120819]/90 border border-red-500/30 rounded-2xl p-6 md:p-8 shadow-lg backdrop-blur-md space-y-6">
+                <div className="text-base md:text-lg text-slate-100 font-normal leading-relaxed whitespace-pre-line">
+                  {challenge.description}
+                </div>
+
+                <div className="pt-4 border-t border-red-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-widest text-red-400 block">
+                      Target Web Application
+                    </span>
+                    <span className="text-sm font-mono text-gray-300">
+                      URL: <code className="text-amber-300 font-bold">/canon-protocol</code>
+                    </span>
+                  </div>
+
+                  <a
+                    href="/canon-protocol"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-lg hover:shadow-red-600/30 flex items-center gap-2"
+                  >
+                    <span>Launch Challenge</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                </div>
+              </div>
             </div>
           ) : slug === "hard-01" ? (
             <div className="space-y-3">

@@ -1,6 +1,0 @@
-{
-  "aes_key": "415161fcb311ca278dcf447efff819abb97f9d4e2cfffade50ffe191dcbf9ee9",
-  "aes_iv": "f97ddcced769a350a04bb214983f04bc",
-  "chacha_nonce": "afe5000208fbf0eb0d0eb3f7",
-  "flag": "SPIDER{aud1t0r_mem0ry_never_l13s}"
-}
