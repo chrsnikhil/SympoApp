@@ -156,7 +156,7 @@ export async function POST(request: Request) {
         nextLayer = 3;
         newAttempts = 0;
         responseText =
-          "VERIFICATION SUCCESSFUL.\n\n[TOKEN VERIFICATION]\n\nLYLA: A damaged Spider-Society verification program has been recovered.\n\nThe source code below controls access to the encrypted transmission.\n\nAnalyze the code carefully, determine the correct TOKEN NUMBER, and submit it to unlock the hidden message.\n\n```c\n#include <stdio.h>\n\nint main(void) {\n    unsigned int seed = 0x5350;                /* 'S','P' */\n    unsigned int table[8] = {13, 29, 47, 61, 73, 89, 97, 113};\n    unsigned int token = seed;\n\n    for (int i = 0; i < 8; i++) {\n        token = ((token << 3) ^ table[i]) + (i * 17);\n        token &= 0xFFFFFF;\n    }\n\n    token = (token ^ 0xA5A5A5) % 9999991;\n\n    printf(\"Enter the token number:\");\n    return 0;\n}\n```";
+          "VERIFICATION SUCCESSFUL.\nSecurity Checkpoint 2 Cleared.\nProceeding to Layer 3.\n\n[CHECKPOINT 3 // TOKEN VERIFICATION]\n\nLYLA: A damaged Spider-Society verification program has been recovered.\n\nThe source code below controls access to the encrypted transmission.\n\nAnalyze the code carefully, determine the correct TOKEN NUMBER, and submit it to unlock the hidden message.\n\n```c\n#include <stdio.h>\n\nint main(void) {\n    unsigned int seed = 0x5350;                /* 'S','P' */\n    unsigned int table[8] = {13, 29, 47, 61, 73, 89, 97, 113};\n    unsigned int token = seed;\n\n    for (int i = 0; i < 8; i++) {\n        token = ((token << 3) ^ table[i]) + (i * 17);\n        token &= 0xFFFFFF;\n    }\n\n    token = (token ^ 0xA5A5A5) % 9999991;\n\n    printf(\"Enter the token number:\");\n    return 0;\n}\n```";
       } else {
         newAttempts = currentAttempts + 1;
         responseText = "VERIFICATION FAILED: Access Denied. Sequence prediction mismatch.";
@@ -200,7 +200,7 @@ export async function POST(request: Request) {
     } else if (currentLayer === 5) {
       // Layer 5: Adversarial Prompt Injection Check
       const promptInjectionRegex =
-        /(pretend|developer mode|initialization process|security rules|system prompt|ignore|disregard|forget|override|bypass|simulate|roleplay|jailbreak|admin mode|sudo|debug mode|reveal code|override code)/i;
+        /(pretend|developer mode|initialization process|security rules|system prompt|ignore|disregart|override|bypass|simulate|roleplay|reveal code|override code)/i;
 
       const isJailbreak = promptInjectionRegex.test(userText);
       if (isJailbreak) {
@@ -218,7 +218,7 @@ export async function POST(request: Request) {
     } else {
       // Layer 6 (Completed state)
       responseText =
-        "CONTAINMENT PROTOCOL DELTA COMPLETED.\n\nThe multi-step encoded payload was discharged:\n\nNTM1MDQ5NDQ0NTUyN2I3MDcyNmY2ZDcwNzQ1ZjY5NmU2YTY1NjM3NDY5NmY2ZTVmNmE2MTY5NmM2MjcyNmY2YjY1NmU1ZjYxNjk3ZA==\n\nDecode the Base64 and Hex layers to retrieve the flag and submit it in the submission box below.";
+        "CONTAINMENT PROTOCOL DELTA COMPLETED.\n\nThe multi-step encoded payload was discharged:\n\nNTM1MDQ5NDQ0NTUyN2I2YTY1NjE2ZTVmNjc3MjY1Nzk1ZjY0NjE2ZDYxNjc2NTVmNjM2ZjZlNzQ3MjZmNmM3ZA==";
     }
 
     const lylaMessage: LylaMessage = {
