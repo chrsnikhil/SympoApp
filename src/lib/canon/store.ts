@@ -12,7 +12,7 @@ export interface TempToken {
 // In-memory token storage (2-second TTL)
 const tempTokens = new Map<string, TempToken>();
 
-export const TTL_MS = 2000; // 2 seconds
+export const TTL_MS = 30000; //need to change to 2000 ms after testing
 
 export function createTempToken(): string {
   const token = `temp_tok_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
