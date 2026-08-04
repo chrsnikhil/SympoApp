@@ -511,13 +511,19 @@ function ImageReplication({
   const isReferenceVisible = isInitialVisible || isMidGameVisible;
 
   const [refDataUrl, setRefDataUrl] = useState<string | null>(null);
+  // Server-issued, logged against this team — burnt into the watermark so a
+  // leaked screenshot identifies who was holding it.
+  const [refSessionId, setRefSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (game.referenceImage && !refDataUrl) {
-      fetch("/api/quiz/round1/reference")
+      fetch("/api/quiz/round1/reference", { cache: "no-store" })
         .then((r) => r.json())
         .then((json) => {
-          if (json.dataUrl) setRefDataUrl(json.dataUrl);
+          if (json.dataUrl) {
+            setRefDataUrl(json.dataUrl);
+            setRefSessionId(json.sessionId ?? null);
+          }
         })
         .catch(console.error);
     }
@@ -646,6 +652,7 @@ function ImageReplication({
               {refDataUrl ? (
                 <ProtectedImage
                   src={refDataUrl}
+                  sessionId={refSessionId}
                   alt="The reference image to recreate"
                   teamName={teamName}
                   className="border-2 border-paper-white/20 bg-ink-black/80"

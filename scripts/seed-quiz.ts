@@ -32,6 +32,7 @@ if (fs.existsSync(".env.local")) {
 
 import { ObjectId } from "mongodb";
 import { randomBytes } from "node:crypto";
+import sharp from "sharp";
 import { collections, ensureIndexes } from "../src/lib/db/client";
 import { withThrottleRetry } from "../src/lib/db/retry";
 import { hashAnswer, hashCode, normaliseCode } from "../src/lib/auth/session";
@@ -369,10 +370,34 @@ async function main() {
 
   // Round 1, Game 1 — Image Replication. opensAt/closesAt start null; the
   // coordinator opens the 5-minute window on the day with `quiz-admin.ts open`.
+  // The master lives in `private/reference/` — deliberately NOT under
+  // `public/`, where anyone could download it by guessing the path. Seeding
+  // produces the same two copies `scripts/set-reference.ts` does: the
+  // full-resolution master for the vision judge, and a downscaled display
+  // copy which is the only version a browser is ever sent.
   let refDataUrl: string | undefined;
-  const refFilePath = path.join(process.cwd(), "public", "quiz", "reference-1.jpg");
-  if (fs.existsSync(refFilePath)) {
-    refDataUrl = `data:image/jpeg;base64,${fs.readFileSync(refFilePath).toString("base64")}`;
+  let refDisplayDataUrl: string | undefined;
+
+  const masterDir = path.join(process.cwd(), "private", "reference");
+  const master = fs.existsSync(masterDir)
+    ? fs.readdirSync(masterDir).find((f) => /^image-1\.(jpe?g|png|webp)$/i.test(f))
+    : undefined;
+
+  if (master) {
+    const bytes = fs.readFileSync(path.join(masterDir, master));
+    const mime = /\.png$/i.test(master) ? "image/png" : /\.webp$/i.test(master) ? "image/webp" : "image/jpeg";
+    refDataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
+
+    const displayBuf = await sharp(bytes)
+      .resize({ width: 900, withoutEnlargement: true })
+      .jpeg({ quality: 72, mozjpeg: true })
+      .toBuffer();
+    refDisplayDataUrl = `data:image/jpeg;base64,${displayBuf.toString("base64")}`;
+  } else {
+    console.warn(
+      "  ! No reference master in private/reference/ — Game 1 will have no image.\n" +
+        "    Load one with: npx tsx --env-file=.env.local scripts/set-reference.ts image-1 <file>"
+    );
   }
 
   docs.push({
@@ -386,8 +411,9 @@ async function main() {
       round: 1,
       format: "prompt-image",
       order: 1,
-      referenceImage: "/quiz/reference-1.jpg",
+      referenceImage: refDataUrl ? true : undefined,
       referenceDataUrl: refDataUrl,
+      referenceDisplayDataUrl: refDisplayDataUrl,
     },
   });
 

@@ -141,7 +141,11 @@ export default function QuizRulesLobby({
                       <h3 className={`font-comic text-sm sm:text-base ${item.colorClass} leading-tight mb-0.5 uppercase`}>
                         {item.title}
                       </h3>
-                      <p className="text-[10px] sm:text-xs font-bold text-gray-800 line-clamp-2 leading-snug">
+                      {/* The frame is a fixed 256px wide at every breakpoint, so
+                          shrinking this to 10px on phones bought no extra room —
+                          it only made the copy harder to read on the smallest
+                          screens. Kept at 12px throughout. */}
+                      <p className="text-xs font-bold text-gray-800 line-clamp-2 leading-snug">
                         {item.shortDesc}
                       </p>
                     </div>

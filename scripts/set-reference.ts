@@ -1,27 +1,58 @@
 /**
  * Load the reference image for Round 1's "Image Replication".
  *
- *   npx tsx scripts/set-reference.ts image-1 ./reference.jpg
+ *   npx tsx --env-file=.env.local scripts/set-reference.ts image-1 ./private/reference/image-1.png
  *
- * Writes the file two ways: `referenceImage` is a public path the browser
- * renders, and `referenceDataUrl` is the same picture as base64 for the
- * vision judge, which sends both images in one API request and cannot follow
- * a relative URL. The judge does not work until this has been run.
+ * Stores the picture TWICE, at two different resolutions, because the judge
+ * and the browser have different needs:
+ *
+ *   config.referenceDataUrl         full-resolution master — vision judge ONLY,
+ *                                   never leaves the server
+ *   config.referenceDisplayDataUrl  downscaled + re-encoded — the ONLY version
+ *                                   any browser receives
+ *
+ * Teams need to see the picture well enough to recreate it; that does not
+ * require handing them the master's pixels. Nothing is written under
+ * `public/` — a file there is downloadable by anyone who guesses the path,
+ * which defeats the point of the protected endpoint.
  */
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { extname, basename } from "node:path";
+import { readFileSync, mkdirSync, copyFileSync, existsSync } from "node:fs";
+import { extname, basename, join } from "node:path";
+import sharp from "sharp";
 import { collections } from "../src/lib/db/client";
 
-const MIME: Record<string, string> = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp" };
+const MIME: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+};
 
-/** Groq caps a request at 20MB; a reference well under that leaves room for
- *  the team's image alongside it. */
+/** The judge's provider caps a request at 20MB; a master well under that
+ *  leaves room for the team's image alongside it. */
 const MAX_BYTES = 4_000_000;
+
+/**
+ * Display copy: wide enough to see composition, subject, colour and style —
+ * everything the rubric actually scores — and far short of the master.
+ * Re-encoded as JPEG at q72, which also strips any EXIF the master carried.
+ */
+const DISPLAY_MAX_WIDTH = 900;
+const DISPLAY_QUALITY = 72;
+
+/** Masters live here: inside the repo, OUTSIDE `public/`, so Next never
+ *  serves them. Keeps a copy so the DB can be rebuilt without the original. */
+const MASTER_DIR = join(process.cwd(), "private", "reference");
 
 async function main() {
   const [slug, file] = process.argv.slice(2);
   if (!slug || !file) {
-    console.error("\n  usage: npx tsx scripts/set-reference.ts <slug> <image>\n");
+    console.error("\n  usage: npx tsx --env-file=.env.local scripts/set-reference.ts <slug> <image>\n");
+    process.exit(1);
+  }
+
+  if (!existsSync(file)) {
+    console.error(`\n  No such file: ${file}\n`);
     process.exit(1);
   }
 
@@ -49,18 +80,45 @@ async function main() {
     process.exit(1);
   }
 
-  const dataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
+  const meta = await sharp(bytes).metadata();
+
+  // Downscale only — never upscale a small source into a bigger "display"
+  // copy, which would add no detail and only inflate the payload.
+  const displayBuf = await sharp(bytes)
+    .resize({ width: Math.min(DISPLAY_MAX_WIDTH, meta.width ?? DISPLAY_MAX_WIDTH), withoutEnlargement: true })
+    .jpeg({ quality: DISPLAY_QUALITY, mozjpeg: true })
+    .toBuffer();
+  const displayMeta = await sharp(displayBuf).metadata();
+
+  const masterDataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
+  const displayDataUrl = `data:image/jpeg;base64,${displayBuf.toString("base64")}`;
+
+  // Keep the master alongside the repo but outside public/, so a reseed on
+  // another machine doesn't need the original file hunted down again.
+  mkdirSync(MASTER_DIR, { recursive: true });
+  const archived = join(MASTER_DIR, `${slug}${ext}`);
+  copyFileSync(file, archived);
 
   await challenges.updateOne(
     { _id: challenge._id },
-    { $set: { "config.referenceImage": true, "config.referenceDataUrl": dataUrl } }
+    {
+      $set: {
+        "config.referenceImage": true,
+        "config.referenceDataUrl": masterDataUrl,
+        "config.referenceDisplayDataUrl": displayDataUrl,
+      },
+    }
   );
 
+  const pct = Math.round((displayBuf.length / bytes.length) * 100);
   console.log(`\n  Reference set for ${slug}`);
-  console.log(`    source:  ${basename(file)} (${Math.round(bytes.length / 1024)}KB, ${mime})`);
-  console.log(`    shown at: /api/quiz/round1/reference`);
-  console.log(`    judge:   ${Math.round(dataUrl.length / 1024)}KB base64 stored on the challenge`);
-  console.log("\n  The vision judge can now score this question.\n");
+  console.log(`    source:   ${basename(file)} (${Math.round(bytes.length / 1024)}KB, ${mime})`);
+  console.log(`    master:   ${meta.width}x${meta.height} — judge only, never sent to a browser`);
+  console.log(`    display:  ${displayMeta.width}x${displayMeta.height} JPEG q${DISPLAY_QUALITY} ` +
+    `(${Math.round(displayBuf.length / 1024)}KB, ${pct}% of master)`);
+  console.log(`    archived: private/reference/${basename(archived)} (outside public/)`);
+  console.log(`    served:   /api/quiz/round1/reference — auth + same-origin, no-store`);
+  console.log("\n  The vision judge scores against the master; teams only ever see the display copy.\n");
   process.exit(0);
 }
 

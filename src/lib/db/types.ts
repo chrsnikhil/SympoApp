@@ -99,14 +99,24 @@ export interface Challenge {
     hint?: string;
     /** quiz estimate: the true value. Closest guess takes the points. */
     answerValue?: number;
-    /** quiz prompt-image: the reference image teams must recreate (public path, browser-rendered). */
-    referenceImage?: string;
     /**
-     * quiz prompt-image: the reference as image DATA, for the vision judge.
-     * The judge sends both images to the model in one request and cannot
-     * follow a relative URL. Populate with `scripts/set-reference.ts`.
+     * quiz prompt-image: TRUE when a reference has been loaded. Deliberately a
+     * flag, not a path — the master must never be reachable as a public URL,
+     * so there is no file under `public/` to point at.
+     */
+    referenceImage?: boolean | string;
+    /**
+     * quiz prompt-image: the FULL-RESOLUTION master, for the vision judge only.
+     * Never sent to a browser. The judge sends both images to the model in one
+     * request and cannot follow a relative URL. Set via `scripts/set-reference.ts`.
      */
     referenceDataUrl?: string;
+    /**
+     * quiz prompt-image: a downscaled, re-encoded copy — the ONLY version any
+     * browser receives. Teams need to see the picture well enough to recreate
+     * it, which does not require handing them the master's pixels.
+     */
+    referenceDisplayDataUrl?: string;
     /** quiz prompt-image: rubric override. Falls back to DEFAULT_RUBRIC. */
     rubric?: Array<{ key: string; label: string; weight: number; guidance: string }>;
     /** quiz: display order within a round/game. */
