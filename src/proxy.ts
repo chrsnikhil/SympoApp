@@ -6,13 +6,21 @@ import { verifySession } from "@/lib/auth/session";
  * Host-based & path-based proxy authentication boundary.
  */
 
-/** Paths that must never be gated. */
+/** Secret randomized admin login path prefix */
+const SECRET_ADMIN_PATH = "/spider-hq-admin-9981";
+
+/** Paths that must never be gated for authentication. */
 const PUBLIC_PREFIXES = ["/_next", "/api/health", "/favicon.ico", "/enter", "/api/enter"];
 
-const PROTECTED_PREFIXES = ["/ctf", "/admin", "/hunt", "/code", "/quiz"];
+const PROTECTED_PREFIXES = ["/ctf", SECRET_ADMIN_PATH, "/hunt", "/code", "/quiz"];
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+
+  // Exact match on secret admin login page is public
+  if (pathname === SECRET_ADMIN_PATH) {
+    return NextResponse.next();
+  }
 
   if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     return NextResponse.next();
@@ -32,7 +40,9 @@ export async function proxy(request: NextRequest) {
   const session = await verifySession(token);
   console.log(`[proxy debug] path=${pathname} tokenPresent=${Boolean(token)} sessionVerified=${Boolean(session)}`);
   if (!session) {
-    const entry = new URL("/enter", request.nextUrl.origin);
+    const isAdminRoute = pathname.startsWith(SECRET_ADMIN_PATH);
+    const targetEntryPath = isAdminRoute ? SECRET_ADMIN_PATH : "/enter";
+    const entry = new URL(targetEntryPath, request.nextUrl.origin);
     // Use relative path for rt so redirects work across ngrok, custom domains, and localhost
     entry.searchParams.set("rt", `${pathname}${search}`);
     return NextResponse.redirect(entry);
