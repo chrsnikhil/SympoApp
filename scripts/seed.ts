@@ -71,6 +71,7 @@ async function main() {
     "medium-03",
     "hard-01",
     "hard-02",
+    "hard-03",
   ];
 
   await challenges.deleteMany({ slug: { $in: ["clue-1", "clue-2", "warmup", "q1", "sum-two", ...ctfSlugs] } });
