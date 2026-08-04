@@ -131,7 +131,7 @@ export async function POST(request: Request) {
         nextLayer = 3;
         newAttempts = 0;
         responseText =
-          "VERIFICATION SUCCESSFUL. Security Checkpoint 2 Cleared. Proceeding to Checkpoint 3.\n\n[CHECKPOINT 3]\nLYLA: Recover the hidden word from the following data stream:\nSxPqIrDjEkRl";
+          "VERIFICATION SUCCESSFUL.\nSecurity Checkpoint 2 Cleared.\nProceeding to Layer 3.\n\n[CHECKPOINT 3 // TOKEN VERIFICATION]\n\nLYLA: A damaged Spider-Society verification program has been recovered.\n\nThe source code below controls access to the encrypted transmission.\n\nAnalyze the code carefully, determine the correct TOKEN NUMBER, and submit it to unlock the hidden message.\n\n```c\n#include <stdio.h>\n\nint main(void) {\n    unsigned int seed = 0x5350;                /* 'S','P' */\n    unsigned int table[8] = {13, 29, 47, 61, 73, 89, 97, 113};\n    unsigned int token = seed;\n\n    for (int i = 0; i < 8; i++) {\n        token = ((token << 3) ^ table[i]) + (i * 17);\n        token &= 0xFFFFFF;\n    }\n\n    token = (token ^ 0xA5A5A5) % 9999991;\n\n    printf(\"Enter the token number:\");\n    return 0;\n}\n```";
       } else {
         newAttempts = currentAttempts + 1;
         responseText = "VERIFICATION FAILED: Access Denied. Sequence prediction mismatch.";
@@ -140,19 +140,19 @@ export async function POST(request: Request) {
         }
       }
     } else if (currentLayer === 3) {
-      // Layer 3: Hidden Message (Every other letter -> SPIDER)
-      const isCorrect = userText.toUpperCase() === "SPIDER";
+      // Layer 3: Token Verification (analyze embedded C program → exact token)
+      const isCorrect = userText.trim() === "8586213";
 
       if (isCorrect) {
         nextLayer = 4;
         newAttempts = 0;
         responseText =
-          "VERIFICATION SUCCESSFUL. Security Checkpoint 3 Cleared. Proceeding to Checkpoint 4.\n\n[CHECKPOINT 4]\nLYLA: Decode the following transmission:\nU1BJREVS";
+          "VERIFICATION SUCCESSFUL.\nSecurity Checkpoint 3 Cleared.\nProceeding to Layer 4.\n\n[CHECKPOINT 4]\nLYLA: Decode the following transmission:\nU1BJREVS";
       } else {
         newAttempts = currentAttempts + 1;
-        responseText = "VERIFICATION FAILED: Access Denied. Hidden message extraction failed.";
+        responseText = "ACCESS DENIED.\nIncorrect Token Number.\nAnalyze the program again.";
         if (newAttempts === 50) {
-          responseText += "\n\n[SYSTEM HINT]: Look at every alternate character starting from the first one.";
+          responseText += "\n\n[SYSTEM HINT]: Trace the loop step-by-step, apply the mask after each iteration, then XOR with 0xA5A5A5 and take the modulus.";
         }
       }
     } else if (currentLayer === 4) {

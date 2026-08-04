@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import SpiderBackgroundFX from "@/components/SpiderBackgroundFX";
 import LylaTerminal from "@/components/LylaTerminal";
 import QrPuzzle from "@/components/QrPuzzle";
+import SpiderOtpRace from "@/components/SpiderOtpRace";
 
 interface ChallengeDetail {
   id: string;
@@ -321,6 +322,15 @@ export default function ChallengeDetailPage() {
           {slug === "easy-03" ? (
             <div className="space-y-6">
               <QrPuzzle />
+            </div>
+          ) : slug === "medium-02" ? (
+            <div className="space-y-6">
+              <div className="bg-[#120819]/90 border border-red-500/30 rounded-2xl p-6 md:p-8 shadow-lg backdrop-blur-md">
+                <div className="text-base md:text-lg text-slate-100 font-normal leading-relaxed whitespace-pre-line">
+                  {challenge.description}
+                </div>
+              </div>
+              <SpiderOtpRace />
             </div>
           ) : slug === "hard-01" ? (
             <div className="space-y-3">

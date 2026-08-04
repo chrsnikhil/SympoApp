@@ -254,7 +254,7 @@ export default function LylaTerminal() {
               : layer === 2
               ? "Checkpoint 2: Enter your answer..."
               : layer === 3
-              ? "Checkpoint 3: Enter your answer..."
+              ? "Enter Token Number..."
               : layer === 4
               ? "Checkpoint 4: Enter your answer..."
               : layer === 5
