@@ -6,7 +6,7 @@
  * `app/(hunt)/clue/3`. Adding an event = adding a row here plus a route group.
  */
 
-export const EVENTS = ["hunt", "ctf", "code", "quiz"] as const;
+export const EVENTS = ["hunt", "ctf", "code", "quiz", "shiftverse"] as const;
 export type EventKey = (typeof EVENTS)[number];
 
 /** Hosts that are NOT an event: the auth/entry surface. */

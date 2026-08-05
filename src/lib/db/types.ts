@@ -525,3 +525,13 @@ export interface QuizState {
   round3StartedAt?: Date | null;
   [key: string]: unknown;
 }
+
+export interface ShiftverseTeam {
+  _id?: import("mongodb").ObjectId;
+  teamNumber: number;
+  plaintextWord: string;
+  encryptedWord: string;
+  shiftKey: number;
+  perLetterGuesses: number[];
+  startTime: number;
+}

@@ -1,0 +1,1206 @@
+/* ============================================================
+   SHIFT://VERSE — Spider-Verse Design System
+   
+   Visual DNA: Ben-Day halftone dots, chromatic aberration,
+   scan-line artifacts, comic ink borders, dimensional glitch
+   effects, maximalist comic-book energy.
+   
+   Color Palette:
+   - Void Black:      #0A0A0F
+   - Ink Black:       #141419
+   - Panel Dark:      #1A1A24
+   - Electric Magenta: #FF2D78
+   - Dimensional Cyan: #00F0FF
+   - Portal Violet:   #9B30FF
+   - Glitch Yellow:   #FFE14D
+   - Ink White:       #F5F0EB
+   - Ghost White:     #FFFFFF12
+   
+   Typography:
+   - Display: 'Bangers', cursive (comic headings)
+   - Body: 'Space Mono', monospace (cipher/code)
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+/* ---- CSS Custom Properties ---- */
+:root {
+  --void-black: #0A0A0F;
+  --ink-black: #141419;
+  --panel-dark: #1A1A24;
+  --panel-mid: #252533;
+  --electric-magenta: #FF2D78;
+  --dimensional-cyan: #00F0FF;
+  --portal-violet: #9B30FF;
+  --glitch-yellow: #FFE14D;
+  --ink-white: #F5F0EB;
+  --ghost-white: rgba(255, 255, 255, 0.07);
+  --danger-red: #FF3333;
+
+  --font-display: 'Bangers', cursive;
+  --font-mono: 'Space Mono', monospace;
+
+  --ink-border: 3px solid var(--ink-white);
+  --comic-shadow: 4px 4px 0px var(--ink-black);
+  --comic-shadow-magenta: 5px 5px 0px var(--electric-magenta);
+  --comic-shadow-cyan: 4px 4px 0px var(--dimensional-cyan);
+}
+
+/* ---- Reset & Base ---- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: var(--font-mono);
+  background: var(--void-black);
+  color: var(--ink-white);
+  position: relative;
+  line-height: 1.6;
+}
+
+/* ---- Halftone Dot Overlay ---- */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  background-image: radial-gradient(
+    circle,
+    rgba(255, 45, 120, 0.03) 1px,
+    transparent 1px
+  );
+  background-size: 6px 6px;
+}
+
+/* ---- Scan-Line Overlay ---- */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.08) 2px,
+    rgba(0, 0, 0, 0.08) 4px
+  );
+}
+
+/* ---- Main Content Layer (above overlays) ---- */
+.content-layer {
+  position: relative;
+  z-index: 10;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- 3D Background Canvas ---- */
+.portal-canvas {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+/* ============================================================
+   LOGO — SHIFT://VERSE Wordmark
+   ============================================================ */
+
+.logo {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 7vw, 5rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  position: relative;
+  display: inline-block;
+  color: var(--ink-white);
+  text-shadow:
+    3px 3px 0px var(--electric-magenta),
+    -2px -2px 0px var(--dimensional-cyan),
+    0 0 40px rgba(155, 48, 255, 0.4);
+  animation: logoGlitch 4s ease-in-out infinite;
+  cursor: default;
+  user-select: none;
+}
+
+.logo .protocol {
+  color: var(--dimensional-cyan);
+  font-size: 0.7em;
+}
+
+.logo .verse {
+  color: var(--electric-magenta);
+}
+
+@keyframes logoGlitch {
+  0%, 90%, 100% {
+    text-shadow:
+      3px 3px 0px var(--electric-magenta),
+      -2px -2px 0px var(--dimensional-cyan),
+      0 0 40px rgba(155, 48, 255, 0.4);
+    transform: translate(0);
+  }
+  91% {
+    text-shadow:
+      -5px 2px 0px var(--electric-magenta),
+      4px -3px 0px var(--dimensional-cyan),
+      0 0 60px rgba(155, 48, 255, 0.6);
+    transform: translate(2px, -1px);
+  }
+  92% {
+    text-shadow:
+      5px -2px 0px var(--electric-magenta),
+      -4px 3px 0px var(--dimensional-cyan),
+      0 0 60px rgba(155, 48, 255, 0.6);
+    transform: translate(-2px, 1px);
+  }
+  93% {
+    text-shadow:
+      3px 3px 0px var(--electric-magenta),
+      -2px -2px 0px var(--dimensional-cyan),
+      0 0 40px rgba(155, 48, 255, 0.4);
+    transform: translate(0);
+  }
+  95% {
+    text-shadow:
+      -3px -1px 0px var(--electric-magenta),
+      3px 2px 0px var(--dimensional-cyan),
+      0 0 50px rgba(155, 48, 255, 0.5);
+    transform: translate(1px, 2px) skew(-0.5deg);
+  }
+  96% {
+    text-shadow:
+      3px 3px 0px var(--electric-magenta),
+      -2px -2px 0px var(--dimensional-cyan),
+      0 0 40px rgba(155, 48, 255, 0.4);
+    transform: translate(0) skew(0);
+  }
+}
+
+.logo-subtitle {
+  font-family: var(--font-mono);
+  font-size: clamp(0.65rem, 1.5vw, 0.85rem);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--glitch-yellow);
+  text-align: center;
+  margin-top: 0.25rem;
+  opacity: 0.8;
+}
+
+/* ============================================================
+   COMIC PANEL — Base card style
+   ============================================================ */
+
+.comic-panel {
+  background: var(--panel-dark);
+  border: var(--ink-border);
+  box-shadow: var(--comic-shadow);
+  position: relative;
+  padding: 2rem;
+  transform: rotate(-0.5deg);
+}
+
+.comic-panel::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border: 2px solid var(--electric-magenta);
+  opacity: 0.3;
+  pointer-events: none;
+  transform: translate(3px, 3px);
+}
+
+.comic-panel--straight {
+  transform: rotate(0deg);
+}
+
+.comic-panel--tilt-right {
+  transform: rotate(0.7deg);
+}
+
+/* ============================================================
+   TEAM ENTRY SCREEN
+   ============================================================ */
+
+.team-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+}
+
+.team-entry__label {
+  font-family: var(--font-display);
+  font-size: clamp(1.2rem, 3vw, 1.8rem);
+  letter-spacing: 0.08em;
+  color: var(--dimensional-cyan);
+  text-align: center;
+}
+
+.team-entry__input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.team-entry__input {
+  font-family: var(--font-display);
+  font-size: 3rem;
+  width: 120px;
+  text-align: center;
+  background: transparent;
+  border: 2px solid var(--electric-magenta);
+  color: var(--glitch-yellow);
+  padding: 0.5rem;
+  outline: none;
+  box-shadow: 0 0 15px rgba(255, 45, 120, 0.5);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  border-radius: 4px;
+}
+
+.team-entry__input:focus {
+  border-color: var(--electric-magenta);
+  box-shadow: 0 0 25px rgba(255, 45, 120, 0.8), inset 0 0 10px rgba(255, 45, 120, 0.2);
+}
+
+.team-entry__input::placeholder {
+  color: rgba(255, 45, 120, 0.4);
+  font-size: 2rem;
+}
+
+.team-entry__input::-webkit-outer-spin-button,
+.team-entry__input::-webkit-inner-spin-button {
+  background: transparent;
+  opacity: 0.7;
+  filter: invert(1);
+}
+
+.team-entry__hash {
+  font-family: var(--font-display);
+  font-size: 3rem;
+  color: var(--electric-magenta);
+}
+
+.team-entry__error {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--danger-red);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  animation: errorPulse 0.3s ease-in-out;
+}
+
+@keyframes errorPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ============================================================
+   BUTTONS — Torn comic sticker aesthetic
+   ============================================================ */
+
+.btn-comic {
+  font-family: var(--font-display);
+  font-size: clamp(1rem, 2.5vw, 1.4rem);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.8rem 2rem;
+  border: 3px solid var(--ink-white);
+  background: var(--electric-magenta);
+  color: var(--ink-white);
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 5px 5px 0px var(--ink-black);
+  /* No border-radius — hard comic edges */
+}
+
+.btn-comic:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0px var(--ink-black);
+}
+
+.btn-comic:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px var(--ink-black);
+}
+
+.btn-comic--cyan {
+  background: var(--dimensional-cyan);
+  color: var(--ink-black);
+}
+
+.btn-comic--violet {
+  background: var(--portal-violet);
+}
+
+.btn-comic--outline {
+  background: transparent;
+  border-color: var(--dimensional-cyan);
+  color: var(--dimensional-cyan);
+}
+
+.btn-comic--outline:hover {
+  background: var(--dimensional-cyan);
+  color: var(--ink-black);
+}
+
+/* ---- Engage Portal Button (special) ---- */
+.btn-portal {
+  font-family: var(--font-display);
+  font-size: clamp(1.2rem, 3vw, 1.8rem);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--ink-white);
+  cursor: pointer;
+  position: relative;
+  box-shadow: none;
+  transition: transform 0.15s;
+}
+
+.btn-portal:hover {
+  transform: scale(1.05);
+}
+
+.btn-portal:active {
+  transform: scale(0.97);
+}
+
+.btn-portal:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@keyframes portalGlow {
+  0%, 100% {
+    box-shadow: 6px 6px 0px var(--ink-black), 0 0 20px rgba(155, 48, 255, 0.3);
+  }
+  50% {
+    box-shadow: 6px 6px 0px var(--ink-black), 0 0 40px rgba(155, 48, 255, 0.5), 0 0 80px rgba(255, 45, 120, 0.2);
+  }
+}
+
+/* ============================================================
+   PUZZLE BOARD
+   ============================================================ */
+
+.puzzle-board {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  padding: 1.5rem;
+  width: 95%;
+  max-width: 1100px;
+}
+
+.puzzle-board__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.puzzle-board__encrypted-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--glitch-yellow);
+  opacity: 0.7;
+  text-align: center;
+}
+
+.puzzle-board__letters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+/* ---- Current Guess Preview ---- */
+.guess-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.guess-preview__label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--dimensional-cyan);
+  opacity: 0.6;
+}
+
+.guess-preview__word {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  letter-spacing: 0.15em;
+  color: var(--ink-white);
+  text-shadow:
+    2px 2px 0px var(--electric-magenta),
+    -1px -1px 0px var(--dimensional-cyan);
+  word-break: break-all;
+  text-align: center;
+}
+
+/* ============================================================
+   LETTER STEPPER — Per-letter shift control
+   ============================================================ */
+
+.letter-stepper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--panel-dark);
+  border: 2px solid var(--ink-white);
+  box-shadow: 3px 3px 0px var(--ink-black);
+  width: 60px;
+  padding: 0.4rem 0;
+  position: relative;
+  transition: transform 0.1s, border-color 0.2s;
+}
+
+.letter-stepper:hover {
+  border-color: var(--electric-magenta);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px var(--ink-black);
+}
+
+/* Comic panel corner dots */
+.letter-stepper::before,
+.letter-stepper::after {
+  content: '';
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: var(--electric-magenta);
+  border-radius: 50%;
+}
+.letter-stepper::before { top: 3px; left: 3px; }
+.letter-stepper::after { top: 3px; right: 3px; }
+
+.letter-stepper__encrypted {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  color: var(--dimensional-cyan);
+  line-height: 1;
+  margin-bottom: 0.2rem;
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+}
+
+.letter-stepper__btn {
+  width: 100%;
+  height: 24px;
+  background: var(--ink-black);
+  border: 1px solid var(--panel-mid);
+  color: var(--ink-white);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+  user-select: none;
+}
+
+.letter-stepper__btn:hover {
+  background: var(--electric-magenta);
+  color: var(--ink-white);
+}
+
+.letter-stepper__btn:active {
+  background: var(--portal-violet);
+}
+
+.letter-stepper__shift-val {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--glitch-yellow);
+  padding: 0.15rem 0;
+  line-height: 1;
+  user-select: none;
+}
+
+.letter-stepper__result {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--ink-white);
+  line-height: 1;
+  margin-top: 0.2rem;
+  text-shadow: 1px 1px 0px var(--electric-magenta);
+}
+
+.letter-stepper__divider {
+  width: 80%;
+  height: 1px;
+  background: var(--panel-mid);
+  margin: 0.15rem 0;
+}
+
+/* ============================================================
+   RESULTS SCREEN
+   ============================================================ */
+
+.result-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  text-align: center;
+  padding: 2rem;
+}
+
+/* ---- Success ---- */
+.result-screen--success {
+  background: 
+    radial-gradient(ellipse at center, rgba(155, 48, 255, 0.2) 0%, transparent 60%),
+    radial-gradient(ellipse at 30% 70%, rgba(0, 240, 255, 0.15) 0%, transparent 50%),
+    var(--void-black);
+}
+
+.result-screen--success .result-screen__title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 6vw, 4.5rem);
+  color: var(--glitch-yellow);
+  text-shadow:
+    4px 4px 0px var(--electric-magenta),
+    -3px -3px 0px var(--dimensional-cyan),
+    0 0 60px rgba(255, 225, 77, 0.5);
+  letter-spacing: 0.06em;
+  animation: successPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes successPulse {
+  0%, 100% {
+    text-shadow:
+      4px 4px 0px var(--electric-magenta),
+      -3px -3px 0px var(--dimensional-cyan),
+      0 0 60px rgba(255, 225, 77, 0.5);
+  }
+  50% {
+    text-shadow:
+      4px 4px 0px var(--electric-magenta),
+      -3px -3px 0px var(--dimensional-cyan),
+      0 0 100px rgba(255, 225, 77, 0.8),
+      0 0 150px rgba(155, 48, 255, 0.4);
+  }
+}
+
+.result-screen--success .result-screen__subtitle {
+  font-family: var(--font-mono);
+  font-size: clamp(0.7rem, 1.5vw, 1rem);
+  letter-spacing: 0.3em;
+  color: var(--dimensional-cyan);
+  margin-top: 1rem;
+  text-transform: uppercase;
+}
+
+/* ---- Failure ---- */
+.result-screen--failure {
+  background: 
+    radial-gradient(ellipse at center, rgba(255, 51, 51, 0.15) 0%, transparent 50%),
+    var(--void-black);
+  animation: failGlitch 0.1s steps(2) 3;
+}
+
+.result-screen--failure .result-screen__title {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 5vw, 4rem);
+  color: var(--danger-red);
+  text-shadow:
+    3px 3px 0px var(--ink-black),
+    -2px 0 var(--dimensional-cyan),
+    2px 0 var(--electric-magenta);
+  letter-spacing: 0.06em;
+  animation: failFlicker 0.8s ease-in-out infinite;
+}
+
+.result-screen--failure .result-screen__subtitle {
+  font-family: var(--font-mono);
+  font-size: clamp(0.65rem, 1.5vw, 0.9rem);
+  letter-spacing: 0.25em;
+  color: var(--electric-magenta);
+  margin-top: 1rem;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+@keyframes failGlitch {
+  0% { transform: translate(0); }
+  25% { transform: translate(-5px, 3px); }
+  50% { transform: translate(5px, -2px); }
+  75% { transform: translate(-3px, -3px); }
+  100% { transform: translate(0); }
+}
+
+@keyframes failFlicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+  52% { opacity: 1; }
+  54% { opacity: 0.4; }
+  56% { opacity: 1; }
+}
+
+.result-screen__team {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--glitch-yellow);
+  margin-top: 2rem;
+  letter-spacing: 0.1em;
+}
+
+.result-screen__actions {
+  margin-top: 3rem;
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ---- Success burst rays ---- */
+.result-screen--success::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 300%;
+  height: 300%;
+  transform: translate(-50%, -50%);
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(155, 48, 255, 0.05) 10deg,
+    transparent 20deg,
+    rgba(0, 240, 255, 0.05) 30deg,
+    transparent 40deg,
+    rgba(255, 45, 120, 0.05) 50deg,
+    transparent 60deg
+  );
+  animation: burstSpin 20s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes burstSpin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* ============================================================
+   CHROMATIC ABERRATION TEXT EFFECT
+   ============================================================ */
+
+.chromatic-text {
+  position: relative;
+}
+
+.chromatic-text::before,
+.chromatic-text::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.chromatic-text::before {
+  color: var(--dimensional-cyan);
+  z-index: -1;
+  animation: chromaticR 3s ease-in-out infinite;
+}
+
+.chromatic-text::after {
+  color: var(--electric-magenta);
+  z-index: -1;
+  animation: chromaticB 3s ease-in-out infinite;
+}
+
+@keyframes chromaticR {
+  0%, 100% { transform: translate(-2px, 0); opacity: 0.5; }
+  50% { transform: translate(-3px, 1px); opacity: 0.7; }
+}
+
+@keyframes chromaticB {
+  0%, 100% { transform: translate(2px, 0); opacity: 0.5; }
+  50% { transform: translate(3px, -1px); opacity: 0.7; }
+}
+
+/* ============================================================
+   LOADING / DIMENSIONAL RIFT
+   ============================================================ */
+
+.dimensional-rift {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--glitch-yellow);
+  letter-spacing: 0.2em;
+  animation: riftPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes riftPulse {
+  0%, 100% {
+    opacity: 0.4;
+    text-shadow: 0 0 10px rgba(255, 225, 77, 0.3);
+  }
+  50% {
+    opacity: 1;
+    text-shadow: 0 0 30px rgba(255, 225, 77, 0.6);
+  }
+}
+
+/* ============================================================
+   WRONG GUESS INLINE BANNER
+   ============================================================ */
+
+.wrong-guess-banner {
+  width: 100%;
+  text-align: center;
+  padding: 1rem 1.2rem;
+  margin: 0.5rem 0;
+  background: rgba(255, 45, 120, 0.12);
+  border: 1px solid var(--electric-magenta);
+  border-radius: 4px;
+  animation: wrongGuessFadeIn 0.3s ease-out forwards;
+}
+
+.wrong-guess-banner__title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--electric-magenta);
+  letter-spacing: 0.15em;
+  margin: 0 0 0.3rem;
+  text-shadow: 0 0 12px rgba(255, 45, 120, 0.5);
+}
+
+.wrong-guess-banner__subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--ink-white);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin: 0;
+}
+
+@keyframes wrongGuessFadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Glitch-shake effect applied on wrong guess */
+.glitch-shake {
+  animation:
+    wrongGuessFadeIn 0.3s ease-out forwards,
+    glitchShake 0.4s ease-out;
+}
+
+@keyframes glitchShake {
+  0%   { transform: translateX(0); }
+  15%  { transform: translateX(-6px); }
+  30%  { transform: translateX(5px); }
+  45%  { transform: translateX(-4px); }
+  60%  { transform: translateX(3px); }
+  75%  { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+
+/* ============================================================
+   TORN EDGE DECORATIVE DIVIDER
+   ============================================================ */
+
+.torn-divider {
+  width: 100%;
+  height: 4px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--electric-magenta) 0px,
+    var(--electric-magenta) 8px,
+    transparent 8px,
+    transparent 12px,
+    var(--dimensional-cyan) 12px,
+    var(--dimensional-cyan) 20px,
+    transparent 20px,
+    transparent 24px
+  );
+  margin: 1rem 0;
+}
+
+/* ============================================================
+   BACK BUTTON ROW
+   ============================================================ */
+
+.back-row {
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+  z-index: 20;
+}
+
+.btn-back {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--dimensional-cyan);
+  background: transparent;
+  border: 1px solid var(--dimensional-cyan);
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-back:hover {
+  background: var(--dimensional-cyan);
+  color: var(--ink-black);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 640px) {
+  .letter-stepper {
+    width: 48px;
+  }
+
+  .letter-stepper__encrypted {
+    font-size: 1rem;
+  }
+
+  .letter-stepper__result {
+    font-size: 1.1rem;
+  }
+
+  .puzzle-board__letters {
+    gap: 0.4rem;
+  }
+
+  .comic-panel {
+    padding: 1.2rem;
+  }
+
+  .btn-portal {
+    padding: 0.8rem 2rem;
+    font-size: 1rem;
+  }
+}
+
+/* ============================================================
+   UTILITY ANIMATIONS
+   ============================================================ */
+
+.fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.slide-up {
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   LANDING PAGE — Web of Secrets
+   ============================================================ */
+
+/* ---------- Background Image ---------- */
+#bg-image {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  object-fit: cover;
+  object-position: center;
+  z-index: 1;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+
+/* ---------- Gradient Tint Overlay ---------- */
+#overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    rgba(120, 20, 90, 0.45) 0%,
+    rgba(60, 12, 60, 0.50) 50%,
+    rgba(20, 10, 40, 0.55) 100%
+  );
+  mix-blend-mode: multiply;
+}
+
+#overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+/* ---------- Hero — logo + info panel ---------- */
+#hero {
+  position: fixed;
+  z-index: 10;
+  top: 14%;
+  left: 8%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 28px;
+  max-height: 82dvh;
+  animation: heroFadeIn 1s ease-out 0.3s both;
+}
+
+@keyframes heroFadeIn {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* --- Event Logo --- */
+#event-logo {
+  display: block;
+  width: 40vw;
+  max-width: 560px;
+  min-width: 200px;
+  height: auto;
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.55))
+          drop-shadow(0 1px 4px rgba(120, 20, 90, 0.3));
+}
+
+/* ---------- Info Panel ---------- */
+#info-panel {
+  max-width: 420px;
+  margin-left: 50px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  animation: panelFadeIn 1s ease-out 0.6s both;
+}
+
+@keyframes panelFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#info-panel p {
+  color: #ffffff;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 17px;
+  font-weight: 450;
+  line-height: 1.6;
+  text-align: left;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+#info-panel p + p {
+  margin-top: 12px;
+}
+
+/* ---------- Swing In Button ---------- */
+#swing-in-btn {
+  position: fixed;
+  bottom: 36px;
+  right: 36px;
+  z-index: 20;
+  display: inline-block;
+  text-decoration: none;
+  cursor: pointer;
+  animation: swingInEntrance 0.8s ease-out 0.6s both,
+             swingInFloat 3s ease-in-out 1.4s infinite;
+  transition: transform 0.25s ease, filter 0.25s ease;
+}
+
+.swing-in-img {
+  display: block;
+  width: 220px;
+  height: auto;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+  transition: filter 0.25s ease;
+}
+
+#swing-in-btn:hover {
+  transform: translateY(-6px) scale(1.06);
+}
+
+#swing-in-btn:hover .swing-in-img {
+  filter: drop-shadow(0 8px 24px rgba(255, 220, 40, 0.45))
+          drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+}
+
+#swing-in-btn:active {
+  transform: translateY(-2px) scale(0.97);
+}
+
+@keyframes swingInEntrance {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes swingInFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+/* ---------- Landing Page Responsive ---------- */
+
+/* Tablets (≤ 900px) */
+@media (max-width: 900px) {
+  #hero {
+    left: 6%;
+    top: 12%;
+    gap: 18px;
+  }
+
+  #event-logo {
+    width: 50vw;
+    max-width: 400px;
+  }
+
+  #info-panel {
+    margin-left: 40px;
+    max-width: 360px;
+  }
+
+  .swing-in-img {
+    width: 180px;
+  }
+
+  #swing-in-btn {
+    bottom: 28px;
+    right: 28px;
+  }
+}
+
+/* Phones (≤ 600px) */
+@media (max-width: 600px) {
+  #hero {
+    left: 5%;
+    right: 5%;
+    top: 10%;
+    gap: 14px;
+    max-height: 88dvh;
+  }
+
+  #event-logo {
+    width: 70vw;
+    max-width: 300px;
+    min-width: 180px;
+  }
+
+  #info-panel {
+    margin-left: 20px;
+    max-width: 280px;
+  }
+
+  #info-panel p {
+    font-size: 13px;
+  }
+
+  #info-panel p + p {
+    margin-top: 8px;
+  }
+
+  .swing-in-img {
+    width: 150px;
+  }
+
+  #swing-in-btn {
+    bottom: 20px;
+    right: 20px;
+  }
+}
+
+/* Very small phones (≤ 380px) */
+@media (max-width: 380px) {
+  #event-logo {
+    width: 80vw;
+  }
+
+  #info-panel p {
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  #info-panel {
+    margin-left: 12px;
+    max-width: 240px;
+  }
+
+  .swing-in-img {
+    width: 120px;
+  }
+}
+

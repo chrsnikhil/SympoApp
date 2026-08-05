@@ -170,6 +170,8 @@ export const collections = {
     (await getDb()).collection<RankCounter>("rank_counters"),
   quizState: async (): Promise<Collection<QuizState>> =>
     (await getDb()).collection<QuizState>("quiz_state"),
+  shiftverseTeams: async (): Promise<Collection<import("./types").ShiftverseTeam>> =>
+    (await getDb()).collection<import("./types").ShiftverseTeam>("shiftverse_teams"),
 };
 
 /**
