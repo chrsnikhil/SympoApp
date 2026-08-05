@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en" style="">
+
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Spider-Verse Quiz Briefing</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com" rel="preconnect">
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bangers&amp;family=Permanent+Marker&amp;family=Roboto+Condensed:wght@400;700&amp;display=swap"
+    rel="stylesheet">
+  <style data-purpose="tailwind-config">
+    tailwind.config= {
+      theme: {
+        extend: {
+          colors: {
+            comicCream: '#FDF5E6',
+              comicRed: '#E23636',
+              comicNavy: '#1D2D44',
+              comicOrange: '#F39C12',
+          }
+
+          ,
+          fontFamily: {
+            comicTitle: ['Bangers', 'cursive'],
+              comicMarker: ['Permanent Marker', 'cursive'],
+              comicBody: ['Roboto Condensed', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </style>
+  <style data-purpose="vintage-textures">
+    /* Global Background texture */
+    body {
+      background-color: #d1cfc0;
+      background-image: url("https://www.transparenttextures.com/patterns/p6.png");
+      background-attachment: fixed;
+    }
+
+    /* Comic Halftone Overlay Effect */
+    .halftone-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image: radial-gradient(circle, #000 1px, transparent 1px);
+      background-size: 3px 3px;
+      opacity: 0.05;
+      pointer-events: none;
+    }
+
+    /* Film Strip Styles */
+    .film-strip-container {
+      position: relative;
+      background: #1a1a1a;
+      padding: 4px 0;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      border-top: 2px solid #333;
+      border-bottom: 2px solid #333;
+      width: 100%;
+      border-radius: 8px;
+      overflow: hidden;
+      /* Ensure overflow is hidden for the infinite loop */
+    }
+
+    /* Sprocket holes */
+    .sprockets {
+      display: flex;
+      justify-content: space-around;
+      padding: 2px 0;
+    }
+
+    .sprocket-hole {
+      width: 14px;
+      height: 20px;
+      background: #d1cfc0;
+      border-radius: 2px;
+      box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.8);
+    }
+
+    /* Comic Panel Style */
+    .comic-panel {
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      background: #fdf5e6;
+      border: 4px solid #000;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+      /* Critical for horizontal reel */
+      width: 280px;
+      /* Fixed width for consistent animation math */
+    }
+
+    .comic-panel::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: url("https://www.transparenttextures.com/patterns/paper-fibers.png");
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    /* Infinite Scroll Animation */
+    .film-track {
+      display: flex;
+      gap: 12px;
+      /* gap-3 in tailwind */
+      width: max-content;
+      animation: scroll-reel 20s linear infinite;
+    }
+
+    @keyframes scroll-reel {
+      0% {
+        transform: translateX(0);
+      }
+
+      100% {
+        /* Move by half the total width of the doubled content */
+        transform: translateX(calc(-50% - 6px));
+      }
+    }
+
+    /* Layout Container */
+    .content-container {
+      width: 95%;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    @media (min-width: 768px) {
+      .content-container {
+        width: 85%;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .content-container {
+        width: 75%;
+        max-width: 1200px;
+      }
+    }
+  </style>
+</head>
+
+<body class="font-comicBody text-gray-900 py-6">
+  <!-- BEGIN: MainHeader -->
+  <header class="content-container mb-8">
+    <div class="relative bg-white border-4 border-black p-1 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+      <div class="flex flex-col md:flex-row items-center bg-white border-2 border-black p-4 relative overflow-hidden">
+        <!-- Pink Spider Web Graphic -->
+        <div class="absolute right-0 top-0 h-full w-1/3 opacity-20 pointer-events-none">
+          <svg class="h-full w-full text-pink-500 fill-current" viewBox="0 0 200 200"
+            xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M100 0 L100 200 M0 100 L200 100 M29.3 29.3 L170.7 170.7 M29.3 170.7 L170.7 29.3 M100 50 Q125 50 150 100 Q125 150 100 150 Q75 150 50 100 Q75 50 100 50 M100 25 Q135 25 175 100 Q135 175 100 175 Q65 175 25 100 Q65 25 100 25"
+              fill="none" stroke="currentColor" stroke-width="2"></path>
+          </svg>
+        </div>
+        <!-- Identity Avatar -->
+        <div class="z-10 flex-shrink-0 mb-4 md:mb-0 md:mr-6">
+          <div
+            class="w-20 h-20 rounded-full border-4 border-black bg-pink-200 flex items-center justify-center shadow-lg">
+            <div class="w-16 h-16 rounded-full bg-white border-2 border-black flex items-center justify-center">
+              <span class="text-3xl">👓</span>
+            </div>
+          </div>
+        </div>
+        <!-- User Info -->
+        <div class="z-10 flex-grow text-center md:text-left">
+          <p class="text-[10px] tracking-[0.2em] font-bold text-red-600 uppercase mb-1">Assigned Multiverse Identity</p>
+          <h1 class="text-5xl font-comicTitle tracking-wide leading-none mb-1">PRAN</h1>
+          <div class="flex items-center justify-center md:justify-start gap-2">
+            <span class="bg-black text-white px-2 py-0.5 text-xs font-bold uppercase">Spider-Gwen</span>
+            <span class="text-xs font-bold text-gray-500 uppercase italic">Ghost-Spider, Dimension Hopper</span>
+          </div>
+        </div>
+        <!-- Status Button -->
+        <div class="z-10 mt-6 md:mt-0">
+          <button
+            class="bg-[#e2b74b] border-4 border-black px-8 py-3 font-comicTitle text-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all whitespace-nowrap">
+            AWAITING EVENT START
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <!-- END: MainHeader -->
+  <!-- BEGIN: SectionHeading -->
+  <section class="content-container mb-4">
+    <div class="flex justify-between items-end border-b-4 border-black pb-2">
+      <h2 class="text-3xl font-comicTitle flex items-center gap-3 italic">
+        <span class="text-4xl">📜</span> MULTIVERSE QUIZ BRIEFING &amp; RULES
+      </h2>
+      <span class="text-[10px] font-bold tracking-widest text-red-700 uppercase mb-1">Official Directives</span>
+    </div>
+  </section>
+  <!-- END: SectionHeading -->
+  <!-- BEGIN: FilmStripDirectives -->
+  <section class="mb-8" data-purpose="rules-carousel" id="directives-film-strip">
+    <div class="film-strip-container">
+      <!-- Top Sprockets -->
+      <div class="sprockets">
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+      </div>
+      <!-- The Film Content -->
+      <div class="px-0 py-2 md:py-3">
+        <div class="film-track">
+          <!-- Set 1 -->
+          <article class="comic-panel flex flex-col" data-purpose="directive-card">
+            <div class="halftone-overlay"></div>
+            <div class="h-32 md:h-36 overflow-hidden border-b-4 border-black bg-comicCream">
+              <img alt="Three Universes" class="w-full h-full object-cover object-center"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCozatj_GC-IgJNTBruUWXrpkhL3qI-7YjYGzTBFi9HTebiyISvgekv1RmbOEC4FWtSGnyXoYYxNZAmSBx0mdMNPplJEYH5R5a9NT6fXfAhQXXOq56lcuZ5tppGjOku4it22bs5NBBtUtw3gTCZR1Rk6BLJYEcUbuzqWMCqCvwkwBDI69BU_NNKE6-8ob3pq_PXoX_gi3-zeaIDtv0COjRBdu-oThuGA2oO_RsMGqs5j4rROqtlYGs1">
+            </div>
+            <div class="p-2 flex flex-col justify-center bg-comicCream flex-grow h-20">
+              <h3 class="font-comicTitle text-lg text-comicRed mb-0.5 leading-tight">DIRECTIVE 01 – THREE UNIVERSES</h3>
+              <div class="text-[10px] font-bold text-gray-800 space-y-0.5">
+                <p class=""><span class="text-comicNavy">Round 1:</span> Replication, Connections, Memory.</p>
+                <p class=""><span class="text-comicNavy">Round 2 &amp; 3:</span> MCQs.</p>
+              </div>
+            </div>
+          </article>
+          <article class="comic-panel flex flex-col" data-purpose="directive-card">
+            <div class="halftone-overlay"></div>
+            <div class="h-32 md:h-36 overflow-hidden border-b-4 border-black bg-comicCream">
+              <img alt="Server Clock" class="w-full h-full object-cover object-center"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCUs8EUoXXZrPo8Nx-hvbMfkDPmU8AmEjPFJ8n2LLfnC2x1buolU-aagEen7eEDaJ1s8pexQC1joL_uYD0L3yF6m1kf6X3jUb39hmW8AbIPC3L8Be2-AVdjJUw-nZICeI5lGKqd0Sru2EbIH5C3mXC0Y0xQT1WYaMauOUdnv-8eklvCKzlQx4xPQ78PboKhqHDYNE_iGFQHfQY7hb6HgwDGcEVZnDuCnWVzyZ44nM2wqBZhsK8DlkKe">
+            </div>
+            <div class="p-2 flex flex-col justify-center bg-comicCream flex-grow h-20">
+              <h3 class="font-comicTitle text-lg text-comicNavy mb-0.5 leading-tight">DIRECTIVE 02 – SERVER CLOCK</h3>
+              <p class="text-[10px] font-bold text-gray-800">Speed matters! Correct answers earn points. Fastest
+                response time wins ties.</p>
+            </div>
+          </article>
+          <article class="comic-panel flex flex-col" data-purpose="directive-card">
+            <div class="halftone-overlay"></div>
+            <div class="h-32 md:h-36 overflow-hidden border-b-4 border-black bg-comicCream">
+              <img alt="Integrity" class="w-full h-full object-cover object-center"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCL8MC-HXIaDfVwaxGdy4UTj-Lf32ZF2v0N8Bd4tESjXjvD6P59oGyDqe8uHfrLk4i05eRe5kfQ-93uLuRKUOi2cX9uoT1hS4yMK9EVvbEIKBi3Cz0Ehyyyc0gliYcy0uKQZfB-r9wDSneS_37ggMBZ_maANmNP3FrL1xTzujhI9yJgWPY-xl9Ha9o10riaqzhcS5HwUe-BMULEiUAwQKuWZG8qSN-jhR2_2SfUriy1KZzB1nNX23Kd">
+            </div>
+            <div class="p-2 flex flex-col justify-center bg-comicCream flex-grow h-20">
+              <h3 class="font-comicTitle text-lg text-comicRed mb-0.5 leading-tight">DIRECTIVE 03 – INTEGRITY</h3>
+              <p class="text-[10px] font-bold text-gray-800">Do not switch tabs or exit fullscreen. Violations are
+                automatically logged.</p>
+            </div>
+          </article>
+          <article class="comic-panel flex flex-col" data-purpose="directive-card">
+            <div class="halftone-overlay"></div>
+            <div class="h-32 md:h-36 overflow-hidden border-b-4 border-black bg-comicCream">
+              <img alt="Elimination" class="w-full h-full object-cover object-center"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxNGseOWSqhJt3sx9XT8sN5JFnBjaJQYeaRPjtqmZqcV7yn7L1Jy6M8jNuAwel2obGWRFvr_K9XPQ_-ApVQM4vdSzGPF1gP4zUwx1DGttla6WgHGrDfBuyBBszIw06V_eCQyJWPzvhOc8qwWGvomxuHLL7THrsPTmLNS8TaHDa6ltLjRRif6tiRc0QZASS0Dhr3nc8zeQEHjPt2x9cHNw9bqIz1aJY7jlVTfOVukdqy8S4QhrErcPz">
+            </div>
+            <div class="p-2 flex flex-col justify-center bg-comicCream flex-grow h-20">
+              <h3 class="font-comicTitle text-lg text-comicNavy mb-0.5 leading-tight">DIRECTIVE 04 – ELIMINATION</h3>
+              <p class="text-[10px] font-bold text-gray-800">Eliminated teams enter Live Spectator Mode to track the
+                remaining finalists.</p>
+            </div>
+          </article>
+          <!-- Set 2 (Duplicate for seamless loop) -->
+          <article class="comic-panel flex flex-col" data-purpose="directive-card">
+            <div class="halftone-overlay"></div>
+            <div class="h-32 md:h-36 overflow-hidden border-b-4 border-black bg-comicCream">
+              <img alt="Three Universes" class="w-full h-full object-cover object-center"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCozatj_GC-IgJNTBruUWXrpkhL3qI-7YjYGzTBFi9HTebiyISvgekv1RmbOEC4FWtSGnyXoYYxNZAmSBx0mdMNPplJEYH5R5a9NT6fXfAhQXXOq56lcuZ5tppGjOku4it22bs5NBBtUtw3gTCZR1Rk6BLJYEcUbuzqWMCqCvwkwBDI69BU_NNKE6-8ob3pq_PXoX_gi3-zeaIDtv0COjRBdu-oThuGA2oO_RsMGqs5j4rROqtlYGs1">
+            </div>
+            <div class="p-2 flex flex-col justify-center bg-comicCream flex-grow h-20">
+              <h3 class="font-comicTitle text-lg text-comicRed mb-0.5 leading-tight">DIRECTIVE 01 – THREE UNIVERSES</h3>
+              <div class="text-[10px] font-bold text-gray-800 space-y-0.5">
+                <p class=""><span class="text-comicNavy">Round 1:</span> Replication, Connections, Memory.</p>
+                <p class=""><span class="text-comicNavy">Round 2 &amp; 3:</span> MCQs.</p>
+              </div>
+            </div>
+          </article>
+          <article class="comic-panel flex flex-col" data-purpose="directive-card">
+            <div class="halftone-overlay"></div>
+            <div class="h-32 md:h-36 overflow-hidden border-b-4 border-black bg-comicCream">
+              <img alt="Server Clock" class="w-full h-full object-cover object-center"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCUs8EUoXXZrPo8Nx-hvbMfkDPmU8AmEjPFJ8n2LLfnC2x1buolU-aagEen7eEDaJ1s8pexQC1joL_uYD0L3yF6m1kf6X3jUb39hmW8AbIPC3L8Be2-AVdjJUw-nZICeI5lGKqd0Sru2EbIH5C3mXC0Y0xQT1WYaMauOUdnv-8eklvCKzlQx4xPQ78PboKhqHDYNE_iGFQHfQY7hb6HgwDGcEVZnDuCnWVzyZ44nM2wqBZhsK8DlkKe">
+            </div>
+            <div class="p-2 flex flex-col justify-center bg-comicCream flex-grow h-20">
+              <h3 class="font-comicTitle text-lg text-comicNavy mb-0.5 leading-tight">DIRECTIVE 02 – SERVER CLOCK</h3>
+              <p class="text-[10px] font-bold text-gray-800">Speed matters! Correct answers earn points. Fastest
+                response time wins ties.</p>
+            </div>
+          </article>
+          <article class="comic-panel flex flex-col" data-purpose="directive-card">
+            <div class="halftone-overlay"></div>
+            <div class="h-32 md:h-36 overflow-hidden border-b-4 border-black bg-comicCream">
+              <img alt="Integrity" class="w-full h-full object-cover object-center"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCL8MC-HXIaDfVwaxGdy4UTj-Lf32ZF2v0N8Bd4tESjXjvD6P59oGyDqe8uHfrLk4i05eRe5kfQ-93uLuRKUOi2cX9uoT1hS4yMK9EVvbEIKBi3Cz0Ehyyyc0gliYcy0uKQZfB-r9wDSneS_37ggMBZ_maANmNP3FrL1xTzujhI9yJgWPY-xl9Ha9o10riaqzhcS5HwUe-BMULEiUAwQKuWZG8qSN-jhR2_2SfUriy1KZzB1nNX23Kd">
+            </div>
+            <div class="p-2 flex flex-col justify-center bg-comicCream flex-grow h-20">
+              <h3 class="font-comicTitle text-lg text-comicRed mb-0.5 leading-tight">DIRECTIVE 03 – INTEGRITY</h3>
+              <p class="text-[10px] font-bold text-gray-800">Do not switch tabs or exit fullscreen. Violations are
+                automatically logged.</p>
+            </div>
+          </article>
+          <article class="comic-panel flex flex-col" data-purpose="directive-card">
+            <div class="halftone-overlay"></div>
+            <div class="h-32 md:h-36 overflow-hidden border-b-4 border-black bg-comicCream">
+              <img alt="Elimination" class="w-full h-full object-cover object-center"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxNGseOWSqhJt3sx9XT8sN5JFnBjaJQYeaRPjtqmZqcV7yn7L1Jy6M8jNuAwel2obGWRFvr_K9XPQ_-ApVQM4vdSzGPF1gP4zUwx1DGttla6WgHGrDfBuyBBszIw06V_eCQyJWPzvhOc8qwWGvomxuHLL7THrsPTmLNS8TaHDa6ltLjRRif6tiRc0QZASS0Dhr3nc8zeQEHjPt2x9cHNw9bqIz1aJY7jlVTfOVukdqy8S4QhrErcPz">
+            </div>
+            <div class="p-2 flex flex-col justify-center bg-comicCream flex-grow h-20">
+              <h3 class="font-comicTitle text-lg text-comicNavy mb-0.5 leading-tight">DIRECTIVE 04 – ELIMINATION</h3>
+              <p class="text-[10px] font-bold text-gray-800">Eliminated teams enter Live Spectator Mode to track the
+                remaining finalists.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+      <!-- Bottom Sprockets -->
+      <div class="sprockets">
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+        <div class="sprocket-hole"></div>
+      </div>
+    </div>
+  </section>
+  <!-- END: FilmStripDirectives -->
+  <!-- BEGIN: FooterStatus -->
+  <footer class="content-container pb-10">
+    <div class="bg-[#f0da74] border-4 border-black p-6 text-center relative shadow-[10px_10px_0px_0px_rgba(0,0,0,1)]">
+      <div class="absolute -top-6 left-1/2 -translate-x-1/2 bg-white border-2 border-black p-2 rounded-full">
+        📡
+      </div>
+      <h3 class="font-comicTitle text-3xl uppercase tracking-widest text-black">
+        Stand by for Event Initialization
+      </h3>
+    </div>
+  </footer>
+  <!-- END: FooterStatus -->
+  <!-- BEGIN: FloatingMenu -->
+  <div class="fixed bottom-6 left-6 z-50">
+    <button
+      class="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center text-xl font-bold border-2 border-gray-600 shadow-xl">
+      N
+    </button>
+  </div>
+  <!-- END: FloatingMenu -->
+
+
+</body>
+
+</html>

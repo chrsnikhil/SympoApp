@@ -60,7 +60,10 @@ export function sessionCookieOptions(isSecure?: boolean): CookieOptions {
   const opts: CookieOptions = {
     name: SESSION_COOKIE,
     httpOnly: true,
-    secure: isSecure ?? (process.env.NODE_ENV === "production"),
+    // `isSecure` lets a caller pass what it learned from x-forwarded-proto,
+    // which is the only reliable signal behind Container Apps' ingress. The
+    // env fallbacks cover callers that don't inspect the request.
+    secure: isSecure ?? (process.env.NODE_ENV === "production" || process.env.VERCEL === "1"),
     sameSite: "lax",
     path: "/",
     maxAge: SESSION_TTL_SECONDS,
@@ -81,7 +84,15 @@ export function normaliseCode(code: string): string {
   return code.trim().toUpperCase().replace(/\s+/g, "");
 }
 
+export function normaliseAnswer(answer: string): string {
+  return answer
+    .trim()
+    .toLowerCase()
+    .replace(/^(a|an|the)\s+/i, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
 /** Constant-time-ish compare for answer/flag hashes. */
 export function hashAnswer(answer: string): string {
-  return createHash("sha256").update(answer.trim().toLowerCase()).digest("hex");
+  return createHash("sha256").update(normaliseAnswer(answer)).digest("hex");
 }

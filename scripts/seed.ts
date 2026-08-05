@@ -96,14 +96,17 @@ async function main() {
       config: { answerHash: hashAnswer("rooftop"), hintCosts: [15] },
     },
     {
-      type: "quiz",
-      slug: "q1",
-      title: "Which year is Miguel from?",
-      points: 100,
+      type: "ctf",
+      slug: "warmup",
+      title: "Warmup",
+      points: 200,
       opensAt: null,
       closesAt: null,
-      config: { correctIndex: 2, limitSeconds: 30, speedBonus: 50 },
+      config: { answerHash: hashAnswer("flag{hello_multiverse}"), firstBloodBonus: 50 },
     },
+    // No `quiz` entry here — the quiz event has its own seed script,
+    // `scripts/seed-quiz.ts`, because it needs 60 coins, three rounds and a
+    // coordinator login rather than one sample question.
     {
       type: "code",
       slug: "sum-two",
@@ -294,6 +297,8 @@ async function main() {
   console.log("────────────────────────────────────────────────────────\n");
   console.log("  All flags hashed with SHA-256 and structured under SPIDER{...}");
   console.log("────────────────────────────────────────────────────────\n");
+  console.log("Try: hunt clue-1 → 'library' · ctf warmup → 'flag{hello_multiverse}'");
+  console.log("For the quiz, run scripts/seed-quiz.ts instead — coins, three rounds, a coordinator login.");
 
   process.exit(0);
 }

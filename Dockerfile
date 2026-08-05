@@ -27,6 +27,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV MONGODB_URI="mongodb://placeholder-not-used-at-build"
 ENV JWT_SECRET="placeholder-not-used-at-build"
 
+# next.config.ts only switches on `output: "standalone"` when this is set,
+# because an unconditional standalone build breaks deployment to Vercel. The
+# runner stage below copies .next/standalone, so without this the build
+# silently produces a normal .next and the COPY fails with "not found".
+ENV DOCKER_BUILD=1
+
 RUN npm run build
 
 # ---- runner ----

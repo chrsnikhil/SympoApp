@@ -39,3 +39,19 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local db
+.local-db-data
+
+# screenshots from scripts/audit-responsive.ts --shots
+.audit-shots
+
+# Round 1 reference masters. Deliberately NOT committed: this repo is on
+# GitHub, and a master pushed there is downloadable by anyone who finds the
+# repo — which would defeat the protected endpoint that exists to withhold
+# exactly this file. Carry it to the event machine out of band, then run
+#   npx tsx --env-file=.env.local scripts/set-reference.ts image-1 <file>
+private/reference/*
+!private/reference/.gitkeep
+
+!.env.example
