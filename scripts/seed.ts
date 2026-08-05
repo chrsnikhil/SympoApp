@@ -76,48 +76,7 @@ async function main() {
   await challenges.deleteMany({ slug: { $in: ["clue-1", "clue-2", "warmup", "q1", "sum-two", ...ctfSlugs, "hard-03"] } });
 
   await challenges.insertMany([
-    // Hunt / Quiz / Code challenges
-    {
-      type: "hunt",
-      slug: "clue-1",
-      title: "Where it begins",
-      points: 100,
-      opensAt: null,
-      closesAt: null,
-      config: { answerHash: hashAnswer("library"), nextSlug: "clue-2", hintCosts: [10, 25] },
-    },
-    {
-      type: "hunt",
-      slug: "clue-2",
-      title: "Second thread",
-      points: 150,
-      opensAt: null,
-      closesAt: null,
-      config: { answerHash: hashAnswer("rooftop"), hintCosts: [15] },
-    },
-    {
-      type: "ctf",
-      slug: "warmup",
-      title: "Warmup",
-      points: 200,
-      opensAt: null,
-      closesAt: null,
-      config: { answerHash: hashAnswer("flag{hello_multiverse}"), firstBloodBonus: 50 },
-    },
-    // No `quiz` entry here — the quiz event has its own seed script,
-    // `scripts/seed-quiz.ts`, because it needs 60 coins, three rounds and a
-    // coordinator login rather than one sample question.
-    {
-      type: "code",
-      slug: "sum-two",
-      title: "Sum two numbers",
-      points: 300,
-      opensAt: null,
-      closesAt: null,
-      config: { testsRef: "tests/sum-two.json" },
-    },
-
-    // ── EASY 1: SPIDER OTP RACE ───────────────────────────────────────────
+     // ── EASY 1: SPIDER OTP RACE ───────────────────────────────────────────
     {
       type: "ctf",
       slug: "easy-01",
