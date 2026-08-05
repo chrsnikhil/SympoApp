@@ -24,12 +24,22 @@ import { verifySession } from "@/lib/auth/session";
  */
 
 /** Paths that must never be rewritten or gated. */
-const PUBLIC_PREFIXES = ["/_next", "/api/health", "/favicon.ico", "/enter", "/api/enter"];
+const PUBLIC_PREFIXES = ["/_next", "/api/health", "/favicon.ico", "/enter", "/api/enter", "/admin"];
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return NextResponse.next();
+  }
+
+  // Every API route lives at the top level (`src/app/api/**`), not nested
+  // under a per-event route group, and every handler re-verifies its own
+  // session via `requireSession` (see the file-level note above). Rewriting
+  // `/api/quiz/round1` to `/quiz/api/quiz/round1` 404s outright, and an HTML
+  // redirect is the wrong response for a fetch() caller anyway — a 401 JSON
+  // body from the handler itself is what the client code expects.
+  if (pathname.startsWith("/api/")) {
     return NextResponse.next();
   }
 
@@ -39,18 +49,24 @@ export async function proxy(request: NextRequest) {
   // Not an event subdomain (app.*, www.*, localhost) — serve as-is.
   if (!event) return NextResponse.next();
 
-  // Optimistic session check. No DB read: just a signature verification.
-  const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
+  const token = request.cookies.get(SESSION_COOKIE)?.value || request.cookies.get("xplore_session")?.value;
+  const session = await verifySession(token);
   if (!session) {
-    const entry = new URL("/enter", request.nextUrl.origin);
+    // Built from the real Host header, not request.nextUrl.origin — the latter
+    // collapses to the bare "localhost" origin regardless of which subdomain
+    // the request actually came in on, which sent every login redirect back
+    // to the plain landing page instead of the event the user was on.
+    const origin = `${request.nextUrl.protocol}//${host}`;
+    const entry = new URL("/enter", origin);
     // Send them back where they were trying to go once they're in.
-    entry.searchParams.set("rt", `${request.nextUrl.origin}${pathname}${search}`);
+    entry.searchParams.set("rt", `${origin}${pathname}${search}`);
     return NextResponse.redirect(entry);
   }
 
   // Rewrite the subdomain into its route group segment.
   const url = request.nextUrl.clone();
-  url.pathname = `/${event}${pathname === "/" ? "" : pathname}`;
+  const cleanPathname = pathname.startsWith(`/${event}`) ? pathname.slice(event.length + 1) || "/" : pathname;
+  url.pathname = `/${event}${cleanPathname === "/" ? "" : cleanPathname}`;
 
   const res = NextResponse.rewrite(url);
   // Hand identity to route handlers so they don't each re-parse the cookie.

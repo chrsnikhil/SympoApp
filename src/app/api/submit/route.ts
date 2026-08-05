@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import { ObjectId } from "mongodb";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
 import { eventFromHost, EVENTS, type EventKey } from "@/lib/config";
+import { settleAfterQuizSubmit } from "@/lib/quiz/comeback";
 import { submit } from "@/lib/submission/pipeline";
+import { invalidateCache } from "@/lib/cache";
 
 /**
  * The single submission endpoint for all four events.
@@ -39,6 +42,19 @@ export async function POST(request: Request) {
     if (!outcome.ok) {
       return NextResponse.json({ error: outcome.error }, { status: outcome.status });
     }
+    
+    // Invalidate local in-memory cache to propagate submission changes instantly
+    invalidateCache();
+
+    // Round 3's Comeback Meter, settled HERE and not inside the grader — this
+    // is the first point at which the ledger already holds the points for this
+    // answer, and the meter must never be decided against a leaderboard older
+    // than the score that just changed it. `settleAfterQuizSubmit` is a no-op
+    // for anything that isn't a Round 3 MCQ.
+    if (event === "quiz" && outcome.status === 200) {
+      await settleAfterQuizSubmit(new ObjectId(session.teamId), body.challengeSlug, outcome.correct, outcome.meta);
+    }
+
     return NextResponse.json(outcome, { status: outcome.status });
   } catch (err) {
     if (err instanceof UnauthorizedError) {

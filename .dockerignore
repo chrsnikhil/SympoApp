@@ -7,3 +7,13 @@ node_modules
 Dockerfile
 .dockerignore
 scripts/seed-output
+
+# Round 1 reference masters. The builder stage does `COPY . .`, so building on
+# the event machine — the one place the master actually exists — would bake it
+# into a build layer. The final image never copies it (multi-stage), but the
+# picture has no business entering the build context at all: the app reads it
+# from the database, not the filesystem.
+private
+
+# Screenshots from scripts/audit-responsive.ts --shots
+.audit-shots

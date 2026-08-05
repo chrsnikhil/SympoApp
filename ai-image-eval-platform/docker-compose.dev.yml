@@ -1,0 +1,21 @@
+# Dev overlay: hot-reload backend, source bind-mounted, Alembic runs on start.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    environment:
+      DEBUG: "true"
+      APP_ENV: development
+    volumes:
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+      - storage_data:/data/storage
+      - model_cache:/data/models
+    command: >
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+volumes:
+  storage_data:
+  model_cache:

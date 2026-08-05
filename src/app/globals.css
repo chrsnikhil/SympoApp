@@ -1,26 +1,731 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════
+   SPIDER-VERSE SYMPOSIUM DESIGN SYSTEM
+   ═══════════════════════════════════════════════════ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --spider-red: #a41616;
+  --spider-red-dark: #92030b;
+  --web-blue: #41617e;
+  --web-blue-dark: #1e293b;
+  --ink-black: #1b1b1c;
+  --paper-white: #ffffff;
+  --comic-yellow: #facc15;
+  --glitch-cyan: #00e5ff;
+  --gadget-pink: #ff6ec7;
+  --signal-wrong: #ff4d4d;
+  --signal-good: #22c55e;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-glitch-cyan: #00e5ff;
+  --color-gadget-pink: #ff6ec7;
+  --color-signal-wrong: #ff4d4d;
+  --color-signal-good: #22c55e;
+  --color-web-blue-dark: #1e293b;
+  --color-on-primary: #ffffff;
+  --color-on-tertiary-fixed: #241a00;
+  --color-on-secondary-fixed: #001d32;
+  --color-surface-dim: #dcd9d9;
+  --color-background: transparent;
+  --color-tertiary: #745b00;
+  --color-tertiary-fixed-dim: #e7c35e;
+  --color-on-primary-container: #ffe7e4;
+  --color-on-tertiary-fixed-variant: #584400;
+  --color-surface-tint: #b52520;
+  --color-inverse-primary: #ffb4ab;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-bright: #fcf9f8;
+  --color-surface-container-low: #f6f3f2;
+  --color-surface: #fcf9f8;
+  --color-secondary: #41617e;
+  --color-surface-container-highest: #e5e2e1;
+  --color-primary-fixed-dim: #ffb4ab;
+  --color-surface-container: #f0eded;
+  --color-error-container: #ffdad6;
+  --color-on-secondary-container: #42627f;
+  --color-on-secondary-fixed-variant: #284a65;
+  --color-on-secondary: #ffffff;
+  --color-on-error-container: #93000a;
+  --color-on-background: #1b1b1c;
+  --color-tertiary-fixed: #e5c15c;
+  --color-secondary-container: #bddeff;
+  --color-inverse-on-surface: #f3f0ef;
+  --color-surface-container-high: #eae7e7;
+  --color-on-tertiary: #ffffff;
+  --color-primary-container: #c7322b;
+  --color-secondary-fixed-dim: #a9caeb;
+  --color-secondary-fixed: #cde5ff;
+  --color-primary-fixed: #ffdad5;
+  --color-on-primary-fixed: #410002;
+  --color-on-tertiary-container: #4f3d00;
+  --color-on-error: #ffffff;
+  --color-primary: #a41616;
+  --color-outline: #8e706c;
+  --color-on-surface-variant: #5a403d;
+  --color-tertiary-container: #caa846;
+  --color-on-primary-fixed-variant: #92030b;
+  --color-inverse-surface: #303030;
+  --color-error: #ba1a1a;
+  --color-outline-variant: #e3beba;
+  --color-on-surface: #1b1b1c;
+  --color-surface-variant: #e5e2e1;
+
+  --color-spider-red: #a41616;
+  --color-web-blue: #41617e;
+  --color-ink-black: #1b1b1c;
+  --color-paper-white: #fcf9f8;
+  --color-comic-yellow: #e5c15c;
+
+  --spacing-gutter: 1.5rem;
+  --spacing-panel-gap: 12px;
+  --spacing-ink-offset: 2px;
+  --spacing-margin: 2rem;
+
+  --font-display-xl: var(--font-anybody), "Anybody", sans-serif;
+  --font-headline-lg: var(--font-anybody), "Anybody", sans-serif;
+  --font-headline-lg-mobile: var(--font-anybody), "Anybody", sans-serif;
+  --font-body-md: var(--font-bricolage), "Bricolage Grotesque", sans-serif;
+  --font-caption-bold: var(--font-bricolage), "Bricolage Grotesque", sans-serif;
+  --font-label-sm: var(--font-courier), "Courier Prime", monospace;
+  --font-display: var(--font-anton), "Anton", sans-serif;
+  --font-comic: var(--font-bangers), "Bangers", cursive;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html, body { margin: 0; padding: 0; }
+  body {
+    overscroll-behavior: none;
+    background-color: #f2e7cf;
+    color: var(--color-on-surface);
+    font-family: var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+::-webkit-scrollbar { display: none; }
+
+.comic-border {
+  border: 3px solid #1b1b1c;
+  box-shadow: 8px 8px 0px 0px #1b1b1c;
 }
+.comic-border-sm {
+  border: 2px solid #1b1b1c;
+  box-shadow: 4px 4px 0px 0px #1b1b1c;
+}
+.comic-tilt-left { transform: rotate(-1.5deg); }
+.comic-tilt-right { transform: rotate(1.5deg); }
+
+.ben-day {
+  background-image: radial-gradient(#1b1b1c 1px, transparent 0);
+  background-size: 3px 3px;
+  opacity: 0.1;
+}
+.ben-day-light {
+  background-image: radial-gradient(#ffffff 1px, transparent 0);
+  background-size: 3px 3px;
+}
+
+.view { display: none; }
+.view.active { display: block; animation: pageflip 0.6s ease; }
+
+@keyframes pageflip {
+  from { opacity: 0; transform: perspective(1400px) rotateY(-10deg) scale(0.97); }
+  to { opacity: 1; transform: perspective(1400px) rotateY(0deg) scale(1); }
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.5) rotate(-8deg); opacity: 0; }
+  60% { transform: scale(1.08) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.pop-in { animation: popIn 0.5s ease; }
+
+#toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(150%);
+  transition: transform 0.3s ease;
+  z-index: 100;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+
+.answer-selected { outline: 4px solid #1b1b1c; }
+
+/* Additional Panel & Noise styles */
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+/* COMIC PANEL HARD SHADOW & INNER GLOW */
+.panel {
+  position: relative;
+  background: rgba(12, 14, 18, 0.88);
+  border: 3px solid var(--ink-black);
+  box-shadow: 7px 7px 0 var(--ink-black), inset 0 0 12px rgba(255, 255, 255, 0.03);
+  outline: 1px solid rgba(242, 239, 233, 0.15);
+  backdrop-filter: blur(12px);
+}
+
+.panel-accent {
+  border-color: var(--spider-red);
+  box-shadow: 7px 7px 0 var(--spider-red-dark);
+}
+
+/* COMIC BUTTON DESIGN SYSTEM */
+.comic-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 1.25rem;
+  font-family: var(--font-anton), "Anybody", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #ffffff !important;
+  background-color: var(--spider-red) !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 4px 4px 0px 0px #000000 !important;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.comic-btn:hover:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px 0px #000000 !important;
+  background-color: #ffffff !important;
+  color: var(--spider-red) !important;
+  border-color: var(--spider-red) !important;
+}
+
+.comic-btn:active:not(:disabled) {
+  transform: translate(4px, 4px);
+  box-shadow: 0px 0px 0px 0px #000000 !important;
+}
+
+.comic-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* CYAN BUTTON (PROCEED TO ROUND / CONFIRM) */
+.comic-btn-cyan {
+  background-color: #00e5ff !important;
+  color: #0b0f19 !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 4px 4px 0px 0px #000000 !important;
+}
+
+.comic-btn-cyan:hover:not(:disabled) {
+  background-color: #ffffff !important;
+  color: #007799 !important;
+  border-color: #00e5ff !important;
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px 0px #000000 !important;
+}
+
+/* PINK BUTTON (END QUIZ / DANGER ACTIONS) */
+.comic-btn-pink {
+  background-color: #ff6ec7 !important;
+  color: #0b0f19 !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 4px 4px 0px 0px #000000 !important;
+}
+
+.comic-btn-pink:hover:not(:disabled) {
+  background-color: #ffffff !important;
+  color: #c9006b !important;
+  border-color: #ff6ec7 !important;
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px 0px #000000 !important;
+}
+
+/* YELLOW BUTTON (START / RESTART QUIZ) */
+.comic-btn-yellow {
+  background-color: #facc15 !important;
+  color: #0b0f19 !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 4px 4px 0px 0px #000000 !important;
+}
+
+.comic-btn-yellow:hover:not(:disabled) {
+  background-color: #ffffff !important;
+  color: #9a5b00 !important;
+  border-color: #facc15 !important;
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px 0px #000000 !important;
+}
+
+/* DARK / CANCEL BUTTON */
+.comic-btn-dark,
+.comic-btn.bg-ink-black {
+  background-color: #2b303b !important;
+  color: #ffffff !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 4px 4px 0px 0px #000000 !important;
+}
+
+.comic-btn.bg-ink-black:hover:not(:disabled) {
+  background-color: #ffffff !important;
+  color: #1b1b1c !important;
+  border-color: #ffffff !important;
+}
+
+.display-title {
+  font-family: var(--font-anton), sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 0.95;
+}
+
+.chromatic {
+  text-shadow:
+    -2px 0 0 rgba(226, 54, 54, 0.85),
+    2px 0 0 rgba(0, 229, 255, 0.85);
+}
+
+.comic-shout {
+  font-family: var(--font-bangers), cursive;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* MARVEL COMIC SPEECH BUBBLE */
+.comic-speech-bubble {
+  position: relative;
+  background: #ffffff;
+  color: #0a0a0a;
+  border: 3px solid #0a0a0a;
+  box-shadow: 4px 4px 0 #0a0a0a;
+  padding: 0.75rem 1.25rem;
+  font-family: var(--font-bangers), cursive;
+  font-size: 1.1rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.comic-speech-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -14px;
+  left: 24px;
+  border-width: 14px 12px 0 0;
+  border-style: solid;
+  border-color: #ffffff transparent transparent transparent;
+  display: block;
+  width: 0;
+}
+
+/* MARVEL COMIC YELLOW CAPTION BOX */
+.comic-caption-yellow {
+  background: var(--comic-yellow);
+  color: #0a0a0a;
+  border: 3px solid #0a0a0a;
+  box-shadow: 5px 5px 0 #0a0a0a;
+  font-family: var(--font-anton), sans-serif;
+  text-transform: uppercase;
+  padding: 0.6rem 1rem;
+}
+
+/* COMIC TABLE STYLING */
+.admin-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.85rem;
+}
+.admin-table th {
+  background: #14171d;
+  color: var(--glitch-cyan);
+  font-family: var(--font-anton), sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 2px solid var(--ink-black);
+  text-align: left;
+}
+.admin-table td {
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid rgba(242, 239, 233, 0.08);
+  color: var(--paper-white);
+}
+
+@keyframes glitch-in {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) skewX(-4deg);
+  }
+  60% {
+    opacity: 0.9;
+    transform: translateY(-3px) skewX(1.5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) skewX(0);
+  }
+}
+
+.anim-glitch-in {
+  animation: glitch-in 300ms ease-out;
+}
+
+@keyframes power-surge {
+  0% {
+    text-shadow: -2px 0 0 rgba(226, 54, 54, 0.85), 2px 0 0 rgba(0, 229, 255, 0.85);
+  }
+  40% {
+    text-shadow: -6px 0 0 rgba(226, 54, 54, 0.9), 6px 0 0 rgba(0, 229, 255, 0.9);
+  }
+  100% {
+    text-shadow: -2px 0 0 rgba(226, 54, 54, 0.85), 2px 0 0 rgba(0, 229, 255, 0.85);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+@keyframes pop-in {
+  0% { opacity: 0; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.anim-surge { animation: power-surge 400ms ease-out; }
+.anim-shake { animation: shake 200ms ease-in-out; }
+.anim-pop { animation: pop-in 220ms ease-out; }
+
+/* Glitch, flicker and scan-line effects are exactly the class of animation
+   that triggers migraine and vestibular symptoms. In a hall of 500 people,
+   somebody has that sensitivity. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .chromatic { text-shadow: none; }
+}
+
+/* ═══════════════════════════════════════════════════
+   CELEBRATION — confetti burst (Celebration.tsx)
+   ═══════════════════════════════════════════════════ */
+
+@keyframes confetti-burst {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--confetti-dx), var(--confetti-dy)) rotate(var(--confetti-rot));
+    opacity: 0;
+  }
+}
+
+.confetti-piece {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  animation: confetti-burst 1100ms ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti-piece { display: none; }
+}
+
+/* Round-transition backdrop cobweb (QuizClient.tsx's RoundTransition). */
+@keyframes web-sweep {
+  0% { opacity: 0; transform: scale(0.6); }
+  40% { opacity: 0.5; }
+  100% { opacity: 0.18; transform: scale(1); }
+}
+
+.web-sweep {
+  animation: web-sweep 1400ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .web-sweep {
+    opacity: 0.18;
+    animation: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   WEB-SHOOTER
+
+   The class is applied by WebShooter.tsx only once it has confirmed a fine
+   pointer, and removed on unmount. Scoped to the quiz surface so a hidden
+   cursor can never strand someone on a page with no reticle drawn.
+   ═══════════════════════════════════════════════════ */
+
+html.web-shooter-active,
+html.web-shooter-active body {
+  cursor: none;
+}
+
+/* Interactive controls keep a real cursor. If the reticle ever fails to draw,
+   the things you must be able to click still tell you they're clickable. */
+html.web-shooter-active a,
+html.web-shooter-active input,
+html.web-shooter-active textarea {
+  cursor: auto;
+}
+
+/* An option the reticle has locked onto. Paired with the reticle scaling up,
+   so the lock reads even for someone who can't distinguish the accent colour. */
+[data-web-target]:not(:disabled):hover {
+  transform: translateX(2px);
+}
+
+/* The web snaps taut on impact rather than fading in — webbing lands, it
+   doesn't dissolve into place. */
+@keyframes web-land {
+  0% { opacity: 0; transform: scale(0.35); }
+  55% { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.web-land {
+  animation: web-land 260ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .web-land { animation: none; }
+}
+
+/* The option a verlet strand just landed on — a quick shake plus a slight
+   desaturate, so it reads as physically caught rather than just decorated. */
+.web-caught {
+  animation: web-caught-shake 90ms ease-in-out 2;
+  filter: saturate(0.75);
+}
+
+@keyframes web-caught-shake {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .web-caught { animation: none; }
+}
+
+/* ═══════════════════════════════════════════════════
+   SCROLLBAR
+   ═══════════════════════════════════════════════════ */
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--ink-black); }
+::-webkit-scrollbar-thumb { background: var(--spider-red); }
+::-webkit-scrollbar-thumb:hover { background: var(--spider-red-dark); }
+
+/* ═══════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
+   3D PLAYING CARD FLIP ANIMATIONS & STYLES
+   ═══════════════════════════════════════════════════ */
+
+.card-3d-scene {
+  perspective: 1000px;
+}
+
+.card-3d-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-3d-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.card-3d-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.card-3d-back {
+  transform: rotateY(180deg);
+}
+
+/* ═══════════════════════════════════════════════════
+   VINTAGE BRONZE AGE COMIC PAGE BACKGROUND
+   ═══════════════════════════════════════════════════ */
+.comic-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.comic-bg > * {
+  position: absolute;
+  inset: 0;
+}
+
+.comic-bg__paper {
+  background: #f2e7cf;
+}
+
+.comic-bg__page {
+  background-image: url("/comic-page-bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.27;
+  filter: saturate(0.92) contrast(1.02) sepia(0.12);
+}
+
+.comic-bg__misprint {
+  background-image: url("/comic-page-bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transform: translate(2px, -1.5px) scale(1.004);
+  opacity: 0.09;
+  filter: hue-rotate(-12deg) saturate(1.6) blur(0.6px);
+  mix-blend-mode: multiply;
+}
+
+.comic-bg__halftone {
+  background-image:
+    radial-gradient(circle at 25% 25%, rgba(0, 132, 168, 0.16) 0.8px, transparent 1.1px),
+    radial-gradient(circle at 75% 45%, rgba(200, 30, 90, 0.16) 0.8px, transparent 1.1px),
+    radial-gradient(circle at 50% 80%, rgba(230, 180, 20, 0.18) 0.8px, transparent 1.1px),
+    radial-gradient(circle, rgba(27, 27, 28, 0.14) 0.7px, transparent 1px);
+  background-size:
+    4px 4px,
+    4px 4px,
+    4px 4px,
+    3px 3px;
+  mix-blend-mode: multiply;
+  opacity: 0.85;
+}
+
+.comic-bg__grain {
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(140, 110, 60, 0.1) 0 1px, transparent 2px),
+    radial-gradient(circle at 68% 8%, rgba(140, 110, 60, 0.08) 0 1px, transparent 2px),
+    radial-gradient(circle at 88% 62%, rgba(140, 110, 60, 0.1) 0 1px, transparent 2px),
+    radial-gradient(circle at 34% 88%, rgba(140, 110, 60, 0.08) 0 1px, transparent 2px),
+    radial-gradient(ellipse at 0% 0%, rgba(196, 154, 84, 0.4), transparent 26%),
+    radial-gradient(ellipse at 100% 0%, rgba(196, 154, 84, 0.34), transparent 24%),
+    radial-gradient(ellipse at 0% 100%, rgba(196, 154, 84, 0.38), transparent 26%),
+    radial-gradient(ellipse at 100% 100%, rgba(196, 154, 84, 0.42), transparent 28%);
+  background-size:
+    17px 17px,
+    23px 23px,
+    29px 29px,
+    31px 31px,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%;
+  mix-blend-mode: multiply;
+  opacity: 0.7;
+}
+
+.comic-bg__center-wash {
+  background: radial-gradient(
+    ellipse 62% 58% at 50% 46%,
+    rgba(247, 240, 224, 0.94) 0%,
+    rgba(247, 240, 224, 0.82) 38%,
+    rgba(247, 240, 224, 0.4) 66%,
+    rgba(247, 240, 224, 0) 88%
+  );
+  backdrop-filter: blur(1.6px);
+}
+
+.comic-bg__vignette {
+  background: radial-gradient(
+    ellipse 88% 84% at 50% 50%,
+    rgba(27, 27, 28, 0) 52%,
+    rgba(27, 27, 28, 0.14) 78%,
+    rgba(27, 27, 28, 0.3) 100%
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   COMIC FILM STRIP REEL STYLES
+   ═══════════════════════════════════════════════════ */
+
+.film-strip-container {
+  position: relative;
+  background: #1a1a1a;
+  padding: 4px 0; 
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6); 
+  border-top: 3px solid #1b1b1c; 
+  border-bottom: 3px solid #1b1b1c; 
+  width: 100%;
+  border-radius: 8px; 
+  overflow: hidden;
+}
+
+.sprockets {
+  display: flex;
+  justify-content: space-around;
+  padding: 2px 0;
+}
+
+.sprocket-hole {
+  width: 14px;
+  height: 18px;
+  background: #d1cfc0;
+  border-radius: 2px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.film-track {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 16px;
+  width: max-content;
+  will-change: transform;
+  animation: scroll-reel 22s linear infinite;
+}
+
+.film-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes scroll-reel {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(calc(-50% - 8px), 0, 0);
+  }
+}
+
+.halftone-overlay {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, #000 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.05;
+  pointer-events: none;
+}
+

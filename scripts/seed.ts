@@ -97,15 +97,9 @@ async function main() {
       closesAt: null,
       config: { answerHash: hashAnswer("flag{hello_multiverse}"), firstBloodBonus: 50 },
     },
-    {
-      type: "quiz",
-      slug: "q1",
-      title: "Which year is Miguel from?",
-      points: 100,
-      opensAt: null,
-      closesAt: null,
-      config: { correctIndex: 2, limitSeconds: 30, speedBonus: 50 },
-    },
+    // No `quiz` entry here — the quiz event has its own seed script,
+    // `scripts/seed-quiz.ts`, because it needs 60 coins, three rounds and a
+    // coordinator login rather than one sample question.
     {
       type: "code",
       slug: "sum-two",
@@ -120,7 +114,8 @@ async function main() {
   console.log("\n── ACCESS CODES (shown once, stored hashed) ─────────────");
   for (const i of issued) console.log(`  ${i.team.padEnd(18)} ${i.code}`);
   console.log("────────────────────────────────────────────────────────\n");
-  console.log("Try: hunt clue-1 → 'library' · ctf warmup → 'flag{hello_multiverse}' · quiz q1 → '2|<servedAtISO>'");
+  console.log("Try: hunt clue-1 → 'library' · ctf warmup → 'flag{hello_multiverse}'");
+  console.log("For the quiz, run scripts/seed-quiz.ts instead — coins, three rounds, a coordinator login.");
 
   process.exit(0);
 }
