@@ -7,11 +7,20 @@ import WebShooter from "@/app/quiz/WebShooter";
 import ComicHeader from "@/components/ui/ComicHeader";
 import ComicButton from "@/components/ui/ComicButton";
 import TeamAvatar from "@/components/ui/TeamAvatar";
+import { safeRedirectTarget } from "@/lib/auth/safeRedirect";
 
 /**
  * Entry page with Spider-Verse Symposium styling.
  * Preserves all POST /api/enter routing and verification logic.
  */
+
+// Sentinel passed as `fallback` to distinguish "rt was accepted" from "rt was
+// rejected, use the role-based default" below — the two call sites each have
+// their own role-dependent default rather than one fixed fallback string, so
+// safeRedirectTarget can't be handed that default directly. Chosen to be a
+// value no real path or query string will ever equal.
+const RT_REJECTED = "__rt_rejected__";
+
 export default function QuizEntry() {
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,8 +33,9 @@ export default function QuizEntry() {
         if (res.ok) {
           const data = await res.json();
           const rt = new URLSearchParams(window.location.search).get("rt");
-          if (rt && !rt.endsWith("/") && !rt.includes("/enter") && !rt.endsWith("/enter")) {
-            window.location.href = rt;
+          const target = safeRedirectTarget(rt, window.location.origin, RT_REJECTED);
+          if (target !== RT_REJECTED) {
+            window.location.href = target;
           } else if (data.role === "admin") {
             window.location.href = "/admin/quiz";
           } else {
@@ -76,8 +86,9 @@ export default function QuizEntry() {
       }
 
       const rt = new URLSearchParams(window.location.search).get("rt");
-      if (rt && !rt.endsWith("/") && !rt.includes("/enter") && !rt.endsWith("/enter")) {
-        window.location.href = rt;
+      const target = safeRedirectTarget(rt, window.location.origin, RT_REJECTED);
+      if (target !== RT_REJECTED) {
+        window.location.href = target;
         return;
       }
 
