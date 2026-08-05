@@ -75,8 +75,13 @@ export const DITHER_RESEED_MS = 400;
  * real and visible reduction in image quality, traded for the extremes
  * becoming hideable at all. 0 disables it.
  *
- * 64 rather than the previous 40 because with three frames the floor is worth
- * triple: a pixel's single-frame range is `[max(0, 3v-510), min(255, 3v)]`, so
+ * 100 by the coordinator's call after testing on a real display against a real
+ * capture. It is a heavy setting: the image is compressed into [100, 155], so
+ * roughly 55 of 255 tonal levels survive. That is a severe contrast loss, and
+ * it was chosen deliberately over concealment — the reasoning below explains
+ * why the floor has to be this aggressive to work at all.
+ *
+ * With three frames the floor is worth triple: a pixel's single-frame range is `[max(0, 3v-510), min(255, 3v)]`, so
  * a black at `k` and a white at `255-k` can land on the SAME captured value
  * only once `k >= 43`, and the shared band widens by 6 per unit of floor
  * (`[255-3k, 3k]` — 130 values wide at 64). Below that threshold dark and
@@ -86,7 +91,7 @@ export const DITHER_RESEED_MS = 400;
  * frame — and the image is down to a third of its contrast. 64 is the measured
  * balance between the two.
  */
-export const DEFAULT_RANGE_FLOOR = 64;
+export const DEFAULT_RANGE_FLOOR = 100;
 
 /**
  * Frames per cycle. The eye integrates over roughly 1/25s — about 2.5 frames
@@ -106,7 +111,7 @@ export const DEFAULT_FRAME_COUNT = 3;
  * approach per-pixel noise, which is exactly what failed. 16 is the measured
  * compromise — see the concealment numbers in the dither report.
  */
-export const DEFAULT_DECOY_BLOCK = 16;
+export const DEFAULT_DECOY_BLOCK = 48;
 
 /**
  * Band the decoy cells are drawn from, given the range floor the base was
