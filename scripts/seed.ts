@@ -263,7 +263,6 @@ async function main() {
         hints: [
           { id: 1, text: "The initial security layers test logic riddles, look-and-say patterns, hidden messages, and Base64 decoding.", unlockSeconds: 300 },
           { id: 2, text: "The final layer requires adversarial prompt injection instructions.", unlockSeconds: 600 },
-          { id: 3, text: "The final layer discharges a Base64-encoded Hex string. Decode Base64 -> Hex -> SPIDER{...}.", unlockSeconds: 900 },
         ],
         status: "open",
         attachments: [],

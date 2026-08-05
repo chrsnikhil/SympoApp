@@ -102,21 +102,36 @@ export async function ensureIndexes(): Promise<void> {
     collections.lylaProgress(),
   ]);
 
-  await Promise.all([
-    codes.createIndex({ codeHash: 1 }, { unique: true }),
-    challenges.createIndex({ type: 1, slug: 1 }, { unique: true }),
-    subs.createIndex({ teamId: 1, receivedAt: -1 }),
-    subs.createIndex({ status: 1 }),
-    // First-blood and duplicate-solve checks hit this one.
-    subs.createIndex({ challengeId: 1, teamId: 1, receivedAt: 1 }),
-    // Dynamic CTF leaderboard
-    subs.createIndex({challengeId: 1,"verdict.correct": 1,}),
-    subs.createIndex({challengeId: 1,"verdict.correct": 1,receivedAt: 1,}),
-    scores.createIndex({ teamId: 1 }),
-    scores.createIndex({ event: 1, at: -1 }),
-    hunt.createIndex({ teamId: 1, challengeSlug: 1 }, { unique: true }),
-    boards.createIndex({ event: 1 }, { unique: true }),
-    lyla.createIndex({ teamId: 1 }, { unique: true }),
-  ]);
+  const safeIndex = async (fn: () => Promise<unknown>) => {
+    try {
+      await fn();
+    } catch (err: any) {
+      if (err?.code === 48 || err?.codeName === "NamespaceExists") {
+        // Retry once after Cosmos auto-creates the collection
+        await fn();
+      } else {
+        throw err;
+      }
+    }
+  };
+
+  const ops = [
+    () => codes.createIndex({ codeHash: 1 }, { unique: true }),
+    () => challenges.createIndex({ type: 1, slug: 1 }, { unique: true }),
+    () => subs.createIndex({ teamId: 1, receivedAt: -1 }),
+    () => subs.createIndex({ status: 1 }),
+    () => subs.createIndex({ challengeId: 1, teamId: 1, receivedAt: 1 }),
+    () => subs.createIndex({ challengeId: 1, "verdict.correct": 1 }),
+    () => subs.createIndex({ challengeId: 1, "verdict.correct": 1, receivedAt: 1 }),
+    () => scores.createIndex({ teamId: 1 }),
+    () => scores.createIndex({ event: 1, at: -1 }),
+    () => hunt.createIndex({ teamId: 1, challengeSlug: 1 }, { unique: true }),
+    () => boards.createIndex({ event: 1 }, { unique: true }),
+    () => lyla.createIndex({ teamId: 1 }, { unique: true }),
+  ];
+
+  for (const op of ops) {
+    await safeIndex(op);
+  }
 }
 
