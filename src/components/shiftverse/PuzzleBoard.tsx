@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import LetterStepper, { decryptLetter } from './LetterStepper';
+import LetterStepper from './LetterStepper';
+import { applyShiftToLetter } from '@/lib/cipher';
 
 interface PuzzleBoardProps {
   teamNumber: number;
@@ -91,7 +92,7 @@ export default function PuzzleBoard({ teamNumber, onBack }: PuzzleBoardProps) {
   const currentGuess = teamData
     ? teamData.encryptedWord
         .split('')
-        .map((char, i) => decryptLetter(char, shifts[i] || 1))
+        .map((char, i) => applyShiftToLetter(char, shifts[i] || 1))
         .join('')
     : '';
 

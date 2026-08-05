@@ -29,9 +29,15 @@ describe("caesarDecrypt", () => {
 });
 
 describe("applyShiftToLetter", () => {
-  it("agrees with caesarEncrypt on a single letter", () => {
+  it("is the decrypt direction — undoes caesarEncrypt for the same shift", () => {
     for (let shift = 0; shift < 26; shift++) {
-      expect(applyShiftToLetter("Q", shift)).toBe(caesarEncrypt("Q", shift));
+      expect(applyShiftToLetter(caesarEncrypt("Q", shift), shift)).toBe("Q");
+    }
+  });
+
+  it("agrees with caesarDecrypt on a single letter", () => {
+    for (let shift = 0; shift < 26; shift++) {
+      expect(applyShiftToLetter("Q", shift)).toBe(caesarDecrypt("Q", shift));
     }
   });
 });

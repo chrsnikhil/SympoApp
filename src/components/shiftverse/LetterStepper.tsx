@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback } from 'react';
+import { applyShiftToLetter } from '@/lib/cipher';
 
 interface LetterStepperProps {
   /** The encrypted letter to display */
@@ -11,21 +12,6 @@ interface LetterStepperProps {
   onChange: (newShift: number) => void;
   /** Index for unique key/ID */
   index: number;
-}
-
-/**
- * Applies a shift to an encrypted letter to produce the guessed letter.
- * Safe for client-side use — just alphabet math, no secret knowledge.
- */
-function decryptLetter(encrypted: string, shift: number): string {
-  const char = encrypted.toUpperCase();
-  if (char >= 'A' && char <= 'Z') {
-    const code = char.charCodeAt(0);
-    const normalizedShift = ((shift % 26) + 26) % 26;
-    const shifted = ((code - 65 - normalizedShift + 26) % 26) + 65;
-    return String.fromCharCode(shifted);
-  }
-  return char;
 }
 
 /**
@@ -49,7 +35,7 @@ export default function LetterStepper({
     onChange(next);
   }, [shiftValue, onChange]);
 
-  const guessedLetter = decryptLetter(encryptedLetter, shiftValue);
+  const guessedLetter = applyShiftToLetter(encryptedLetter, shiftValue);
 
   return (
     <div className="letter-stepper" id={`letter-stepper-${index}`}>
@@ -89,5 +75,3 @@ export default function LetterStepper({
     </div>
   );
 }
-
-export { decryptLetter };
