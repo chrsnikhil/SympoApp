@@ -21,6 +21,9 @@ export default function DitheredImage({
   alt,
   dither = false,
   amplitude,
+  rangeFloor,
+  frameCount,
+  blockSize,
   className,
   maxHeight = 320,
   fit = "intrinsic",
@@ -29,6 +32,9 @@ export default function DitheredImage({
   alt: string;
   dither?: boolean;
   amplitude?: number;
+  rangeFloor?: number;
+  frameCount?: 2 | 3;
+  blockSize?: number;
   className?: string;
   maxHeight?: number;
   /**
@@ -100,7 +106,10 @@ export default function DitheredImage({
     canvasRef,
     enabled: dither,
     amplitude,
-    deps: [ready, src, fit],
+    rangeFloor,
+    frameCount,
+    blockSize,
+    deps: [ready, src, fit, rangeFloor],
     paintBase: (ctx, w, h) => {
       const img = imgRef.current;
       if (!img) return;
