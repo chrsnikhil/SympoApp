@@ -9,7 +9,15 @@ const MAX_SHIFT = 25;
 export async function POST(request: Request) {
   try {
     const session = await requireSession();
-    const teamId = new ObjectId(session.teamId);
+
+    let teamId: ObjectId;
+    try {
+      teamId = new ObjectId(session.teamId);
+    } catch {
+      // A session whose claimed teamId isn't a valid ObjectId isn't a usable
+      // session — 401, not a 500 that leaks a BSON parsing error.
+      throw new UnauthorizedError();
+    }
 
     let body: { perLetterGuesses?: unknown };
     try {

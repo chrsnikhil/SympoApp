@@ -44,13 +44,25 @@ const TEAMS: { teamNumber: number; word: string }[] = [
   { teamNumber: 40, word: 'EVERYONECANBEAHERO' },
 ];
 
+/**
+ * Random, 1..25 — deliberately independent of `teamNumber`. Never 0 (a zero
+ * shift leaves the word in clear). It used to just equal `teamNumber`, and
+ * `teamNumber` is returned as-is by `/api/shiftverse/state` for the UI's
+ * cosmetic "DIMENSION #N" label — so `shiftKey === teamNumber` meant
+ * `applyShiftToLetter(encryptedWord, teamNumber)` decrypted the board from
+ * that response alone, no guess endpoint required.
+ */
+function randomShiftKey(): number {
+  return 1 + Math.floor(Math.random() * 25);
+}
+
 async function seed() {
   const coll = await collections.shiftverseTeams();
   await coll.deleteMany({});
   console.log('Cleared existing shiftverse teams.');
 
   const teamDocs = TEAMS.map(({ teamNumber, word }) => {
-    const shiftKey = teamNumber;
+    const shiftKey = randomShiftKey();
     const encryptedWord = caesarEncrypt(word, shiftKey);
     console.log(`Team ${String(teamNumber).padStart(2, '0')}: "${word}" → shift ${shiftKey} → "${encryptedWord}"`);
     
