@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { QuizRound } from "@/lib/db/types";
 import TeamAvatar from "@/components/ui/TeamAvatar";
 
@@ -19,9 +19,35 @@ interface Row {
 const POLL_MS = 4_000;
 const ROW_HEIGHT = 42;
 
-export default function Standings({ round }: { round: QuizRound }) {
+/**
+ * How many rows are visible before the list scrolls.
+ *
+ * The list is absolutely positioned so ranks can slide when they change, which
+ * means its height is `rows.length * ROW_HEIGHT` with nothing bounding it. At
+ * the event's full field of 60 teams that is 2520px — the sidebar becomes three
+ * screen-heights tall and drags the whole page layout with it. Capping the
+ * viewport and scrolling inside keeps the panel a fixed size at any field size
+ * while leaving the slide animation untouched, since the inner container keeps
+ * its full height and only the wrapper scrolls.
+ */
+const VISIBLE_ROWS = 10;
+
+export default function Standings({
+  round,
+  teamName,
+}: {
+  round: QuizRound;
+  /**
+   * The viewer's own team, so their row can be marked and scrolled to. With 60
+   * teams a mid-table team is off-screen in a 10-row window, and a leaderboard
+   * you cannot find yourself on is not much of a leaderboard.
+   */
+  teamName?: string;
+}) {
   const [rows, setRows] = useState<Row[]>([]);
   const [stale, setStale] = useState(false);
+  const ownRowRef = useRef<HTMLDivElement | null>(null);
+  const lastOwnRank = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,6 +73,30 @@ export default function Standings({ round }: { round: QuizRound }) {
     };
   }, [round]);
 
+  /**
+   * Keep the viewer's own row in view — but only when their rank actually
+   * moves.
+   *
+   * Scrolling on every poll would yank the list back every four seconds while
+   * someone is reading the rest of the table. Gating on a rank change means it
+   * fires when there is something to see, and `block: "nearest"` scrolls the
+   * minimum distance rather than centring, so a row already visible does not
+   * move at all.
+   */
+  useEffect(() => {
+    if (!teamName) return;
+    const own = rows.find((r) => r.teamName.toLowerCase() === teamName.toLowerCase());
+    if (!own) return;
+    if (lastOwnRank.current === own.rank) return;
+    lastOwnRank.current = own.rank;
+    // After the 550ms rank-slide, or it scrolls to where the row used to be.
+    const t = window.setTimeout(
+      () => ownRowRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }),
+      600
+    );
+    return () => window.clearTimeout(t);
+  }, [rows, teamName]);
+
   return (
     <aside className="bg-surface comic-border p-5 comic-tilt-right h-fit">
       <div className="relative">
@@ -58,16 +108,24 @@ export default function Standings({ round }: { round: QuizRound }) {
         {rows.length === 0 ? (
           <p className="font-label-sm text-xs text-on-surface-variant uppercase py-2">Nothing scored yet, True Believer!</p>
         ) : (
+          <div
+            className="overflow-y-auto overscroll-contain pr-1"
+            // Only constrain once there are more rows than fit; a short field
+            // should not sit in a half-empty scroll box.
+            style={{ maxHeight: Math.min(rows.length, VISIBLE_ROWS) * ROW_HEIGHT }}
+          >
           <div className="relative" style={{ height: rows.length * ROW_HEIGHT }}>
             {rows.map((row) => {
               const out = row.qualifying === false;
               const leader = row.rank === 1;
+              const isOwn = !!teamName && row.teamName.toLowerCase() === teamName.toLowerCase();
               return (
                 <div
                   key={row.teamId}
+                  ref={isOwn ? ownRowRef : undefined}
                   className={`absolute inset-x-0 flex items-center justify-between p-2.5 comic-border-sm transition-all ${
                     out ? "bg-surface-container-low opacity-45" : leader ? "bg-tertiary-fixed/20 border-primary" : "bg-surface-container-lowest"
-                  }`}
+                  } ${isOwn ? "ring-2 ring-primary" : ""}`}
                   style={{
                     top: (row.rank - 1) * ROW_HEIGHT,
                     height: ROW_HEIGHT - 6,
@@ -92,6 +150,7 @@ export default function Standings({ round }: { round: QuizRound }) {
                 </div>
               );
             })}
+          </div>
           </div>
         )}
       </div>
