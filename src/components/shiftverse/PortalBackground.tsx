@@ -6,6 +6,39 @@ import * as THREE from 'three';
 
 const PARTICLE_COUNT = 600;
 
+function generateParticles() {
+  const pos = new Float32Array(PARTICLE_COUNT * 3);
+  const col = new Float32Array(PARTICLE_COUNT * 3);
+  const spd = new Float32Array(PARTICLE_COUNT);
+
+  const palette = [
+    [1.0, 0.176, 0.471],   // Electric Magenta #FF2D78
+    [0.0, 0.941, 1.0],     // Dimensional Cyan #00F0FF
+    [0.608, 0.188, 1.0],   // Portal Violet #9B30FF
+    [1.0, 0.882, 0.302],   // Glitch Yellow #FFE14D
+    [0.96, 0.94, 0.92],    // Ink White #F5F0EB
+  ];
+
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const i3 = i * 3;
+    const angle = (i / PARTICLE_COUNT) * Math.PI * 8;
+    const radius = 2 + Math.random() * 6;
+    const height = (Math.random() - 0.5) * 8;
+
+    pos[i3] = Math.cos(angle) * radius + (Math.random() - 0.5) * 1.5;
+    pos[i3 + 1] = height;
+    pos[i3 + 2] = Math.sin(angle) * radius + (Math.random() - 0.5) * 1.5;
+
+    const color = palette[Math.floor(Math.random() * palette.length)];
+    col[i3] = color[0];
+    col[i3 + 1] = color[1];
+    col[i3 + 2] = color[2];
+
+    spd[i] = 0.2 + Math.random() * 0.8;
+  }
+  return { positions: pos, colors: col, speeds: spd };
+}
+
 /**
  * Swirling particle vortex — dimensional portal effect
  * Particles orbit in a toroidal/spiral pattern with Spider-Verse palette colors
@@ -15,44 +48,7 @@ function ParticleField() {
   const timeRef = useRef(0);
 
   // Generate initial particle positions and colors
-  const { positions, colors, speeds } = useMemo(() => {
-    const pos = new Float32Array(PARTICLE_COUNT * 3);
-    const col = new Float32Array(PARTICLE_COUNT * 3);
-    const spd = new Float32Array(PARTICLE_COUNT);
-
-    // Spider-Verse palette colors (normalized 0-1)
-    const palette = [
-      [1.0, 0.176, 0.471],   // Electric Magenta #FF2D78
-      [0.0, 0.941, 1.0],     // Dimensional Cyan #00F0FF
-      [0.608, 0.188, 1.0],   // Portal Violet #9B30FF
-      [1.0, 0.882, 0.302],   // Glitch Yellow #FFE14D
-      [0.96, 0.94, 0.92],    // Ink White #F5F0EB
-    ];
-
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      const i3 = i * 3;
-
-      // Spiral distribution
-      const angle = (i / PARTICLE_COUNT) * Math.PI * 8;
-      const radius = 2 + Math.random() * 6;
-      const height = (Math.random() - 0.5) * 8;
-
-      pos[i3] = Math.cos(angle) * radius + (Math.random() - 0.5) * 1.5;
-      pos[i3 + 1] = height;
-      pos[i3 + 2] = Math.sin(angle) * radius + (Math.random() - 0.5) * 1.5;
-
-      // Random color from palette
-      const color = palette[Math.floor(Math.random() * palette.length)];
-      col[i3] = color[0];
-      col[i3 + 1] = color[1];
-      col[i3 + 2] = color[2];
-
-      // Random speed multiplier
-      spd[i] = 0.2 + Math.random() * 0.8;
-    }
-
-    return { positions: pos, colors: col, speeds: spd };
-  }, []);
+  const { positions, colors, speeds } = useMemo(() => generateParticles(), []);
 
   useFrame((_, delta) => {
     if (!meshRef.current) return;
@@ -107,30 +103,6 @@ function ParticleField() {
   );
 }
 
-/**
- * Central glowing orb — the "portal" core
- */
-function PortalCore() {
-  const meshRef = useRef<THREE.Mesh>(null);
-
-  useFrame((state) => {
-    if (!meshRef.current) return;
-    const t = state.clock.elapsedTime;
-    meshRef.current.scale.setScalar(1 + Math.sin(t * 0.8) * 0.15);
-    meshRef.current.rotation.z = t * 0.2;
-  });
-
-  return (
-    <mesh ref={meshRef} position={[0, 0, 0]}>
-      <sphereGeometry args={[0.5, 32, 32]} />
-      <meshBasicMaterial
-        color="#9B30FF"
-        transparent
-        opacity={0.15}
-      />
-    </mesh>
-  );
-}
 
 /**
  * React Three Fiber animated portal background
