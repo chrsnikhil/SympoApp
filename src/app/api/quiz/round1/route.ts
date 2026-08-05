@@ -134,7 +134,37 @@ export async function GET() {
         ? new Date(quizState.startedAt)
         : now;
 
-    const baseOpensAt = challenge.opensAt ?? round1Start;
+    /**
+     * The clock anchor, in order of preference.
+     *
+     * Round 1 is SEQUENTIAL — image, then Connections, then Memory — so the
+     * moment a team reaches the last game is nowhere near the moment the round
+     * began. Falling back to `round1Start` for Memory therefore handed every
+     * team a clock that had already expired: the round opened at 08:56, the
+     * default window is 4m30s, and teams finished Connections around 09:03 to
+     * find the flip game timed out seven minutes earlier. The coordinator opens
+     * `image-1` and each Connections puzzle explicitly, which is why only
+     * Memory showed it — nothing ever opens Memory.
+     *
+     * Memory therefore anchors on the team's OWN `servedAt`: the grid is
+     * generated once, server-side, the first time that team asks for it, which
+     * is exactly the instant their attempt begins. That is per-team by nature,
+     * so a team that reaches the game late still gets its full window, and a
+     * reload replays the same anchor rather than restarting the clock — the
+     * same reload-safety rule `quiz_serves` follows for the MCQ rounds.
+     *
+     * An explicit `opensAt` still wins over both: if a coordinator opens the
+     * game deliberately, that is the shared wall-clock everyone plays to.
+     */
+    let baseOpensAt = challenge.opensAt ?? round1Start;
+    if (!challenge.opensAt && phase === "memory") {
+      const memoryStates = await collections.memoryStates();
+      const memState = await memoryStates.findOne({ teamId, challengeSlug: challenge.slug });
+      // No state yet means they have not opened the grid — start the clock now
+      // rather than retroactively from whenever the round began.
+      baseOpensAt = memState?.servedAt ?? now;
+    }
+
     // Image Replication is 3m30s (matches the rules text and the reference's
     // reveal schedule — see `round1Phase`'s matching constant); the Memory
     // Game has no stated duration, so it keeps the longer default.

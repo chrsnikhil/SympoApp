@@ -488,7 +488,9 @@ async function main() {
   // ones mixed in with the technical set — worth less than the core
   // questions, per the coordinator's call.
   const FUN_QUESTION_POINTS = 25;
-  const isFunQuestionIndex = (i: number) => i >= 14 && i <= 19; // 0-indexed positions of questions 15-20
+  // Questions 18-20 (0-indexed 17-19). Coordinator's call, moved from 15-20 —
+  // so Q1-17 are worth 100 and only the last three are the cheaper fun ones.
+  const isFunQuestionIndex = (i: number) => i >= 17 && i <= 19;
 
   ROUND_2.forEach((m, i) => {
     docs.push({
