@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { ForbiddenError, requireAdmin, UnauthorizedError } from "@/lib/auth/guard";
 import { collections } from "@/lib/db/client";
+import { withThrottleRetry } from "@/lib/db/retry";
 import { judgeAvailable } from "@/lib/quiz/judge";
 import { finalizeImageRound } from "@/lib/quiz/imageRound";
 import { ROUNDS, advanceFrom, eliminateTeam, restoreTeam } from "@/lib/quiz/rounds";
@@ -377,46 +378,79 @@ async function handlePOST(request: Request) {
       }
 
       case "restart-quiz": {
-        const state = await collections.quizState();
-        await state.updateOne({ _id: "quiz" }, { $set: { ended: false, endedAt: null, started: false, startedAt: null, round1StartedAt: null, round2StartedAt: null, round3StartedAt: null } }, { upsert: true });
+        /**
+         * Wipe gameplay and put the quiz back in its pre-start state.
+         *
+         * Three things this used to get wrong, all of which bit during live
+         * testing:
+         *
+         * 1. NOTHING WAS RETRIED. Cosmos answers 16500 when a burst would
+         *    exceed provisioned RU — a "ask again shortly", not a failure. A
+         *    dozen unguarded deleteMany calls meant one spike aborted the
+         *    restart partway, leaving half the collections cleared with no
+         *    indication which half. Every write below now goes through
+         *    withThrottleRetry, the same guard the seed script has always used.
+         *
+         * 2. SUBMISSIONS AND SCORES WERE UNSCOPED. `deleteMany({})` on shared
+         *    collections took the CTF's and the hunt's rows with it — a quiz
+         *    restart silently destroying another event's data.
+         *
+         * 3. THE STATE MACHINE WAS RESET FIRST. That is the worst possible
+         *    order: an abort partway left `quiz_state` saying "not started"
+         *    while scores, serves and proctor flags survived, so the quiz
+         *    looked freshly reset and started teams against stale standings.
+         *    It is now written LAST, so a failed restart leaves the quiz
+         *    visibly still running — the coordinator sees it did not take and
+         *    clicks again, instead of trusting a lie.
+         */
+        const [quals, elims, serves, memoryStates, comebacks, subs, scores, promptImages,
+               proctorFlags, proctorFreezes, rankCounters, challenges, state] = await Promise.all([
+          collections.roundQualifications(),
+          collections.roundEliminations(),
+          collections.quizServes(),
+          collections.memoryStates(),
+          collections.comebackStates(),
+          collections.submissions(),
+          collections.scoreEvents(),
+          collections.promptImages(),
+          collections.proctorFlags(),
+          collections.proctorFreezes(),
+          collections.rankCounters(),
+          collections.challenges(),
+          collections.quizState(),
+        ]);
 
-        const quals = await collections.roundQualifications();
-        await quals.deleteMany({});
+        await withThrottleRetry(() => quals.deleteMany({}));
+        await withThrottleRetry(() => elims.deleteMany({}));
+        await withThrottleRetry(() => serves.deleteMany({}));
+        await withThrottleRetry(() => memoryStates.deleteMany({}));
+        await withThrottleRetry(() => comebacks.deleteMany({}));
+        // Scoped: `submissions` and `score_events` are shared across all four
+        // events. An unfiltered delete here wipes the CTF and the hunt too.
+        await withThrottleRetry(() => subs.deleteMany({ type: "quiz" }));
+        await withThrottleRetry(() => scores.deleteMany({ event: "quiz" }));
+        await withThrottleRetry(() => promptImages.deleteMany({}));
+        await withThrottleRetry(() => proctorFlags.deleteMany({}));
+        await withThrottleRetry(() => proctorFreezes.deleteMany({}));
+        await withThrottleRetry(() => rankCounters.deleteMany({}));
 
-        const elims = await collections.roundEliminations();
-        await elims.deleteMany({});
+        // Close every game and un-reveal every Connections tile. `round1Phase`
+        // reads opensAt to decide which game a team is on, so a leftover value
+        // from the previous run drops teams into a puzzle mid-reveal.
+        await withThrottleRetry(() =>
+          challenges.updateMany(
+            { type: "quiz" },
+            { $set: { "config.connectionsRevealedCount": 0, opensAt: null, closesAt: null } }
+          )
+        );
 
-        const serves = await collections.quizServes();
-        await serves.deleteMany({});
-
-        const memoryStates = await collections.memoryStates();
-        await memoryStates.deleteMany({});
-
-        const comebacks = await collections.comebackStates();
-        await comebacks.deleteMany({});
-
-        const subs = await collections.submissions();
-        await subs.deleteMany({});
-
-        const scores = await collections.scoreEvents();
-        await scores.deleteMany({});
-
-        const promptImages = await collections.promptImages();
-        await promptImages.deleteMany({});
-
-        const proctorFlags = await collections.proctorFlags();
-        await proctorFlags.deleteMany({});
-
-        const proctorFreezes = await collections.proctorFreezes();
-        await proctorFreezes.deleteMany({});
-
-        const rankCounters = await collections.rankCounters();
-        await rankCounters.deleteMany({});
-
-        const challenges = await collections.challenges();
-        await challenges.updateMany(
-          { type: "quiz" },
-          { $set: { "config.connectionsRevealedCount": 0, opensAt: null, closesAt: null } }
+        // LAST — see (3) above.
+        await withThrottleRetry(() =>
+          state.updateOne(
+            { _id: "quiz" },
+            { $set: { ended: false, endedAt: null, started: false, startedAt: null, round1StartedAt: null, round2StartedAt: null, round3StartedAt: null } },
+            { upsert: true }
+          )
         );
 
         return NextResponse.json({ ok: true, restarted: true, note: "Quiz gameplay reset! All teams and assigned tokens preserved." });
