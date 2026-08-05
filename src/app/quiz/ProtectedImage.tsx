@@ -92,6 +92,42 @@ export default function ProtectedImage({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * Hide the artwork RIGHT NOW, without waiting for React.
+   *
+   * `setObscured(true)` is a state update: React schedules a re-render, the
+   * browser paints on the next frame, and — with the opacity transition this
+   * component used to carry — the image then faded out over a further 75ms.
+   * Against a capture that completes in microseconds, roughly 90ms of continued
+   * visibility is the same as no protection at all.
+   *
+   * Writing `visibility` straight onto the node inside the event handler is the
+   * earliest a page can act: the style is in place before the handler returns,
+   * so the very next paint is already blank. React state is still set
+   * afterwards to keep the component's own model honest.
+   *
+   * Being exact about what this buys, because it is easy to over-claim:
+   * captures that steal focus first (Win+Shift+S, the Snipping Tool, Cmd+Shift+4)
+   * are reliably beaten — the page is blank before the region selector even
+   * appears. A bare PrintScreen is grabbed by the OS in the same instant the key
+   * goes down, and on Windows browsers frequently deliver only `keyup` for it,
+   * after the pixels are already taken. This narrows that race as far as a web
+   * page can; it does not win it. The watermark and the strike exist for the
+   * cases it loses.
+   */
+  const hideNow = useCallback(() => {
+    const el = frameRef.current;
+    if (el) el.style.visibility = "hidden";
+    setObscured(true);
+  }, []);
+
+  const showAgain = useCallback(() => {
+    const el = frameRef.current;
+    if (el) el.style.visibility = "";
+    setObscured(false);
+  }, []);
 
   const [stamp, setStamp] = useState(() => new Date().toLocaleTimeString());
   const [layoutSeed, setLayoutSeed] = useState(() => Math.floor(Math.random() * 1_000_000));
@@ -212,13 +248,12 @@ export default function ProtectedImage({
   useEffect(() => {
     if (!protectFocusLoss) return;
 
-    const handleBlur = () => setObscured(true);
-    const handleFocus = () => setObscured(false);
+    const handleBlur = () => hideNow();
+    const handleFocus = () => showAgain();
+    // A tab going hidden fires this and not always `blur`.
+    const handleVisibility = () => (document.hidden ? hideNow() : showAgain());
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Deterrents only, and honestly so: devtools opens from the menu, and
-      // the OS screenshot tools below have already captured by the time a
-      // keydown reaches JS. These raise the effort, they don't close the door.
       const k = e.key.toLowerCase();
       const blockedCombo =
         (e.ctrlKey || e.metaKey) && !e.shiftKey && k === "s"; // Save page
@@ -230,32 +265,45 @@ export default function ProtectedImage({
         e.stopPropagation();
       }
 
-      // PrintScreen and Cmd+Shift+3 both capture instantly at the OS level —
-      // by the time this handler runs, the pixels are already grabbed, so
-      // blacking out here is a courtesy, not a defense (see the file doc).
-      if (e.key === "PrintScreen") {
-        setObscured(true);
-        setTimeout(() => setObscured(false), 2000);
-      }
-      // Win+Shift+S and Cmd+Shift+4/5 open a region-select UI before
-      // capturing anything, which gives this a real chance of landing in
-      // time — worth keeping separate from the PrintScreen case above.
-      if (e.metaKey && e.shiftKey && ["3", "4", "5", "s", "S"].includes(e.key)) {
-        setObscured(true);
-        setTimeout(() => setObscured(false), 5000);
+      // Hide FIRST, ask questions later.
+      //
+      // Every branch below hides synchronously via `hideNow`, so the style is
+      // committed before this handler returns and the next paint is blank. The
+      // ordering matters more than the precision of the match: it is far better
+      // to blank on a keystroke that turns out to be harmless — the image
+      // returns in a moment — than to still be painting artwork while a capture
+      // completes.
+      //
+      // `Meta` alone is deliberately included. Win+Shift+S starts with the
+      // Windows key going down, and that keydown DOES reach the page, which
+      // makes it the earliest warning available for the region-capture path.
+      const capturePrelude =
+        e.key === "PrintScreen" ||
+        e.key === "Meta" ||
+        (e.metaKey && e.shiftKey && ["3", "4", "5", "s"].includes(k)) ||
+        (e.ctrlKey && e.key === "PrintScreen") ||
+        (e.altKey && e.key === "PrintScreen");
+
+      if (capturePrelude) {
+        hideNow();
+        // Long enough to cover a region-selector interaction, which is the case
+        // this actually beats. Cleared early by `focus` when the user returns.
+        window.setTimeout(() => showAgain(), 4000);
       }
     };
 
     window.addEventListener("blur", handleBlur);
     window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("keydown", handleKeyDown, true);
 
     return () => {
       window.removeEventListener("blur", handleBlur);
       window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("keydown", handleKeyDown, true);
     };
-  }, [protectFocusLoss]);
+  }, [protectFocusLoss, hideNow, showAgain]);
 
   return (
     <div
@@ -265,7 +313,24 @@ export default function ProtectedImage({
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
     >
-      <div className={`flex justify-center transition-opacity duration-75 ${obscured ? "opacity-0" : "opacity-100"}`}>
+      {/*
+        No opacity transition, and `visibility` rather than opacity.
+
+        This carried `transition-opacity duration-75`, which meant the artwork
+        faded out over 75ms on top of React's own render delay — so a capture
+        fired within roughly 90ms of the keystroke still got a clearly readable
+        image. An animation on the hide path is the one place a transition is
+        actively harmful: it is a guaranteed window of visibility, precisely
+        when visibility is what we are trying to remove.
+
+        `hideNow` sets `visibility: hidden` on this node directly; the class
+        below is the declarative fallback for any path that only moves React
+        state. Both are instantaneous.
+      */}
+      <div
+        ref={frameRef}
+        className={`flex justify-center ${obscured ? "invisible" : "visible"}`}
+      >
         <canvas
           ref={canvasRef}
           role="img"

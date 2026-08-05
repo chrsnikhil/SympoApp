@@ -5,6 +5,7 @@ import { collections } from "@/lib/db/client";
 import { revealedImages } from "@/lib/quiz/connections";
 import { connectionsPuzzles, currentConnectionsPuzzle, gameForPhase, round1Phase } from "@/lib/quiz/round1";
 import { getCachedQuizState } from "@/lib/quiz/rounds";
+import { IMAGE_ROUND_DURATION_MS } from "@/lib/quiz/imageRound";
 
 /**
  * Round 1 status — ONE phase at a time. "Final Universe" is Image
@@ -165,10 +166,10 @@ export async function GET() {
       baseOpensAt = memState?.servedAt ?? now;
     }
 
-    // Image Replication is 3m30s (matches the rules text and the reference's
-    // reveal schedule — see `round1Phase`'s matching constant); the Memory
-    // Game has no stated duration, so it keeps the longer default.
-    const defaultDurationMs = phase === "image" ? 210_000 : 270_000;
+    // Image Replication's window is IMAGE_ROUND_DURATION_MS (see imageRound.ts
+    // — one definition, imported rather than repeated). The Memory Game has no
+    // stated duration, so it keeps the longer default.
+    const defaultDurationMs = phase === "image" ? IMAGE_ROUND_DURATION_MS : 270_000;
     const baseClosesAt = challenge.closesAt ?? new Date(baseOpensAt.getTime() + defaultDurationMs);
 
     const base = {
