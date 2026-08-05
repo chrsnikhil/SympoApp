@@ -65,7 +65,7 @@ export default function HuntShell() {
 
       setMessage(body.correct ? `Solved — ${body.points} points` : "Not that one.");
       setAnswer("");
-      await load();
+      await loadRef.current();
     } catch {
       // fetch itself rejected — dropped wifi, not a server response at all.
       setMessage("Couldn't reach the server — check your connection and try again");
@@ -84,7 +84,7 @@ export default function HuntShell() {
     const body = await res.json();
     if (res.ok) {
       setHint(body.text);
-      await load();
+      await loadRef.current();
     } else {
       setMessage(body.error ?? "No hint available");
     }

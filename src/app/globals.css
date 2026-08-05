@@ -28,8 +28,8 @@
   --signal-correct: #00F5D4;
 
   /* ── Surfaces ─────────────────────────────────────────── */
-  --panel-bg: rgba(17, 17, 17, 0.85);
-  --panel-border: rgba(242, 239, 233, 0.12);
+  --panel-bg: rgba(13, 13, 18, 0.96);
+  --panel-border: rgba(0, 245, 212, 0.6);
 
   /* Legacy compat */
   --background: var(--ink-black);
@@ -70,15 +70,19 @@ body {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
- * PANEL — Dark glassmorphic container
+ * PANEL — High contrast container
  * ────────────────────────────────────────────────────────────────────────── */
 .panel {
   background: var(--panel-bg);
   border: 2px solid var(--panel-border);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: 2px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 8px;
   position: relative;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.95),
+    0 0 30px rgba(0, 245, 212, 0.25),
+    0 0 60px rgba(255, 0, 110, 0.15);
 }
 
 .panel::before {
@@ -105,7 +109,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.06;
+  opacity: 0.04;
   mix-blend-mode: overlay;
   background-image: radial-gradient(circle, var(--paper-white) 1px, transparent 1px);
   background-size: 6px 6px;
@@ -128,7 +132,8 @@ body {
 .chromatic {
   text-shadow:
     -2px 0 var(--punk-magenta),
-     2px 0 var(--glitch-cyan);
+     2px 0 var(--glitch-cyan),
+     0 4px 12px rgba(0, 0, 0, 0.9);
   animation: chromatic-flicker 4s ease-in-out infinite alternate;
 }
 
@@ -136,45 +141,49 @@ body {
   0%, 100% {
     text-shadow:
       -2px 0 var(--punk-magenta),
-       2px 0 var(--glitch-cyan);
+       2px 0 var(--glitch-cyan),
+       0 4px 12px rgba(0, 0, 0, 0.9);
   }
   33% {
     text-shadow:
       -3px 1px var(--punk-magenta),
-       2px -1px var(--glitch-cyan);
+       2px -1px var(--glitch-cyan),
+       0 4px 12px rgba(0, 0, 0, 0.9);
   }
   66% {
     text-shadow:
       -1px -1px var(--punk-magenta),
-       3px 1px var(--glitch-cyan);
+       3px 1px var(--glitch-cyan),
+       0 4px 12px rgba(0, 0, 0, 0.9);
   }
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
- * BUTTONS — Punk-styled action buttons
+ * BUTTONS — High contrast action buttons
  * ────────────────────────────────────────────────────────────────────────── */
 .comic-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.5rem 1.5rem;
+  padding: 0.75rem 1.5rem;
   font-family: var(--font-bangers), 'Bangers', Impact, sans-serif;
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--paper-white);
-  background: var(--spider-red);
-  border: 2px solid var(--paper-white);
+  color: #FFFFFF;
+  background: linear-gradient(135deg, #E63946 0%, #FF006E 100%);
+  border: 2px solid #FFFFFF;
+  border-radius: 4px;
   cursor: pointer;
   position: relative;
+  box-shadow: 0 4px 15px rgba(230, 57, 70, 0.4), 3px 3px 0px #0A0A0A;
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .comic-btn:hover:not(:disabled) {
   transform: translateY(-2px) rotate(-1deg);
-  box-shadow:
-    4px 4px 0 var(--punk-magenta),
-    0 0 20px rgba(255, 0, 110, 0.3);
+  box-shadow: 0 6px 20px rgba(255, 0, 110, 0.6), 5px 5px 0px #00F5D4;
+  background: linear-gradient(135deg, #FF006E 0%, #E63946 100%);
 }
 
 .comic-btn:active:not(:disabled) {
@@ -183,9 +192,13 @@ body {
 }
 
 .comic-btn:disabled {
-  opacity: 0.35;
+  opacity: 0.75;
+  background: #22222d;
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.45);
+  box-shadow: none;
   cursor: not-allowed;
-  filter: grayscale(0.6);
+  filter: none;
 }
 
 .comic-btn-cyan {
@@ -241,6 +254,8 @@ body {
   pointer-events: none;
   z-index: 0;
   overflow: hidden;
+  background: url('/spider-web-bg.jpg') center center / cover no-repeat;
+  background-color: #000;
 }
 
 .web-bg::before {
@@ -248,23 +263,15 @@ body {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 50% 0%, var(--web-blue-dark) 0%, transparent 55%),
-    radial-gradient(ellipse at 0% 100%, rgba(230, 57, 70, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 100% 80%, rgba(114, 9, 183, 0.06) 0%, transparent 40%);
+    radial-gradient(ellipse at 50% 50%, transparent 20%, rgba(0, 0, 0, 0.4) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, transparent 30%, transparent 70%, rgba(0, 0, 0, 0.25) 100%);
 }
 
 .web-bg::after {
   content: '';
   position: absolute;
   inset: 0;
-  opacity: 0.035;
-  background-image:
-    repeating-conic-gradient(
-      from 0deg at 50% 50%,
-      transparent 0deg 9deg,
-      var(--paper-white) 9deg 10deg
-    );
-  background-size: 100% 100%;
+  opacity: 0;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
