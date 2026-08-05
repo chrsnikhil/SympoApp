@@ -44,8 +44,12 @@ export default function PlatformEntry() {
 
       const rawRt = new URLSearchParams(window.location.search).get("rt");
       let targetRedirect = "/ctf";
-      if (rawRt && rawRt.startsWith("/") && !rawRt.startsWith("/admin")) {
-        targetRedirect = rawRt;
+      if (rawRt) {
+        if (rawRt.startsWith("http://") || rawRt.startsWith("https://")) {
+          targetRedirect = rawRt;
+        } else if (rawRt.startsWith("/") && !rawRt.startsWith("/admin")) {
+          targetRedirect = rawRt;
+        }
       }
 
       window.location.href = targetRedirect;
