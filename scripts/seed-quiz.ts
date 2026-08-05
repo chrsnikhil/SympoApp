@@ -322,6 +322,7 @@ async function main() {
   const subs = await collections.submissions();
   const scoreEvents = await collections.scoreEvents();
   const proctorFlags = await collections.proctorFlags();
+  const quizState = await collections.quizState();
 
   const isIfEmpty = process.argv.includes("--if-empty");
   const existingCount = await challenges.countDocuments({ type: "quiz" });
@@ -357,6 +358,33 @@ async function main() {
   await withThrottleRetry(() => subs.deleteMany({ type: "quiz" }));
   await withThrottleRetry(() => scoreEvents.deleteMany({ event: "quiz" }));
   await withThrottleRetry(() => proctorFlags.deleteMany({}));
+
+  // Reset the state machine too, or seeding leaves the database incoherent:
+  // `quiz_state` still claims the quiz is running — carrying round start
+  // timestamps from the previous session — while every team, serve and
+  // submission behind that claim has just been deleted. Round 1's clock then
+  // reads as however long ago the last run began, so the first team to join is
+  // already out of time on a quiz nobody has started.
+  //
+  // Same field set the coordinator's Restart Quiz button writes, so seeding and
+  // restarting leave the database in exactly the same place.
+  await withThrottleRetry(() =>
+    quizState.updateOne(
+      { _id: "quiz" },
+      {
+        $set: {
+          ended: false,
+          endedAt: null,
+          started: false,
+          startedAt: null,
+          round1StartedAt: null,
+          round2StartedAt: null,
+          round3StartedAt: null,
+        },
+      },
+      { upsert: true }
+    )
+  );
 
   const adminTeamId = new ObjectId();
   await teams.insertOne({ _id: adminTeamId, name: "Quiz Control", createdAt: new Date() });
@@ -460,7 +488,9 @@ async function main() {
   // ones mixed in with the technical set — worth less than the core
   // questions, per the coordinator's call.
   const FUN_QUESTION_POINTS = 25;
-  const isFunQuestionIndex = (i: number) => i >= 14 && i <= 19; // 0-indexed positions of questions 15-20
+  // Questions 18-20 (0-indexed 17-19). Coordinator's call, moved from 15-20 —
+  // so Q1-17 are worth 100 and only the last three are the cheaper fun ones.
+  const isFunQuestionIndex = (i: number) => i >= 17 && i <= 19;
 
   ROUND_2.forEach((m, i) => {
     docs.push({

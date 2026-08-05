@@ -14,11 +14,19 @@ const VALID_KINDS: ProctorFlagKind[] = [
 /** Strikes 1-3 are warnings; the 4th one freezes. */
 const STRIKE_LIMIT = 3;
 
-/** Kinds that count toward the strike-and-freeze system. Everything else
- *  (fullscreen-exit, screenshot-attempt) is logged but doesn't arm it —
- *  fullscreen-exit already re-gates the UI on its own, and a screenshot key
- *  can't be un-pressed by freezing someone. */
-const STRIKE_KINDS: ProctorFlagKind[] = ["tab-switch", "window-blur"];
+/** Kinds that count toward the strike-and-freeze system.
+ *
+ *  `screenshot-attempt` is here by the coordinator's call. Freezing cannot
+ *  un-press the key and the OS shortcut is not interceptable, so this does not
+ *  PREVENT a screenshot — it makes taking one cost the team the round until a
+ *  coordinator intervenes, which is a rule with teeth rather than a log nobody
+ *  reads. Detection is best-effort and one-sided: a phone camera leaves no
+ *  trace at all, so this must never be treated as proof, only as a signal
+ *  worth acting on.
+ *
+ *  `fullscreen-exit` stays out — it already re-gates the UI on its own, and
+ *  double-punishing it would freeze teams for an accidental Esc. */
+const STRIKE_KINDS: ProctorFlagKind[] = ["tab-switch", "window-blur", "screenshot-attempt"];
 
 /**
  * Records a client-observed moment of leaving the quiz surface, and — for

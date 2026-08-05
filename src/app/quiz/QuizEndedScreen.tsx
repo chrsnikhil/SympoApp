@@ -152,7 +152,7 @@ export default function QuizEndedScreen({
           <h3 className="font-display-xl text-xl text-on-surface uppercase italic tracking-wide">
             FULL MULTIVERSE LEADERBOARD
           </h3>
-          <Standings round={round} />
+          <Standings round={round} teamName={teamName} />
         </section>
       </div>
     </main>

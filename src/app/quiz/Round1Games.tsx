@@ -6,6 +6,9 @@ import FrozenScreen from "./FrozenScreen";
 import MemoryGrid from "./MemoryGrid";
 import ProtectedImage from "./ProtectedImage";
 import ScreenshotGuard from "./ScreenshotGuard";
+import DitheredImage from "./DitheredImage";
+import FlickerNotice from "./FlickerNotice";
+import { useDitherSetting } from "./useDitherSetting";
 import SpiderTimer from "./SpiderTimer";
 import { useProctorStrikes } from "@/lib/quiz/useProctorStrikes";
 
@@ -136,6 +139,10 @@ export default function Round1Games({ teamName }: { teamName: string }) {
           <p className="comic-shout text-xl text-glitch-cyan">{transition}</p>
         </div>
       )}
+
+      {/* Before the games, not after — informed consent is only informed if it
+          arrives before the flicker does. Renders nothing when the flag is off. */}
+      <FlickerNotice />
 
       <PhaseTracker phase={data.phase} />
 
@@ -497,16 +504,49 @@ function ImageReplication({
   const displayImage = preview || game.uploadedImage;
   const isJudged = game.verdict !== undefined && game.verdict !== null;
 
-  // Reference Image Visibility Timing
+  /**
+   * Reference visibility schedule.
+   *
+   * The reference is deliberately NOT on screen for the whole game. Teams study
+   * it, then work from memory — which is also the only screenshot control that
+   * genuinely holds, since nothing can capture pixels that are not being
+   * painted.
+   *
+   * These were bare seconds (50 / 150 / 180) tuned to a 3m30s round. The round
+   * is now 8 minutes, which left the last peek ending at the 3-minute mark and
+   * five minutes of play with no reference at all. Deriving the peek from the
+   * round's own length keeps the shape of the game if the duration changes
+   * again, rather than silently drifting out of proportion.
+   *
+   * The initial study window stays a fixed 50s: how long it takes to take an
+   * image in does not scale with how long you then have to reproduce it.
+   */
   const elapsedSeconds = Math.max(0, Math.floor((currentNow - openMs) / 1000));
+  // Round length comes from the window the SERVER served for this game, NOT
+  // from importing the duration constant. That constant lives in
+  // `lib/quiz/imageRound.ts`, which reaches db/client and therefore the mongodb
+  // driver; importing it into a "use client" component drags a Node driver into
+  // the browser bundle and the build fails outright.
+  //
+  // Deriving it here is better than a shared constant anyway: if a coordinator
+  // opens the game with an explicit closesAt, the peek follows the window teams
+  // are actually playing rather than the default.
+  const roundSeconds = Math.max(
+    1,
+    Math.round(((game.closesAt ? new Date(game.closesAt).getTime() : openMs) - openMs) / 1000)
+  );
 
-  // 1) First 50 seconds: Initial display
-  const isInitialVisible = elapsedSeconds < 50;
-  const initialSecondsLeft = Math.max(0, 50 - elapsedSeconds);
+  const INITIAL_VIEW_SECONDS = 50;
+  const PEEK_SECONDS = 30;
+  /** Same relative position the 3m30s round used: 150/210 ≈ 71% through. */
+  const peekStart = Math.round(roundSeconds * 0.71);
+  const peekEnd = peekStart + PEEK_SECONDS;
 
-  // 2) Mid-game peek: At 2m 30s (150s) -> visible for 30s (150s to 180s)
-  const isMidGameVisible = elapsedSeconds >= 150 && elapsedSeconds < 180;
-  const midGameSecondsLeft = Math.max(0, 180 - elapsedSeconds);
+  const isInitialVisible = elapsedSeconds < INITIAL_VIEW_SECONDS;
+  const initialSecondsLeft = Math.max(0, INITIAL_VIEW_SECONDS - elapsedSeconds);
+
+  const isMidGameVisible = elapsedSeconds >= peekStart && elapsedSeconds < peekEnd;
+  const midGameSecondsLeft = Math.max(0, peekEnd - elapsedSeconds);
 
   const isReferenceVisible = isInitialVisible || isMidGameVisible;
 
@@ -838,6 +878,7 @@ function ImageReplication({
  * attempt, since the puzzle itself is the difficulty, not a one-shot penalty.
  */
 function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disabled: boolean; onSolved: () => void }) {
+  const { ditherEnabled } = useDitherSetting();
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1007,7 +1048,13 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
             >
               {isRevealed && images[i] ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={images[i]} alt={`Tile ${i + 1}`} className="h-full w-full object-contain p-1" />
+                <DitheredImage
+                  src={images[i]}
+                  alt={`Tile ${i + 1}`}
+                  dither={ditherEnabled}
+                  fit="contain"
+                  className="h-full w-full p-1"
+                />
               ) : (
                 <div className="grid h-full place-items-center text-[0.65rem] uppercase tracking-widest text-paper-white/30 font-mono">
                   TILE {i + 1}

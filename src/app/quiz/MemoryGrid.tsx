@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import DitheredImage from "./DitheredImage";
+import { useDitherSetting } from "./useDitherSetting";
 
 /** Character card visual metadata */
 const VARIANT_LOOK: Record<string, { label: string; colour: string; image?: string }> = {
@@ -13,6 +15,25 @@ const VARIANT_LOOK: Record<string, { label: string; colour: string; image?: stri
   pavitr: { label: "PAVITR PRABHAKAR", colour: "#fb923c", image: "/quiz/card-7.jpeg" },
   peni: { label: "PENI PARKER", colour: "#a78bfa", image: "/quiz/card-8.jpeg" },
 };
+
+/**
+ * Every card face, warmed into the browser cache before the grid is playable.
+ *
+ * The server never sends the grid whole — a team learns what is under a cell
+ * only by flipping it — so the `<img>` for a face cannot exist in the DOM
+ * until that flip resolves. Without this, the fetch for card-N.jpeg starts at
+ * the moment the card is already turning, and the player watches an empty
+ * card while it downloads. Which defeats a memory game: you cannot memorise
+ * what you did not see, and the delay is worst on the first sighting of each
+ * character — exactly the flips that matter most.
+ *
+ * Preloading here keeps the reveal honest. The bytes are already local, so the
+ * flip paints the face on the first frame regardless of how the network is
+ * behaving in a hall full of people on the same wifi.
+ */
+const CARD_IMAGES: string[] = Object.values(VARIANT_LOOK)
+  .map((v) => v.image)
+  .filter((src): src is string => Boolean(src));
 
 interface MemoryPublicState {
   slug: string;
@@ -36,11 +57,24 @@ export default function MemoryGrid({ slug, onDone }: { slug: string; onDone: (po
   const [error, setError] = useState<string | null>(null);
   const [pendingMismatch, setPendingMismatch] = useState<MismatchItem[]>([]);
   const mismatchTimer = useRef<number | null>(null);
+  const { ditherEnabled } = useDitherSetting();
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/quiz/memory?slug=${encodeURIComponent(slug)}`, { cache: "no-store" });
     if (res.ok) setState(await res.json());
   }, [slug]);
+
+  // Warm the card faces immediately on mount, before the first flip can happen.
+  // Decoding too, not just fetching: a decode on the flip frame is its own
+  // visible hitch on a phone. `decode()` rejects on failure, which is fine —
+  // a face that cannot be preloaded still renders normally when flipped.
+  useEffect(() => {
+    for (const src of CARD_IMAGES) {
+      const img = new Image();
+      img.src = src;
+      void img.decode?.().catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -179,8 +213,13 @@ export default function MemoryGrid({ slug, onDone }: { slug: string; onDone: (po
                   style={{ backgroundColor: `${look?.colour ?? "#111"}22` }}
                 >
                   {look?.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={look.image} alt={look.label} className="h-full w-full object-cover" />
+                    <DitheredImage
+                      src={look.image}
+                      alt={look.label}
+                      dither={ditherEnabled}
+                      fit="cover"
+                      className="h-full w-full"
+                    />
                   ) : (
                     <div className="grid h-full place-items-center bg-ink-black text-center p-2">
                       <span className="font-display text-xs" style={{ color: look?.colour ?? "#fff" }}>

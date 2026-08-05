@@ -2,6 +2,7 @@ import type { ObjectId } from "mongodb";
 import { collections } from "@/lib/db/client";
 import type { Challenge } from "@/lib/db/types";
 import { getCachedQuizState } from "./rounds";
+import { IMAGE_ROUND_DURATION_MS } from "./imageRound";
 
 /**
  * Round 1 "Final Universe" is played in a fixed sequence per team — Image
@@ -40,63 +41,6 @@ export function gameForPhase(games: Challenge[], phase: "image" | "memory"): Cha
 }
 
 /**
- * Whether the team has cleared a given connections puzzle — either they
- * solved it, or the coordinator closed it out from under them. Either way
- * they move on; getting permanently stuck on one puzzle would take the rest
- * of Round 1 down with it.
- */
-async function connectionsCleared(
-  teamId: ObjectId,
-  challenge: Challenge,
-  now: Date,
-  teamSubmissions?: any[]
-): Promise<boolean> {
-  if (challenge.closesAt && now > challenge.closesAt) return true;
-
-  if (teamSubmissions) {
-    const solved = teamSubmissions.some(
-      (s) => String(s.challengeId) === String(challenge._id) && s.status === "done" && s.verdict?.correct
-    );
-    if (solved) return true;
-
-    const timedOut = teamSubmissions.some(
-      (s) => String(s.challengeId) === String(challenge._id) && s.payload === "__timeout__"
-    );
-    if (timedOut) return true;
-
-    const totalImages = challenge.config.connectionsImages?.length ?? 4;
-    const attemptsCount = teamSubmissions.filter(
-      (s) => String(s.challengeId) === String(challenge._id)
-    ).length;
-    if (attemptsCount >= totalImages) return true;
-
-    return false;
-  }
-
-  const subs = await collections.submissions();
-  const solved = await subs.findOne({
-    challengeId: challenge._id,
-    teamId,
-    status: "done",
-    "verdict.correct": true,
-  });
-  if (solved) return true;
-
-  const timedOut = await subs.findOne({
-    challengeId: challenge._id,
-    teamId,
-    payload: "__timeout__",
-  });
-  if (timedOut) return true;
-
-  const totalImages = challenge.config.connectionsImages?.length ?? 4;
-  const attemptsCount = await subs.countDocuments({ challengeId: challenge._id, teamId });
-  if (attemptsCount >= totalImages) return true;
-
-  return false;
-}
-
-/**
  * Connections is coordinator-paced live on stage: all teams see whichever
  * puzzle the coordinator currently has open (`opensAt <= now` and not closed).
  * Correct guesses lock in points and show a success banner, but teams stay
@@ -124,29 +68,26 @@ export async function currentConnectionsPuzzle(
   const lastPuzzle = puzzles[puzzles.length - 1];
   const isLastPuzzle = latestOpened._id?.toString() === lastPuzzle._id?.toString();
 
-  // Puzzle 5 (the last one) has no "next puzzle" to hand a team off to, so it's the
-  // one case where a team has to leave Connections on its own rather than by the
-  // coordinator opening what's next. Two ways out:
-  //   1) the coordinator closes it globally (closesAt in the past) — the manual
-  //      override, always works regardless of reveal state.
-  //   2) EVERY tile has been revealed on stage — so nobody skips ahead of the live
-  //      reveal — AND this team has individually cleared it (solved, timed out, or
-  //      used all its attempts).
-  // An earlier version of this check ran regardless of reveal state, which let a
-  // team that solved on tile 1's clue jump straight to Memory while the coordinator
-  // was still revealing tiles 2-5 on stage for everyone else — that's why it was
-  // pulled. Gating on `allTilesRevealed` first keeps the "everyone watches the same
-  // reveal" pacing while still letting a team that's individually finished move on
-  // without the coordinator having to take a separate "close puzzle" action.
+  // Puzzle 5 (the last one) has no "next puzzle" to hand a team off to, so
+  // leaving Connections is its own decision rather than a side effect of the
+  // coordinator opening what comes next.
+  //
+  // That exit is the coordinator's Close button and nothing else. A team that
+  // clears puzzle 5 early keeps looking at its own solved puzzle until the
+  // room is moved on together.
+  //
+  // This previously had a second exit: all tiles revealed on stage AND this
+  // team individually cleared it, which let finishers walk into Game 3 on
+  // their own. It reads like a courtesy, but it desynchronises the round —
+  // Game 3 is introduced from the stage, and teams arriving at it one at a
+  // time over several minutes miss that. The coordinator asked for one
+  // transition the whole room takes at once, so the self-serve exit is gone.
+  //
+  // CONSEQUENCE: puzzle 5 must be closed explicitly. Without that click no
+  // team ever reaches the Memory game — there is deliberately no timeout
+  // fallback, because a silent auto-advance is the behaviour being removed.
   if (isLastPuzzle) {
     if (latestOpened.closesAt && now > latestOpened.closesAt) return null;
-
-    const totalImages = latestOpened.config.connectionsImages?.length ?? 4;
-    const allTilesRevealed = (latestOpened.config.connectionsRevealedCount ?? 0) >= totalImages;
-    if (allTilesRevealed) {
-      const isCleared = await connectionsCleared(teamId, latestOpened, now, teamSubmissions);
-      if (isCleared) return null;
-    }
   }
 
   return latestOpened;
@@ -170,8 +111,7 @@ export async function round1Phase(
   if (imageGame && !anyConnectionsOpened) {
     const isClosedGlobal = imageGame.closesAt ? now > imageGame.closesAt : false;
     const startMs = imageGame.opensAt ? new Date(imageGame.opensAt).getTime() : 0;
-    const DEFAULT_IMAGE_DURATION_MS = 210_000; // 3 minutes 30 seconds — matches the rules text and the reference-image reveal schedule (peek starts at 2m30s, exactly 1 minute before this deadline)
-    const isTimedOut = startMs > 0 ? now.getTime() - startMs >= DEFAULT_IMAGE_DURATION_MS : false;
+    const isTimedOut = startMs > 0 ? now.getTime() - startMs >= IMAGE_ROUND_DURATION_MS : false;
 
     // Stay in Game 1 until: closed globally, timed out (3m30s), OR coordinator opens Connections
     if (!isClosedGlobal && !isTimedOut) {
