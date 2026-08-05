@@ -29,6 +29,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      - name: Test
+        run: npm test
+
       - name: Build
         # Placeholders only — the build must never need real secrets, and this
         # job asserts that. If a build starts failing without them, something

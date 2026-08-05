@@ -36,19 +36,17 @@ export function caesarDecrypt(text: string, shift: number): string {
 }
 
 /**
- * Apply a shift value to a single encrypted letter to produce a guessed letter.
- * This is safe for client-side use — it just does alphabet math on the
- * encrypted letter using the user's GUESSED shift value (not the real key).
- * 
- * The shift here represents the user's guess for how many positions to shift back.
+ * Apply a shift value to a single letter, matching caesarEncrypt letter-for-letter.
+ * This is safe for client-side use — it just does alphabet math on one letter
+ * using the user's GUESSED shift value (not the real key), for live preview
+ * purposes as the user experiments with a shift.
  */
-export function applyShiftToLetter(encryptedLetter: string, guessedShift: number): string {
-  const char = encryptedLetter.toUpperCase();
+export function applyShiftToLetter(letter: string, guessedShift: number): string {
+  const char = letter.toUpperCase();
   if (char >= 'A' && char <= 'Z') {
     const code = char.charCodeAt(0);
-    // Shift backwards (decrypt direction)
     const normalizedShift = ((guessedShift % 26) + 26) % 26;
-    const shifted = ((code - 65 - normalizedShift + 26) % 26) + 65;
+    const shifted = ((code - 65 + normalizedShift) % 26) + 65;
     return String.fromCharCode(shifted);
   }
   return char;
