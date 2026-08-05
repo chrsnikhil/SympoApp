@@ -41,38 +41,96 @@ export interface Criterion {
   guidance: string;
 }
 
+/**
+ * The rubric. Nine criteria, each scored 0-10, combined by weight.
+ *
+ * WHY NINE AND NOT FIVE. The mark's resolution is bounded by the weights, not
+ * by how many decimals it is printed to: with integer per-criterion scores the
+ * weighted total can only land on `(sum of weights) * 10 + 1` distinct values.
+ * The previous five criteria summed to weight 10 — exactly 101 possible scores,
+ * so across a 60-team field ties were near-certain however many decimal places
+ * the number carried. These weights sum to 23, giving 231 distinct totals, and
+ * the uneven spread (5,4,3,3,2,2,2,1,1) means different combinations of
+ * criteria land on different totals far more often than they collide.
+ *
+ * It is also a better rubric on its own terms. Each entry is a question a judge
+ * can answer by looking, and a model asked nine specific questions produces
+ * more defensible scores than one asked for a single overall impression. Every
+ * digit of the final mark traces back to a judgement that was actually made,
+ * which is what matters when a team disputes their score.
+ */
 export const DEFAULT_RUBRIC: readonly Criterion[] = [
   {
     key: "subject",
     label: "Subject",
-    weight: 3,
+    weight: 5,
     guidance:
       "Is the same thing depicted, doing the same thing? Wrong or missing subject is the most " +
-      "expensive error — nothing else rescues it.",
+      "expensive error — nothing else rescues it. Score 0 if the subject is unrelated.",
   },
   {
     key: "composition",
-    label: "Composition",
-    weight: 2,
-    guidance: "Camera angle, framing, where the subject sits in frame, and the foreground/background relationship.",
+    label: "Composition and framing",
+    weight: 4,
+    guidance:
+      "Camera angle, crop, where the subject sits in frame, and the foreground/background " +
+      "relationship. Judge the arrangement, not the content.",
   },
   {
     key: "colour",
-    label: "Colour and light",
-    weight: 2,
-    guidance: "Palette, lighting direction and quality, contrast, overall mood.",
+    label: "Colour palette",
+    weight: 3,
+    guidance:
+      "Dominant hues and their relative proportions. A recreation in the right colours but the " +
+      "wrong arrangement still scores here.",
+  },
+  {
+    key: "lighting",
+    label: "Lighting and contrast",
+    weight: 3,
+    guidance:
+      "Direction and hardness of the light, where highlights and shadows fall, overall contrast " +
+      "range. Judged apart from palette: an image can match the colours and miss the light.",
   },
   {
     key: "style",
     label: "Style and medium",
     weight: 2,
-    guidance: "Rendering style and medium — photographic vs illustrated, line weight, texture, era.",
+    guidance:
+      "Rendering style and medium — photographic vs illustrated vs 3D, line weight, brush or " +
+      "grain texture, apparent era.",
+  },
+  {
+    key: "pose",
+    label: "Pose and gesture",
+    weight: 2,
+    guidance:
+      "If the subject is a figure or creature: stance, limb positions, facing, expression. Score " +
+      "5 when the reference has no clearly posed subject, so this neither helps nor hurts.",
+  },
+  {
+    key: "background",
+    label: "Background and setting",
+    weight: 2,
+    guidance:
+      "The environment behind and around the subject: location, depth, what fills the space. A " +
+      "correct subject on a blank background loses marks here and nowhere else.",
   },
   {
     key: "detail",
     label: "Detail fidelity",
     weight: 1,
-    guidance: "Specific elements from the reference that carried over: props, signage, background features.",
+    guidance:
+      "Specific elements carried over from the reference: props, signage, patterns, background " +
+      "features. Reward precise reproduction of small things.",
+  },
+  {
+    key: "balance",
+    label: "Visual weight and balance",
+    weight: 1,
+    guidance:
+      "How mass is distributed — symmetry, negative space, where the eye is drawn first. Distinct " +
+      "from framing: an image can be cropped alike yet feel differently weighted.",
   },
 ] as const;
 
@@ -118,7 +176,11 @@ export function toSimilarity(cheating_detected: boolean, scores: CriterionScore[
     weighted += Math.min(10, Math.max(0, s.score)) * weight;
     total += 10 * weight; // Max score is 10 per weight
   }
-  return total === 0 ? 0 : Math.round((weighted / total) * 1000) / 1000;
+  // Four decimal places. Note this does not CREATE precision — the resolution
+  // comes from the rubric's weights (see DEFAULT_RUBRIC), and rounding here
+  // only avoids carrying float noise like 0.7391304347826086 into the ledger
+  // and the admin export.
+  return total === 0 ? 0 : Math.round((weighted / total) * 10_000) / 10_000;
 }
 
 function parseVerdict(raw: string, rubric: readonly Criterion[]): Omit<JudgeVerdict, "similarity"> {
