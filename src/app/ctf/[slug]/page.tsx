@@ -332,7 +332,7 @@ export default function ChallengeDetailPage() {
               </div>
               <SpiderOtpRace />
             </div>
-          ) : slug === "medium-02" ? (
+          ) : (slug === "medium-02" || slug === "medium-2" || slug === "medium2" || challenge.slug === "medium-02") ? (
             <div className="space-y-6">
               <div className="bg-[#120819]/90 border border-red-500/30 rounded-2xl p-6 md:p-8 shadow-lg backdrop-blur-md space-y-6">
                 <div className="text-base md:text-lg text-slate-100 font-normal leading-relaxed whitespace-pre-line">
