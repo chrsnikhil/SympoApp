@@ -366,6 +366,34 @@ export async function judgeImage(challenge: Challenge, referenceImage: ImageData
             model,
             temperature: 0.0,
             max_completion_tokens: 2000,
+            /**
+             * Stop the model reasoning at all.
+             *
+             * The only vision model Groq exposes to this account,
+             * qwen/qwen3.6-27b, is a reasoning model: left alone it emits a
+             * long chain of thought before answering, and with a 2000-token
+             * budget and a nine-criterion rubric to fill in it was running out
+             * mid-thought. The reply came back `content: ""` with
+             * `finish_reason: "length"`, so the parser threw "Judge returned
+             * text that isn't JSON". That is the error filling the old
+             * groq-error.log — never a prompt problem.
+             *
+             * `reasoning_effort: "none"`, NOT `reasoning_format: "hidden"`.
+             * The latter looks like the obvious fix and is a trap: it hides the
+             * reasoning from the response while the model still generates it
+             * and still spends the budget on it. Measured on the pair that was
+             * failing — hidden: 2000 reasoning tokens, empty content, truncated;
+             * effort none: 0 reasoning tokens, finish_reason "stop", full answer
+             * inside the same 2000. Judging is a rubric fill-in, not a problem
+             * that needs deliberation.
+             *
+             * Groq-specific, so it is only sent to Groq — OpenAI-compatible
+             * endpoints differ on whether an unknown field is ignored or
+             * rejected, and a 400 here would take the judge down entirely.
+             * `parseVerdict` still strips `</think>` as a fallback for any
+             * model that reasons anyway.
+             */
+            ...(API_URL.includes("api.groq.com") ? { reasoning_effort: "none" } : {}),
             messages: [
               { role: "system", content: buildSystem(rubric) },
               {
