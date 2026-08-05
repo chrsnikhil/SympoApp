@@ -66,7 +66,7 @@ export async function GET(request: Request) {
         headers: {
           "Content-Type": contentType,
           "Content-Disposition": `attachment; filename="${fileName}"`,
-          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+          "Cache-Control": "private, max-age=86400, stale-while-revalidate=3600",
         },
       });
     }
@@ -84,7 +84,7 @@ export async function GET(request: Request) {
       headers: {
         "Content-Type": mimeType,
         "Content-Disposition": `attachment; filename="${fileName}"`,
-        "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        "Cache-Control": "private, max-age=86400, stale-while-revalidate=3600",
       },
     });
   } catch (err) {
