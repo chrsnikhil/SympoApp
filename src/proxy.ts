@@ -94,6 +94,16 @@ export async function proxy(request: NextRequest) {
 
   // Subdomain routing: rewrite the subdomain into its route group segment.
   if (event) {
+    // Admin console routes live at top-level (/spider-hq-admin-9981 and /admin)
+    // and must NOT be rewritten with event subdirectories.
+    if (pathname.startsWith(SECRET_ADMIN_PATH) || pathname === "/admin" || pathname.startsWith("/admin/")) {
+      const res = NextResponse.next();
+      res.headers.set("x-team-id", session.teamId);
+      res.headers.set("x-participant-id", session.sub);
+      res.headers.set("x-event", event);
+      return res;
+    }
+
     const url = request.nextUrl.clone();
     const cleanPathname = pathname.startsWith(`/${event}`) ? pathname.slice(event.length + 1) || "/" : pathname;
     url.pathname = `/${event}${cleanPathname === "/" ? "" : cleanPathname}`;
