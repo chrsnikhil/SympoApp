@@ -76,7 +76,7 @@ export async function GET(
       ]
     });
 
-    if (!ch || (ch.disabled && session.role !== "admin")) {
+    if (!ch || ((ch.disabled || ch.config?.disabled) && session.role !== "admin")) {
       return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
     }
 

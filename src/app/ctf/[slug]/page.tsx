@@ -72,6 +72,10 @@ export default function ChallengeDetailPage() {
 
   const fetchChallenge = useCallback(async () => {
     if (!slug) return;
+    if (slug.toLowerCase() === "canon-protocol" || slug.toLowerCase() === "cannon-protocol") {
+      router.replace("/canon-protocol");
+      return;
+    }
     try {
       const res = await fetch(`/api/ctf/challenge/${encodeURIComponent(slug)}`);
       if (res.status === 401) {
@@ -332,7 +336,7 @@ export default function ChallengeDetailPage() {
               </div>
               <SpiderOtpRace />
             </div>
-          ) : (slug === "medium-02" || slug === "medium-2" || slug === "medium2" || challenge.slug === "medium-02") ? (
+          ) : (slug === "hard-01" || slug === "hard-1" || slug === "hard1" || challenge.slug === "hard-01") ? (
             <div className="space-y-6">
               <div className="bg-[#120819]/90 border border-red-500/30 rounded-2xl p-6 md:p-8 shadow-lg backdrop-blur-md space-y-6">
                 <div className="text-base md:text-lg text-slate-100 font-normal leading-relaxed whitespace-pre-line">
@@ -363,7 +367,7 @@ export default function ChallengeDetailPage() {
                 </div>
               </div>
             </div>
-          ) : slug === "hard-01" ? (
+          ) : slug === "medium-02" ? (
             <div className="space-y-3">
               <h3 className="text-base font-black uppercase tracking-widest text-red-400 font-avengeance">
                 INTERACTIVE TERMINAL

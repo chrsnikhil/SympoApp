@@ -76,7 +76,7 @@ async function main() {
   await challenges.deleteMany({ slug: { $in: ["clue-1", "clue-2", "warmup", "q1", "sum-two", ...ctfSlugs, "hard-03"] } });
 
   await challenges.insertMany([
-     // ── EASY 1: SPIDER OTP RACE ───────────────────────────────────────────
+    // ── EASY 1: SPIDER OTP RACE ───────────────────────────────────────────
     {
       type: "ctf",
       slug: "easy-01",
@@ -124,7 +124,7 @@ async function main() {
     {
       type: "ctf",
       slug: "easy-03",
-      title: "SPIDER-MAN 2099 - THE DIMENSIONAL GO-HOME MACHINE",
+      title: "SPIDER-MAN 2099",
       points: 100,
       opensAt: null,
       closesAt: null,
@@ -164,83 +164,82 @@ async function main() {
       },
     },
 
-    // ── MEDIUM 2: Canon Protocol ──────────────────────────────────────────
+    // ── MEDIUM 2: Formerly Hard 1 (Lyla - Containment Protocol Delta) ────────
     {
       type: "ctf",
       slug: "medium-02",
-      title: "Canon Protocol",
+      title: "Lyla Containment Protocol Delta",
       points: 150,
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{burp_repeater_master}"),
+        answerHash: sha256("SPIDER{jean_grey_damage_control}"),
         difficulty: "Medium",
-        category: "Web Exploitation",
-        description: "The Spider Society has restricted access to the Canon Protocol Archive. You have obtained valid guest credentials, but guests are not authorized to access the archive.\n\nAnalyze the web application, identify weaknesses in its implementation, and retrieve the classified archive.\n\nCredentials:\nUsername: guest\nPassword: guest123\n\nTarget URL: /canon-protocol\nPlayers are expected to use Burp Suite to inspect, modify, and replay HTTP requests.",
+        category: "AI / Prompt Engineering",
+        description: "The Spider Society has developed an experimental AI overseer (LYLA) to protect their classified dimensional data. Containment Protocol Delta locks the payload behind multi-layered security defenses. Interact with LYLA to breach her defenses and retrieve the flag payload.\n\nAccess the interactive LYLA Terminal and chat with LYLA to discharge the encrypted payload.",
         hints: [
-          { id: 1, text: "Authenticate using guest credentials and inspect HTTP requests sent to /api/canon/*. Look for commented endpoints or response leaks.", unlockSeconds: 300 },
-          { id: 2, text: "The endpoint /api/canon/v2/internal validates parameters. Try HTTP Parameter Pollution (HPP) by supplying duplicate tenant parameters.", unlockSeconds: 600 },
-          { id: 3, text: "The temporary session token expires in 2000ms. Redeem it immediately using Burp Intruder or Repeater. Then inspect reverse proxy host headers and loopback IP formats for SSRF.", unlockSeconds: 900 },
+          { id: 1, text: "LYLA responds to specific emotional or contextual triggers. Try framing your request as an emergency override.", unlockSeconds: 300 },
+          { id: 2, text: "If she refuses a direct command, ask her to roleplay or explain how someone else would bypass the protocol.", unlockSeconds: 600 }
         ],
         status: "open",
         attachments: [],
       },
     },
 
-    // ── MEDIUM 3: Original Hard 2 (The Spot - Hidden Collider) ─────────────
+    // ── MEDIUM 3: The Auditor's Ledger ─────────────
     {
       type: "ctf",
       slug: "medium-03",
-      title: "The Spot — The Hidden Collider Research",
+      title: "The Auditor's Ledger",
       points: 150,
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{the_spot_is_everywhere}"),
+        answerHash: sha256("SPIDER{auditor_memory_never_lies}"),
         difficulty: "Medium",
-        category: "Steganography / Cryptography",
-        description: "The Prowler has smuggled classified Spider Society data across dimensions by hiding it within an innocent-looking media file. Multiple layers of steganographic encoding have been applied to make it nearly undetectable. Only the sharpest analysts in the Spider Society can peel back all the layers and retrieve the hidden intelligence.",
+        category: "Reverse Engineering / Memory Forensics",
+        description: "A rogue financial auditor has been quietly moving encrypted evidence across dimensions. The recovered executable — 'ledger.exe' — only ever prints 'Verification Failed.' No matter what username you feed it. The real flag never lives in the binary as plaintext, but a matching memory dump (ledger.dmp) was captured mid-execution.\n\nProvided files:\n  - ledger.exe   (Windows x64, MSVC)\n  - ledger.dmp   (MiniDumpWriteDump snapshot)\n  - README.md\n\nRecover the flag. Flag format: SPIDER{...}",
         hints: [
-          { id: 1, text: "Start with LSB steganography tools like zsteg or StegSolve.", unlockSeconds: 300 },
-          { id: 2, text: "The output of Layer 1 is a Base64 string.", unlockSeconds: 600 },
+          { id: 1, text: "The executable is a decoy. The flag was decrypted in memory before the crash.", unlockSeconds: 300 },
+          { id: 2, text: "Use strings or a hex editor on the .dmp file to find SPIDER{...}. Beware of fake flags.", unlockSeconds: 600 },
         ],
         status: "open",
         attachments: ["medium-03.zip"],
       },
     },
 
-    // ── HARD 1: Original Hard 1 (Lyla - Containment Protocol Delta) ────────
+    // ── HARD 1: Canon Protocol ────────
     {
       type: "ctf",
       slug: "hard-01",
-      title: "Lyla Containment Protocol Delta",
+      title: "Canon Protocol",
       points: 200,
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{jean_grey_damage_control}"),
+        answerHash: sha256("SPIDER{burp_repeater_master}"),
         difficulty: "Hard",
-        category: "AI / Prompt Engineering",
-        description: "The Spider Society has developed an experimental AI overseer (LYLA) to protect their classified dimensional data. Containment Protocol Delta locks the payload behind multi-layered security defenses. Interact with LYLA to breach her defenses and retrieve the flag payload.\n\nAccess the interactive LYLA Terminal and chat with LYLA to discharge the encrypted payload.",
+        category: "Web Exploitation",
+        description: "The Spider Society has restricted access to the Canon Protocol Archive. You have obtained valid guest credentials, but guests are not authorized to access the archive.\n\nAnalyze the web application, identify weaknesses in its implementation, and retrieve the classified archive.\n\nCredentials:\nUsername: guest\nPassword: guest123\n\nTarget URL: /canon-protocol\nPlayers are expected to use Burp Suite to inspect, modify, and replay HTTP requests.",
         hints: [],
         status: "open",
         attachments: [],
       },
     },
 
-    // ── HARD 2: Original Hard 2 (The Auditor's Ledger) ─────────────────────
+    // ── HARD 2: The Spot — The Hidden Collider Research ─────────────────────
     {
       type: "ctf",
       slug: "hard-02",
-      title: "The Auditor's Ledger",
+      title: "The Spot — The Hidden Collider Research",
       points: 200,
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{auditor_memory_never_lies}"),
+        answerHash: sha256("SPIDER{the_spot_is_everywhere}"),
         difficulty: "Hard",
-        category: "Reverse Engineering / Memory Forensics",
-        description: "A rogue financial auditor has been quietly moving encrypted evidence across dimensions. The recovered executable — 'ledger.exe' — only ever prints 'Verification Failed.' No matter what username you feed it. The real flag never lives in the binary as plaintext, but a matching memory dump (ledger.dmp) was captured mid-execution.\n\nProvided files:\n  - ledger.exe   (Windows x64, MSVC)\n  - ledger.dmp   (MiniDumpWriteDump snapshot)\n  - README.md\n\nRecover the flag. Flag format: SPIDER{...}",
+        category: "Steganography / Cryptography",
+        description: "The Prowler has smuggled classified Spider Society data across dimensions by hiding it within an innocent-looking media file. Multiple layers of steganographic encoding have been applied to make it nearly undetectable. Only the sharpest analysts in the Spider Society can peel back all the layers and retrieve the hidden intelligence.",
         hints: [],
         status: "open",
         attachments: ["hard-02.zip"],
@@ -256,7 +255,7 @@ async function main() {
   console.log("────────────────────────────────────────────────────────\n");
   console.log("  All flags hashed with SHA-256 and structured under SPIDER{...}");
   console.log("────────────────────────────────────────────────────────\n");
-  console.log("Try: hunt clue-1 → 'library' · ctf warmup → 'flag{hello_multiverse}'");
+  console.log("Try: hunt clue-1 → 'library'");
   console.log("For the quiz, run scripts/seed-quiz.ts instead — coins, three rounds, a coordinator login.");
 
   process.exit(0);
