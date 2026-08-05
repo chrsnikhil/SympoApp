@@ -5,11 +5,6 @@ import { useRouter } from 'next/navigation';
 import LetterStepper from './LetterStepper';
 import { applyShiftToLetter } from '@/lib/cipher';
 
-interface PuzzleBoardProps {
-  teamNumber: number;
-  onBack: () => void;
-}
-
 interface TeamData {
   teamNumber: number;
   encryptedWord: string;
@@ -17,10 +12,15 @@ interface TeamData {
 }
 
 /**
- * Main cipher workspace — fetches team data, renders per-letter steppers,
- * shows live guess preview, auto-saves progress, submits guess.
+ * Main cipher workspace — fetches the caller's own team data, renders
+ * per-letter steppers, shows live guess preview, auto-saves progress,
+ * submits guess.
+ *
+ * There is no team-number input anymore: identity comes from the session
+ * cookie (see `/api/shiftverse/state`), so every request below is scoped to
+ * whichever team the caller is signed in as. See `ShiftVerse.tsx`.
  */
-export default function PuzzleBoard({ teamNumber, onBack }: PuzzleBoardProps) {
+export default function PuzzleBoard() {
   const router = useRouter();
   const [teamData, setTeamData] = useState<TeamData | null>(null);
   const [shifts, setShifts] = useState<number[]>([]);
@@ -31,14 +31,14 @@ export default function PuzzleBoard({ teamNumber, onBack }: PuzzleBoardProps) {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const wrongGuessTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch team data on mount
+  // Fetch the caller's own puzzle state on mount
   useEffect(() => {
     async function fetchTeam() {
       try {
         setLoading(true);
-        const res = await fetch(`/api/team/${teamNumber}`);
+        const res = await fetch('/api/shiftverse/state');
         if (!res.ok) {
-          const data = await res.json();
+          const data = await res.json().catch(() => ({}));
           throw new Error(data.error || 'Failed to load team data');
         }
         const data: TeamData = await res.json();
@@ -51,29 +51,26 @@ export default function PuzzleBoard({ teamNumber, onBack }: PuzzleBoardProps) {
       }
     }
     fetchTeam();
-  }, [teamNumber]);
+  }, []);
 
 
   // Auto-save debounced
-  const saveProgress = useCallback(
-    (newShifts: number[]) => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
+  const saveProgress = useCallback((newShifts: number[]) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await fetch('/api/shiftverse/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ perLetterGuesses: newShifts }),
+        });
+      } catch {
+        // Silent fail on auto-save — not critical
       }
-      saveTimeoutRef.current = setTimeout(async () => {
-        try {
-          await fetch(`/api/team/${teamNumber}/save`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ perLetterGuesses: newShifts }),
-          });
-        } catch {
-          // Silent fail on auto-save — not critical
-        }
-      }, 800);
-    },
-    [teamNumber]
-  );
+    }, 800);
+  }, []);
 
   // Handle individual letter shift change
   const handleShiftChange = useCallback(
@@ -92,7 +89,7 @@ export default function PuzzleBoard({ teamNumber, onBack }: PuzzleBoardProps) {
   const currentGuess = teamData
     ? teamData.encryptedWord
         .split('')
-        .map((char, i) => applyShiftToLetter(char, shifts[i] || 1))
+        .map((char, i) => applyShiftToLetter(char, shifts[i] ?? 0))
         .join('')
     : '';
 
@@ -110,7 +107,7 @@ export default function PuzzleBoard({ teamNumber, onBack }: PuzzleBoardProps) {
     }
 
     try {
-      const res = await fetch(`/api/team/${teamNumber}/guess`, {
+      const res = await fetch('/api/shiftverse/guess', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ guessedWord: currentGuess }),
@@ -124,7 +121,7 @@ export default function PuzzleBoard({ teamNumber, onBack }: PuzzleBoardProps) {
 
       if (correct) {
         // Success — navigate to result page with decrypted word
-        router.push(`/result?team=${teamNumber}&success=true&word=${encodeURIComponent(decryptedWord || currentGuess)}`);
+        router.push(`/result?team=${teamData.teamNumber}&success=true&word=${encodeURIComponent(decryptedWord || currentGuess)}`);
       } else {
         // Wrong guess — stay on puzzle board, show inline error
         setWrongGuess(true);
@@ -135,7 +132,7 @@ export default function PuzzleBoard({ teamNumber, onBack }: PuzzleBoardProps) {
       setError('TRANSMISSION FAILED — TRY AGAIN');
       setSubmitting(false);
     }
-  }, [teamData, teamNumber, currentGuess, submitting, router]);
+  }, [teamData, currentGuess, submitting, router]);
 
   // Loading state
   if (loading) {
@@ -151,9 +148,6 @@ export default function PuzzleBoard({ teamNumber, onBack }: PuzzleBoardProps) {
     return (
       <div className="puzzle-board fade-in" style={{ justifyContent: 'center', minHeight: '60vh' }}>
         <p className="team-entry__error">{error}</p>
-        <button className="btn-comic--outline btn-comic" onClick={onBack} style={{ marginTop: '1rem' }}>
-          GO BACK
-        </button>
       </div>
     );
   }
@@ -162,13 +156,6 @@ export default function PuzzleBoard({ teamNumber, onBack }: PuzzleBoardProps) {
 
   return (
     <div className="puzzle-board slide-up">
-      {/* Header */}
-      <div className="puzzle-board__header">
-        <button className="btn-back" onClick={onBack} type="button">
-          ← CHANGE DIMENSION
-        </button>
-      </div>
-
       {/* Encrypted word label */}
       <p className="puzzle-board__encrypted-label">
         ◈ INTERCEPTED SIGNAL ◈
@@ -180,7 +167,7 @@ export default function PuzzleBoard({ teamNumber, onBack }: PuzzleBoardProps) {
           <LetterStepper
             key={i}
             encryptedLetter={letter}
-            shiftValue={shifts[i] || 1}
+            shiftValue={shifts[i] ?? 0}
             onChange={(newShift) => handleShiftChange(i, newShift)}
             index={i}
           />

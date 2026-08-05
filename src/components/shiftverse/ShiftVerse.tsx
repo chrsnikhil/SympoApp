@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useCallback, Suspense } from 'react';
+import React, { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import Logo from './Logo';
-import TeamEntry from './TeamEntry';
 import PuzzleBoard from './PuzzleBoard';
 
 // Dynamically import PortalBackground with no SSR (Three.js requires browser)
@@ -11,26 +10,16 @@ const PortalBackground = dynamic(() => import('./PortalBackground'), {
   ssr: false,
 });
 
-type AppState = 'ENTRY' | 'PUZZLE';
-
 /**
- * Main orchestrator component for SHIFT://VERSE
- * State machine: ENTRY → PUZZLE (→ navigates to /result on submit)
+ * Main orchestrator component for SHIFT://VERSE.
+ *
+ * There used to be a team-number entry step here (ENTRY -> PUZZLE), but that
+ * let anyone type any of 1-40 and load someone else's board. Identity now
+ * comes from the signed session cookie via `/api/shiftverse/state`, so a
+ * signed-in team goes straight to its own puzzle — there's nothing left to
+ * pick.
  */
 export default function ShiftVerse() {
-  const [appState, setAppState] = useState<AppState>('ENTRY');
-  const [teamNumber, setTeamNumber] = useState<number | null>(null);
-
-  const handleTeamSelect = useCallback((num: number) => {
-    setTeamNumber(num);
-    setAppState('PUZZLE');
-  }, []);
-
-  const handleBack = useCallback(() => {
-    setTeamNumber(null);
-    setAppState('ENTRY');
-  }, []);
-
   return (
     <>
       {/* Animated 3D background */}
@@ -41,18 +30,11 @@ export default function ShiftVerse() {
       {/* Content layer above background + overlays */}
       <div className="content-layer">
         {/* Logo — always visible */}
-        <div style={{ marginBottom: appState === 'ENTRY' ? '2rem' : '1rem', marginTop: '2rem' }}>
+        <div style={{ marginBottom: '1rem', marginTop: '2rem' }}>
           <Logo />
         </div>
 
-        {/* State-dependent content */}
-        {appState === 'ENTRY' && (
-          <TeamEntry onTeamSelect={handleTeamSelect} />
-        )}
-
-        {appState === 'PUZZLE' && teamNumber !== null && (
-          <PuzzleBoard teamNumber={teamNumber} onBack={handleBack} />
-        )}
+        <PuzzleBoard />
       </div>
     </>
   );

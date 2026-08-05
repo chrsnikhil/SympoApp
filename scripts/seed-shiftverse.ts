@@ -56,6 +56,8 @@ async function seed() {
     
     return {
       teamNumber,
+      teamId: null,
+      claimedAt: null,
       plaintextWord: word,
       encryptedWord,
       shiftKey,

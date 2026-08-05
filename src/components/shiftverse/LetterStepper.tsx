@@ -6,7 +6,7 @@ import { applyShiftToLetter } from '@/lib/cipher';
 interface LetterStepperProps {
   /** The encrypted letter to display */
   encryptedLetter: string;
-  /** Current shift value (1–100) */
+  /** Current shift value (0–25 — the cipher's whole key space) */
   shiftValue: number;
   /** Callback when shift value changes */
   onChange: (newShift: number) => void;
@@ -26,12 +26,12 @@ export default function LetterStepper({
   index,
 }: LetterStepperProps) {
   const increment = useCallback(() => {
-    const next = shiftValue >= 100 ? 1 : shiftValue + 1;
+    const next = shiftValue >= 25 ? 0 : shiftValue + 1;
     onChange(next);
   }, [shiftValue, onChange]);
 
   const decrement = useCallback(() => {
-    const next = shiftValue <= 1 ? 100 : shiftValue - 1;
+    const next = shiftValue <= 0 ? 25 : shiftValue - 1;
     onChange(next);
   }, [shiftValue, onChange]);
 
