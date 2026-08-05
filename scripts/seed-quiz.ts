@@ -322,6 +322,7 @@ async function main() {
   const subs = await collections.submissions();
   const scoreEvents = await collections.scoreEvents();
   const proctorFlags = await collections.proctorFlags();
+  const proctorFreezes = await collections.proctorFreezes();
   const quizState = await collections.quizState();
 
   const isIfEmpty = process.argv.includes("--if-empty");
@@ -358,6 +359,12 @@ async function main() {
   await withThrottleRetry(() => subs.deleteMany({ type: "quiz" }));
   await withThrottleRetry(() => scoreEvents.deleteMany({ event: "quiz" }));
   await withThrottleRetry(() => proctorFlags.deleteMany({}));
+  // Freezes as well as flags. `proctor_flags` is the append-only log of
+  // moments a client reported leaving the tab; `proctor_freezes` is the live
+  // "is this team locked out right now" state. Clearing only the log left the
+  // lockouts behind, so a seed that deletes every team still kept their
+  // freezes on file — seven survived the reseed that found this.
+  await withThrottleRetry(() => proctorFreezes.deleteMany({}));
 
   // Reset the state machine too, or seeding leaves the database incoherent:
   // `quiz_state` still claims the quiz is running — carrying round start
