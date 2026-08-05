@@ -1,3 +1,5 @@
+'use client';
+
 import ShiftVerse from '@/components/shiftverse/ShiftVerse';
 import dynamic from 'next/dynamic';
 
