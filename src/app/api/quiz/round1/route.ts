@@ -21,7 +21,24 @@ export async function GET() {
     const teamId = new ObjectId(session.teamId);
     const now = new Date();
 
-    const games = await getCached("round1-challenges", 30000, async () => {
+    // 2s, matching "quiz-state" and the other live-gated caches — NOT the 30s
+    // this used to hold.
+    //
+    // These documents are not static content: `opensAt`, `closesAt` and
+    // `config.connectionsRevealedCount` are what the coordinator mutates from
+    // the reveal panel mid-round, and `round1Phase` decides which game a team
+    // is playing by reading them. `invalidateCache()` runs after every
+    // successful admin action, but it clears `global.__memoryCache` — which is
+    // per-replica. With the app scaled to N instances the coordinator's request
+    // lands on one of them and the other N-1 keep serving the pre-open
+    // documents for the rest of the TTL, so opening a puzzle moved some teams
+    // forward and left the others looking at the previous one for half a minute.
+    //
+    // Bounding it at 2s doesn't make invalidation coherent across replicas —
+    // that needs shared state — but it makes the divergence shorter than a
+    // person notices, at 15x the read rate on a query that is one indexed
+    // find of ~7 documents.
+    const games = await getCached("round1-challenges", 2000, async () => {
       const challenges = await collections.challenges();
       const list = await challenges.find({ type: "quiz", "config.round": 1 }).toArray();
       list.sort((a, b) => (a.config.order ?? 0) - (b.config.order ?? 0));
