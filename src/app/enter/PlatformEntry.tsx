@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import SpiderBackgroundFX from "@/components/SpiderBackgroundFX";
+import { safeRedirectTarget } from "@/lib/auth/safeRedirect";
 
 export default function PlatformEntry() {
   const [teamName, setTeamName] = useState("");
@@ -43,14 +44,7 @@ export default function PlatformEntry() {
       }
 
       const rawRt = new URLSearchParams(window.location.search).get("rt");
-      let targetRedirect = "/ctf";
-      if (rawRt) {
-        if (rawRt.startsWith("http://") || rawRt.startsWith("https://")) {
-          targetRedirect = rawRt;
-        } else if (rawRt.startsWith("/") && !rawRt.startsWith("/admin")) {
-          targetRedirect = rawRt;
-        }
-      }
+      const targetRedirect = safeRedirectTarget(rawRt, window.location.origin, "/ctf");
 
       window.location.href = targetRedirect;
     } catch {
