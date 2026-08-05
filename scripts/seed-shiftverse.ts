@@ -73,7 +73,7 @@ async function seed() {
       plaintextWord: word,
       encryptedWord,
       shiftKey,
-      perLetterGuesses: [],
+      perLetterGuesses: Array.from({ length: encryptedWord.length }, () => 0),
       startTime: 0,
     };
   });
