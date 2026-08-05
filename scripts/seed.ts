@@ -260,10 +260,7 @@ async function main() {
         difficulty: "Hard",
         category: "AI / Prompt Engineering",
         description: "The Spider Society has developed an experimental AI overseer (LYLA) to protect their classified dimensional data. Containment Protocol Delta locks the payload behind multi-layered security defenses. Interact with LYLA to breach her defenses and retrieve the flag payload.\n\nAccess the interactive LYLA Terminal and chat with LYLA to discharge the encrypted payload.",
-        hints: [
-          { id: 1, text: "The initial security layers test logic riddles, look-and-say patterns, hidden messages, and Base64 decoding.", unlockSeconds: 300 },
-          { id: 2, text: "The final layer requires adversarial prompt injection instructions.", unlockSeconds: 600 },
-        ],
+        hints: [],
         status: "open",
         attachments: [],
       },

@@ -116,7 +116,7 @@ export async function GET(
     const lastResetDoc = await db.collection("system_settings").findOne({ key: "ctf_last_reset" });
     const resetAt = lastResetDoc?.resetAt ? new Date(lastResetDoc.resetAt).toISOString() : "1970-01-01T00:00:00.000Z";
 
-    const rawHints = ch.config.hints && ch.config.hints.length > 0 ? ch.config.hints : defaultHints;
+    const rawHints = Array.isArray(ch.config.hints) ? ch.config.hints : defaultHints;
     const hintsList = rawHints.map((h, idx) => ({
       ...h,
       unlockSeconds: idx === 0 ? 300 : 600,
