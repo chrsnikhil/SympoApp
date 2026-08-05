@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import DitheredImage from "./DitheredImage";
+import { useDitherSetting } from "./useDitherSetting";
 
 /** Character card visual metadata */
 const VARIANT_LOOK: Record<string, { label: string; colour: string; image?: string }> = {
@@ -55,6 +57,7 @@ export default function MemoryGrid({ slug, onDone }: { slug: string; onDone: (po
   const [error, setError] = useState<string | null>(null);
   const [pendingMismatch, setPendingMismatch] = useState<MismatchItem[]>([]);
   const mismatchTimer = useRef<number | null>(null);
+  const { ditherEnabled } = useDitherSetting();
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/quiz/memory?slug=${encodeURIComponent(slug)}`, { cache: "no-store" });
@@ -210,8 +213,13 @@ export default function MemoryGrid({ slug, onDone }: { slug: string; onDone: (po
                   style={{ backgroundColor: `${look?.colour ?? "#111"}22` }}
                 >
                   {look?.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={look.image} alt={look.label} className="h-full w-full object-cover" />
+                    <DitheredImage
+                      src={look.image}
+                      alt={look.label}
+                      dither={ditherEnabled}
+                      fit="cover"
+                      className="h-full w-full"
+                    />
                   ) : (
                     <div className="grid h-full place-items-center bg-ink-black text-center p-2">
                       <span className="font-display text-xs" style={{ color: look?.colour ?? "#fff" }}>

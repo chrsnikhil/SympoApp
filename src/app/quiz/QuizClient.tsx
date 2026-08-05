@@ -221,7 +221,7 @@ export default function QuizClient({
 
           {/* LEADERBOARD ALONE */}
           <div className="max-w-md mx-auto">
-            <Standings round={activeRoundState} />
+            <Standings round={activeRoundState} teamName={teamName} />
           </div>
         </div>
       </main>
@@ -251,7 +251,7 @@ export default function QuizClient({
         </div>
 
         <div className="grid gap-8 md:grid-cols-[18rem_1fr]">
-          <Standings round={activeRoundState} />
+          <Standings round={activeRoundState} teamName={teamName} />
 
           <section className="min-w-0">
             {activeRoundState === 1 ? (

@@ -2,6 +2,7 @@ import type { ObjectId } from "mongodb";
 import { collections } from "@/lib/db/client";
 import type { Challenge } from "@/lib/db/types";
 import { getCachedQuizState } from "./rounds";
+import { IMAGE_ROUND_DURATION_MS } from "./imageRound";
 
 /**
  * Round 1 "Final Universe" is played in a fixed sequence per team — Image
@@ -110,8 +111,7 @@ export async function round1Phase(
   if (imageGame && !anyConnectionsOpened) {
     const isClosedGlobal = imageGame.closesAt ? now > imageGame.closesAt : false;
     const startMs = imageGame.opensAt ? new Date(imageGame.opensAt).getTime() : 0;
-    const DEFAULT_IMAGE_DURATION_MS = 210_000; // 3 minutes 30 seconds — matches the rules text and the reference-image reveal schedule (peek starts at 2m30s, exactly 1 minute before this deadline)
-    const isTimedOut = startMs > 0 ? now.getTime() - startMs >= DEFAULT_IMAGE_DURATION_MS : false;
+    const isTimedOut = startMs > 0 ? now.getTime() - startMs >= IMAGE_ROUND_DURATION_MS : false;
 
     // Stay in Game 1 until: closed globally, timed out (3m30s), OR coordinator opens Connections
     if (!isClosedGlobal && !isTimedOut) {

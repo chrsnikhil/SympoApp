@@ -132,12 +132,28 @@ export async function scoreConnections(
   const normGuess = guess.trim().toLowerCase();
   const normSingular = normGuess.endsWith("s") && normGuess.length > 3 ? normGuess.slice(0, -1) : normGuess;
 
-  // Comprehensive fallback list of accepted aliases for all 5 puzzles
+  /**
+   * Extra spellings accepted ALONGSIDE the seeded answer — never instead of it.
+   *
+   * This list used to contradict the seed and then override it. It named
+   * "nvidia" for connections-2 and "tensorflow" for connections-4 while the
+   * database held "gpu" and "pytorch", and the hash check below was disabled
+   * for exactly those slugs. So a team reading "Gamers chase it. AI depends on
+   * it." as GPU was marked WRONG, and the only accepted answer was one the clue
+   * never pointed at. Both puzzles were unwinnable as seeded. Verified against
+   * production before changing anything: the stored hashes match gpu and
+   * pytorch.
+   *
+   * The rule now is additive, with no exceptions. The seeded answer is always
+   * correct; these are alternate spellings of the SAME answer. Anything here
+   * that is not a synonym of what is seeded is a bug — this list must never be
+   * the only route to solving a puzzle.
+   */
   const PUZZLE_ALIASES: Record<string, string[]> = {
     "connections-1": ["heap sort", "heapsort"],
-    "connections-2": ["nvidia", "nvidia gpu"],
+    "connections-2": ["gpu", "gpus", "graphics processing unit", "graphics card"],
     "connections-3": ["blockchain", "block chain"],
-    "connections-4": ["tensorflow", "tensor flow"],
+    "connections-4": ["pytorch", "py torch", "torch"],
     "connections-5": ["api", "apis", "rest api", "web api", "application programming interface", "restful api", "endpoint"],
   };
 
@@ -151,13 +167,14 @@ export async function scoreConnections(
         normSingular === alias.toLowerCase() ||
         hashAnswer(normGuess) === hashAnswer(alias)
     ) ||
-    (!["connections-2", "connections-3", "connections-4"].includes(challenge.slug) &&
-      targetHashes.some(
-        (h) =>
-          h === hashAnswer(guess) ||
-          h === hashAnswer(normGuess) ||
-          h === hashAnswer(normSingular)
-      ));
+    // The seeded answer counts for EVERY puzzle. No slug is excluded — that
+    // exclusion is precisely what made a correct answer fail.
+    targetHashes.some(
+      (h) =>
+        h === hashAnswer(guess) ||
+        h === hashAnswer(normGuess) ||
+        h === hashAnswer(normSingular)
+    );
 
   if (isCorrect) {
     // Atomic "next rank please" — two teams answering correctly in the same

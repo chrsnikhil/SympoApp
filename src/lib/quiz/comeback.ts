@@ -150,7 +150,14 @@ export async function getComebackView(teamId: ObjectId, round: QuizRound = 3): P
   const inRound = idx !== -1;
 
   const s = await loadState(teamId, round);
-  const eligible = inRound && !isRankOne;
+  // Bottom TWO of the live Round 3 table, per the coordinator's call — it used
+  // to be everyone except rank #1. The meter exists to give a trailing team a
+  // route back, and handing it to nearly the whole field made it ordinary
+  // rather than a comeback. Read off `standings`, so it moves as the round
+  // does: a team that climbs out of the bottom two stops being eligible, and
+  // `frozen` below preserves whatever it had banked rather than clearing it.
+  const COMEBACK_ELIGIBLE_FROM_BOTTOM = 2;
+  const eligible = inRound && idx >= table.length - COMEBACK_ELIGIBLE_FROM_BOTTOM;
   const holdsProgress = s.bottomStreak > 0 || s.ability !== null;
 
   // A power that was ALREADY firing when the team climbed to #1 keeps being
