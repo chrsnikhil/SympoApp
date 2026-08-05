@@ -55,13 +55,37 @@ export const DEFAULT_DITHER_AMPLITUDE = 127;
 /**
  * How often to draw fresh random offsets, in milliseconds.
  *
- * Fixed offsets are what make the multi-screenshot attack reliable: captures
- * covering every phase of one cycle average back to the image exactly.
- * Re-seeding means the set has to land inside the same window AND cover the
- * phases to be useful. Short enough to matter, long enough that regenerating
- * the buffers is not the frame budget.
+ * Fixed offsets are what make the multi-screenshot attack reliable: the frames
+ * of one cycle sum to `frameCount * v` by construction, so ANY set of captures
+ * covering the phases of one seed averages back to the image exactly. That is
+ * inherent in exact reconstruction and cannot be defeated, only made expensive:
+ * re-seeding means the set has to land inside the same window AND cover the
+ * phases to be useful.
+ *
+ * 150 (was 400). At 60 Hz a 400 ms window meant ~24 consecutive refreshes
+ * shared one offset set — any three captures inside two fifths of a second
+ * cancelled perfectly. The floor for the window is regeneration cost, and
+ * since generation became sliced across displayed frames (see
+ * `beginDitherPass` / `DITHER_GEN_BUDGET_MS`) that floor is the slice budget
+ * times the slices needed: measured 25-50 ms of total work at quiz sizes,
+ * ~6-9 ticks at 6 ms each, so a set is ready every ~100-150 ms with zero
+ * dropped frames. 150 leaves headroom for slower machines — on a machine 2x
+ * slower the window stretches toward ~200 ms rather than the frame rate
+ * dropping. Below ~100 ms the swap cadence would outrun generation for the
+ * larger images, so the number stops being real.
  */
-export const DITHER_RESEED_MS = 400;
+export const DITHER_RESEED_MS = 150;
+
+/**
+ * Per-displayed-frame time budget for sliced regeneration, in milliseconds.
+ *
+ * Spent from `requestAnimationFrame` after the current frame is painted. The
+ * painted frame costs ~1-3 ms (`putImageData`); 6 ms of generation on top
+ * keeps the whole tick comfortably inside 16.7 ms at 60 Hz. The synchronous
+ * alternative — regenerating whole sets on the timer — was measured at
+ * 25-50 ms per reseed, i.e. 2-3 dropped frames every window.
+ */
+export const DITHER_GEN_BUDGET_MS = 6;
 
 /**
  * How far to pull pure blacks and whites toward mid-grey before dithering.
@@ -214,12 +238,26 @@ function buildGrid(
   return { cols, colOf, rowOf };
 }
 
+/** A partially generated frame set; see `beginDitherPass`. */
+export interface DitherPass {
+  /**
+   * The `frameCount` buffers being filled. `base` is not mutated. Complete —
+   * and safe to display — only once `run` has returned true.
+   */
+  frames: Uint8ClampedArray[];
+  /**
+   * Generate for up to `budgetMs` more milliseconds. Returns true once the
+   * frame set is complete. `Infinity` finishes the pass in one call.
+   */
+  run(budgetMs: number): boolean;
+}
+
 /**
  * Build the frame set for one RGBA buffer.
  *
  * Every pixel's frames sum to exactly `frameCount * v`, so the temporal
  * average is the image, losslessly, at full amplitude. What each individual
- * frame CONTAINS is driven by three per-reseed random mosaic fields, all on
+ * frame CONTAINS is driven by four per-reseed random mosaic fields, all on
  * independently phased grids so their seams never align:
  *
  * DECOY. One frame slot per cell shows a flat random colour, clamped per pixel
@@ -239,6 +277,15 @@ function buildGrid(
  * on a third grid, so every frame is the same statistical mixture — there is
  * no "cleanest frame" for an attacker to wait for.
  *
+ * LUMA MOSAIC. A fourth field of per-cell offsets applied to R, G and B
+ * EQUALLY, plus per-pixel common-mode jitter and one shared split coin per
+ * pixel. Everything above draws each channel independently, and that leaves a
+ * measured, exploited asymmetry: luma (0.299R + 0.587G + 0.114B) averages
+ * three independent perturbations and so keeps ~6x more image correlation
+ * than chroma — and luma is what carries recognisable shape. Common-mode
+ * terms move luma one-for-one and chroma not at all; see the field comments
+ * in the body for how each is threaded through the sum constraint.
+ *
  * With `frameCount: 2` the same construction runs with one split slot instead
  * of two: `(d, 2v - d)` with per-pixel jitter added to the decoy before
  * clamping, since with a single compensator there is no coin to carry the
@@ -254,14 +301,25 @@ function buildGrid(
  * it. Measured worst case: mean error < 0.01, max 1 code value. At full
  * amplitude the sum is exact by construction.
  *
+ * GENERATION IS RESUMABLE. `beginDitherPass` sets up the mosaic fields and
+ * returns a pass whose `run(budgetMs)` fills rows until the time budget is
+ * spent. This exists for the reseed window (see `DITHER_RESEED_MS`): a full
+ * regeneration is 25-50 ms for a quiz-sized image, which as a synchronous call
+ * costs 2-3 dropped frames per reseed. Sliced at `DITHER_GEN_BUDGET_MS` per
+ * displayed frame into a back buffer, it costs none, and the reseed window can
+ * shrink to the time the slices take to cover the image. The output is
+ * byte-identical however it is sliced — rows are filled in order and the RNG
+ * call sequence does not depend on the slicing.
+ *
  * @param base RGBA pixel data (already range-compressed by the caller).
- * @returns `frameCount` new buffers. The caller owns them; `base` is not
- *   mutated.
+ * @param into Optional buffers to fill (must match `base.length`), so a loop
+ *   can alternate two sets instead of allocating ~7 MB per reseed.
  */
-export function ditherFrames(
+export function beginDitherPass(
   base: Uint8ClampedArray,
-  opts: DitherOptions
-): Uint8ClampedArray[] {
+  opts: DitherOptions,
+  into?: Uint8ClampedArray[]
+): DitherPass {
   const { width, height } = opts;
   const frameCount = opts.frameCount ?? DEFAULT_FRAME_COUNT;
   const random = opts.random ?? Math.random;
@@ -273,16 +331,22 @@ export function ditherFrames(
 
   const frames: Uint8ClampedArray[] = [];
   for (let f = 0; f < frameCount; f++) {
-    frames.push(new Uint8ClampedArray(base.length));
+    const given = into?.[f];
+    frames.push(
+      given && given.length === base.length
+        ? given
+        : new Uint8ClampedArray(base.length)
+    );
   }
-  if (width <= 0 || height <= 0) return frames;
+  if (width <= 0 || height <= 0) return { frames, run: () => true };
 
-  // Three independent grids. Deliberately different cell sizes as well as
+  // Four independent grids. Deliberately different cell sizes as well as
   // phases: co-sited seams would make the composite field read as one grid,
   // and one grid is a template an averaging attack can register against.
   const decoyGrid = buildGrid(width, height, block, random);
   const biasGrid = buildGrid(width, height, Math.round(block * 1.5), random);
   const roleGrid = buildGrid(width, height, Math.round(block * 0.75), random);
+  const lumaGrid = buildGrid(width, height, Math.round(block * 0.65), random);
 
   const [decoyMin, decoyMax] = decoyBand(
     frameCount,
@@ -295,15 +359,50 @@ export function ditherFrames(
   // per-pixel baseline. Jitter feeds the detector decoy gradients everywhere
   // while the cell's local mean (what a blur attack recovers) stays put.
   const jitter = decoySpan >> 1;
+  // Per-channel jitter, kept smaller than the shared term: it is what carries
+  // the CHROMA scramble at pixel scale, so it cannot go to zero, but every
+  // unit of it is variance the luma average cancels (see the luma mosaic
+  // comment below).
+  const jitterChan = decoySpan >> 2;
   const decoyCells = decoyGrid.cols * (decoyGrid.rowOf[height - 1] + 1) * 3;
   const decoy = new Uint8Array(decoyCells);
   for (let i = 0; i < decoyCells; i++) {
     decoy[i] = decoyMin + ((random() * decoySpan) | 0);
   }
 
-  const biasCells = biasGrid.cols * (biasGrid.rowOf[height - 1] + 1) * 3;
-  const bias = new Uint8Array(biasCells);
-  for (let i = 0; i < biasCells; i++) bias[i] = (random() * 256) | 0;
+  // LUMA MOSAIC — the common-mode field. Everything above draws each channel
+  // independently, and that has a structural bias an attacker measured and
+  // exploited: luma is 0.299R + 0.587G + 0.114B, so it AVERAGES three
+  // independent perturbations and its noise variance shrinks, while chroma
+  // (channel differences) keeps its own. A captured frame's luma — the
+  // component that carries recognisable shape — survived ~6x better than its
+  // chroma. The fix is a perturbation added to R, G and B EQUALLY: it moves
+  // luma one-for-one and chroma not at all. No separate sum constraint is
+  // needed — the shift lands on the decoy before the feasibility clamp, and
+  // the remainder slot absorbs it exactly, so reconstruction stays lossless.
+  const lumaCellCount = lumaGrid.cols * (lumaGrid.rowOf[height - 1] + 1);
+  const lumaShift = new Int16Array(lumaCellCount);
+  for (let i = 0; i < lumaCellCount; i++) {
+    lumaShift[i] = ((random() * 2 - 1) * jitter) | 0;
+  }
+
+  // Bias cells get a shared common-mode term for the same reason: the bias
+  // sets each cell's LOCAL MEAN in the split slots (what a blur attack
+  // recovers), and with three independent per-channel biases those local means
+  // average toward mid in luma. A common component makes the blurred luma of
+  // split cells as random as their chroma. The per-channel deviation on top
+  // keeps the hue scramble.
+  const biasCellCount = biasGrid.cols * (biasGrid.rowOf[height - 1] + 1);
+  const bias = new Uint8Array(biasCellCount * 3);
+  for (let i = 0; i < biasCellCount; i++) {
+    const common = random() * 256;
+    for (let c = 0; c < 3; c++) {
+      let b = common + (random() - 0.5) * 128;
+      if (b < 0) b = 0;
+      else if (b > 255) b = 255;
+      bias[i * 3 + c] = b;
+    }
+  }
 
   const roleCells = roleGrid.cols * (roleGrid.rowOf[height - 1] + 1);
   const roles = new Uint8Array(roleCells);
@@ -312,17 +411,28 @@ export function ditherFrames(
 
   const full = strength >= 1;
 
+  let fillRow: (y: number) => void;
   if (frameCount === 3) {
     const [f0buf, f1buf, f2buf] = frames;
-    for (let y = 0; y < height; y++) {
+    fillRow = (y: number) => {
       const dRow = decoyGrid.rowOf[y] * decoyGrid.cols;
       const bRow = biasGrid.rowOf[y] * biasGrid.cols;
       const rRow = roleGrid.rowOf[y] * roleGrid.cols;
+      const lRow = lumaGrid.rowOf[y] * lumaGrid.cols;
       let i = y * width * 4;
       for (let x = 0; x < width; x++, i += 4) {
         const dCell = (dRow + decoyGrid.colOf[x]) * 3;
         const bCell = (bRow + biasGrid.colOf[x]) * 3;
         const perm = PERMS3[roles[rRow + roleGrid.colOf[x]]];
+        // Common-mode draws, once per PIXEL and applied to all three channels
+        // below: the per-cell luma shift, a shared jitter term, and one coin
+        // for the split. Sharing the coin is a comonotone coupling — each
+        // channel's marginal distribution (and so every per-channel statistic
+        // measured before) is unchanged, but the channels now move together,
+        // which is exactly the luma direction.
+        const lumaAdd =
+          lumaShift[lRow + lumaGrid.colOf[x]] + (((random() * 2 - 1) * jitter) | 0);
+        const coin = random() * 256;
         for (let c = 0; c < 3; c++) {
           const v = base[i + c];
           const target = 3 * v;
@@ -332,18 +442,20 @@ export function ditherFrames(
           const lo = target > 510 ? target - 510 : 0;
           const hi = target < 255 ? target : 255;
 
-          let d = decoy[dCell + c] + (((random() * 2 - 1) * jitter) | 0);
+          let d =
+            decoy[dCell + c] + lumaAdd + (((random() * 2 - 1) * jitterChan) | 0);
           if (d < decoyMin) d = decoyMin;
           else if (d > decoyMax) d = decoyMax;
           if (d < lo) d = lo;
           else if (d > hi) d = hi;
 
           // Split the remainder across the other two slots, at the ends of
-          // ITS feasible range, coin biased by the second mosaic.
+          // ITS feasible range, coin biased by the second mosaic. The coin is
+          // the shared per-pixel draw; the bias stays per channel.
           const rem = target - d;
           const sLo = rem > 255 ? rem - 255 : 0;
           const sHi = rem < 255 ? rem : 255;
-          const s = random() * 256 < bias[bCell + c] ? sHi : sLo;
+          const s = coin < bias[bCell + c] ? sHi : sLo;
 
           let a: number, b: number;
           if (full) {
@@ -364,44 +476,84 @@ export function ditherFrames(
         f1buf[i + 3] = alpha;
         f2buf[i + 3] = alpha;
       }
-    }
-    return frames;
-  }
+    };
+  } else {
+    // frameCount === 2 — decoy plus single compensator. Per-pixel jitter on
+    // the decoy stands in for the missing split coin. The same luma-coherence
+    // rule applies: most of the jitter is one shared draw per pixel, plus the
+    // per-cell luma shift, with a smaller per-channel term for chroma.
+    const [f0buf, f1buf] = frames;
+    fillRow = (y: number) => {
+      const dRow = decoyGrid.rowOf[y] * decoyGrid.cols;
+      const rRow = roleGrid.rowOf[y] * roleGrid.cols;
+      const lRow = lumaGrid.rowOf[y] * lumaGrid.cols;
+      let i = y * width * 4;
+      for (let x = 0; x < width; x++, i += 4) {
+        const dCell = (dRow + decoyGrid.colOf[x]) * 3;
+        const perm = PERMS2[roles[rRow + roleGrid.colOf[x]]];
+        const lumaAdd =
+          lumaShift[lRow + lumaGrid.colOf[x]] + ((random() * 256) | 0) - 128;
+        for (let c = 0; c < 3; c++) {
+          const v = base[i + c];
+          const target = 2 * v;
+          const lo = target > 255 ? target - 255 : 0;
+          const hi = target < 255 ? target : 255;
 
-  // frameCount === 2 — decoy plus single compensator. Per-pixel jitter on the
-  // decoy stands in for the missing split coin.
-  const [f0buf, f1buf] = frames;
-  for (let y = 0; y < height; y++) {
-    const dRow = decoyGrid.rowOf[y] * decoyGrid.cols;
-    const rRow = roleGrid.rowOf[y] * roleGrid.cols;
-    let i = y * width * 4;
-    for (let x = 0; x < width; x++, i += 4) {
-      const dCell = (dRow + decoyGrid.colOf[x]) * 3;
-      const perm = PERMS2[roles[rRow + roleGrid.colOf[x]]];
-      for (let c = 0; c < 3; c++) {
-        const v = base[i + c];
-        const target = 2 * v;
-        const lo = target > 255 ? target - 255 : 0;
-        const hi = target < 255 ? target : 255;
+          // Clamped only to the feasible range, not the band: with a single
+          // compensator the decoy is the ONLY carrier of per-pixel noise, and
+          // band-clamping it measurably raised the frame's correlation with
+          // the image.
+          let d = decoy[dCell + c] + lumaAdd + ((random() * 128) | 0) - 64;
+          if (d < lo) d = lo;
+          else if (d > hi) d = hi;
 
-        // Wider jitter than the 3-frame branch, clamped only to the feasible
-        // range: with a single compensator the decoy is the ONLY carrier of
-        // per-pixel noise, and band-clamping it measurably raised the frame's
-        // correlation with the image.
-        let d = decoy[dCell + c] + ((random() * 256) | 0) - 128;
-        if (d < lo) d = lo;
-        else if (d > hi) d = hi;
-
-        const a = full ? d : Math.round(v + (d - v) * strength);
-        frames[perm[0]][i + c] = a;
-        frames[perm[1]][i + c] = target - a;
+          const a = full ? d : Math.round(v + (d - v) * strength);
+          frames[perm[0]][i + c] = a;
+          frames[perm[1]][i + c] = target - a;
+        }
+        const alpha = base[i + 3];
+        f0buf[i + 3] = alpha;
+        f1buf[i + 3] = alpha;
       }
-      const alpha = base[i + 3];
-      f0buf[i + 3] = alpha;
-      f1buf[i + 3] = alpha;
-    }
+    };
   }
-  return frames;
+
+  let nextY = 0;
+  return {
+    frames,
+    run(budgetMs: number): boolean {
+      if (budgetMs === Infinity) {
+        while (nextY < height) fillRow(nextY++);
+        return true;
+      }
+      const deadline = performance.now() + budgetMs;
+      while (nextY < height) {
+        // 8 rows between clock checks: a row costs 40-120 µs at quiz sizes,
+        // so the overshoot past the deadline stays under ~1 ms.
+        const stop = Math.min(height, nextY + 8);
+        while (nextY < stop) fillRow(nextY++);
+        if (performance.now() >= deadline) break;
+      }
+      return nextY >= height;
+    },
+  };
+}
+
+/**
+ * Build a complete frame set in one synchronous call — `beginDitherPass` with
+ * an unlimited budget. The first paint and offline measurement use this; the
+ * animation loop slices the pass instead.
+ *
+ * @returns `frameCount` new buffers. The caller owns them; `base` is not
+ *   mutated.
+ */
+export function ditherFrames(
+  base: Uint8ClampedArray,
+  opts: DitherOptions
+): Uint8ClampedArray[] {
+  const pass = beginDitherPass(base, opts);
+  pass.run(Infinity);
+  return pass.frames;
 }
 
 /**

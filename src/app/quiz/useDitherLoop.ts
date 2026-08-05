@@ -6,10 +6,12 @@ import {
   DEFAULT_DITHER_AMPLITUDE,
   DEFAULT_FRAME_COUNT,
   DEFAULT_RANGE_FLOOR,
+  DITHER_GEN_BUDGET_MS,
   DITHER_RESEED_MS,
+  beginDitherPass,
   compressRange,
-  ditherFrames,
   shouldDither,
+  type DitherPass,
 } from "@/lib/quiz/temporalDither";
 
 /**
@@ -101,32 +103,62 @@ export function useDitherLoop({
       ctx.putImageData(flattened, 0, 0);
     }
     const n = frameCount === 2 ? 2 : 3;
-    const frameImages: ImageData[] = [];
-    for (let i = 0; i < n; i++) frameImages.push(new ImageData(w, h));
+    const opts = {
+      width: w,
+      height: h,
+      amplitude,
+      frameCount: n as 2 | 3,
+      blockSize,
+      rangeFloor,
+    };
 
-    // -Infinity forces a seed on the very first tick; afterwards reseeds only
-    // land on cycle boundaries, so every displayed run of n consecutive frames
-    // comes from one seed and averages to the image exactly — a mid-cycle swap
-    // would flash a partial sum that averages to something else.
-    let lastSeed = -Infinity;
+    // Double buffer: one frame set on screen, the next one being generated
+    // into the other set a few milliseconds per tick. Two sets of ImageData,
+    // swapped by reference — the pass writes straight into the back set's
+    // pixels, so a reseed never copies or allocates after this point.
+    const makeSet = () => {
+      const set: ImageData[] = [];
+      for (let i = 0; i < n; i++) set.push(new ImageData(w, h));
+      return set;
+    };
+    let display = makeSet();
+    let back = makeSet();
+    const buffersOf = (set: ImageData[]) =>
+      set.map((im) => new Uint8ClampedArray(im.data.buffer, 0, im.data.length));
+
+    // The first set is generated synchronously — there is nothing safe to show
+    // until a complete cycle exists, and this is the one-time cost the old
+    // code paid on every reseed.
+    beginDitherPass(source, opts, buffersOf(display)).run(Infinity);
+
+    let pass: DitherPass = beginDitherPass(source, opts, buffersOf(back));
+    let passDone = false;
+
+    // Reseeds (buffer swaps) only land on cycle boundaries, so every displayed
+    // run of n consecutive frames comes from one seed and averages to the
+    // image exactly — a mid-cycle swap would flash a partial sum that averages
+    // to something else. The swap additionally waits for the back set to be
+    // complete; on a slow machine the window stretches instead of the frame
+    // rate dropping.
+    let lastSwap = performance.now();
     let frameIdx = 0;
     let raf = 0;
 
     const tick = (now: number) => {
-      if (frameIdx === 0 && now - lastSeed >= DITHER_RESEED_MS) {
-        const frames = ditherFrames(source, {
-          width: w,
-          height: h,
-          amplitude,
-          frameCount: n,
-          blockSize,
-          rangeFloor,
-        });
-        for (let i = 0; i < n; i++) frameImages[i].data.set(frames[i]);
-        lastSeed = now;
+      if (frameIdx === 0 && passDone && now - lastSwap >= DITHER_RESEED_MS) {
+        const freed = display;
+        display = back;
+        back = freed;
+        lastSwap = now;
+        pass = beginDitherPass(source, opts, buffersOf(back));
+        passDone = false;
       }
-      ctx.putImageData(frameImages[frameIdx], 0, 0);
+      ctx.putImageData(display[frameIdx], 0, 0);
       frameIdx = (frameIdx + 1) % n;
+      // Generation happens AFTER the paint, in the same tick's leftover
+      // budget: ~1-3ms of putImageData plus DITHER_GEN_BUDGET_MS of row
+      // filling stays inside 16.7ms.
+      if (!passDone) passDone = pass.run(DITHER_GEN_BUDGET_MS);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
