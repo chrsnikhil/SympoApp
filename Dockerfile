@@ -33,6 +33,20 @@ ENV JWT_SECRET="placeholder-not-used-at-build"
 # silently produces a normal .next and the COPY fails with "not found".
 ENV DOCKER_BUILD=1
 
+# Temporal dithering, off unless the build is told otherwise.
+#
+# NEXT_PUBLIC_* values are INLINED INTO THE CLIENT BUNDLE AT BUILD TIME. Setting
+# this as a Container App env var at runtime does nothing at all — the bundle is
+# already compiled, with the flag baked in as undefined, so the effect would be
+# permanently off however the running container is configured. It has to arrive
+# here, as a build argument, or not at all.
+#
+# Unlike MONGODB_URI and JWT_SECRET above, baking this into the image is correct:
+# it is a boolean feature flag, not a secret, and it decides what the browser
+# paints.
+ARG NEXT_PUBLIC_QUIZ_DITHER=""
+ENV NEXT_PUBLIC_QUIZ_DITHER=$NEXT_PUBLIC_QUIZ_DITHER
+
 RUN npm run build
 
 # ---- runner ----

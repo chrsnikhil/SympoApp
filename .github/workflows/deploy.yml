@@ -53,7 +53,15 @@ jobs:
           TAG="${GITHUB_SHA::7}"
           REGISTRY="${{ vars.ACR_NAME }}.azurecr.io"
           az acr login --name "${{ vars.ACR_NAME }}"
+          # NEXT_PUBLIC_QUIZ_DITHER is inlined into the client bundle at BUILD
+          # time, so it has to be passed here. Setting it on the Container App
+          # afterwards has no effect whatsoever — the bundle is already compiled
+          # with the flag baked in as undefined.
+          #
+          # Set the repo variable QUIZ_DITHER to 1 to turn the anti-screenshot
+          # dither on. Unset builds with it off, which is the default.
           docker build \
+            --build-arg NEXT_PUBLIC_QUIZ_DITHER="${{ vars.QUIZ_DITHER }}" \
             --tag "${REGISTRY}/xplore26-events:${TAG}" \
             --tag "${REGISTRY}/xplore26-events:latest" \
             --file Dockerfile .
