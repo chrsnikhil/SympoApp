@@ -21,6 +21,29 @@
  * the participant entry page should never hand someone into the admin
  * console just because they carried an `/admin` `rt`.
  */
+/**
+ * Is this path the admin console, however it is spelled?
+ *
+ * A raw `pathname.startsWith("/admin")` is bypassable: `/%61dmin/quiz` is
+ * `/admin/quiz` once the server decodes it, but the encoded form does not match
+ * the prefix and sails through. Caught by testing the guard against encoded
+ * input rather than by reading it.
+ *
+ * Decoding first closes that, and lowercasing closes the case variants.
+ * `decodeURIComponent` throws on a malformed sequence like a lone `%`, which is
+ * itself a reason to refuse — anything we cannot confidently decode is
+ * something we cannot confidently say is NOT the admin path.
+ */
+function isAdminPath(pathname: string): boolean {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    return true;
+  }
+  return decoded.toLowerCase().startsWith("/admin");
+}
+
 export function safeRedirectTarget(rawRt: string | null, origin: string, fallback: string): string {
   if (!rawRt) {
     return fallback;
@@ -28,7 +51,7 @@ export function safeRedirectTarget(rawRt: string | null, origin: string, fallbac
 
   try {
     const url = new URL(rawRt, origin);
-    if (url.origin === origin && !url.pathname.startsWith("/admin")) {
+    if (url.origin === origin && !isAdminPath(url.pathname)) {
       return url.pathname + url.search;
     }
   } catch {

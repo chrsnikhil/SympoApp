@@ -150,7 +150,14 @@ export async function getComebackView(teamId: ObjectId, round: QuizRound = 3): P
   const inRound = idx !== -1;
 
   const s = await loadState(teamId, round);
-  const eligible = inRound && !isRankOne;
+  // Bottom TWO of the live Round 3 table, per the coordinator's call — it used
+  // to be everyone except rank #1. The meter exists to give a trailing team a
+  // route back, and handing it to nearly the whole field made it ordinary
+  // rather than a comeback. Read off `standings`, so it moves as the round
+  // does: a team that climbs out of the bottom two stops being eligible, and
+  // `frozen` below preserves whatever it had banked rather than clearing it.
+  const COMEBACK_ELIGIBLE_FROM_BOTTOM = 2;
+  const eligible = inRound && idx >= table.length - COMEBACK_ELIGIBLE_FROM_BOTTOM;
   const holdsProgress = s.bottomStreak > 0 || s.ability !== null;
 
   // A power that was ALREADY firing when the team climbed to #1 keeps being
@@ -330,10 +337,24 @@ export async function settleQuestion(
  */
 export async function sweepClosedQuestions(teamId: ObjectId, round: QuizRound = 3): Promise<void> {
   const serves = await collections.quizServes();
+  // Sorted in memory, NOT with .sort() in the query.
+  //
+  // Cosmos DB's Mongo API refuses to order by a field its index policy does
+  // not cover — "The index path corresponding to the specified order-by item
+  // is excluded" — and fails the entire find with BadRequest. `quiz_serves` is
+  // indexed on (teamId, challengeSlug) and (teamId, round); nothing covers
+  // `answerableUntil`. A real mongod sorts this in memory without complaint,
+  // which is why it passes locally and 500'd every Round 3 serve in
+  // production — Round 2 never reaches this code.
+  //
+  // Sorting here rather than adding an index: this is one team's unsettled
+  // questions within one round, so at most the round's question count, and it
+  // cannot break again if the index policy drifts.
   const stale = await serves
     .find({ teamId, round, streakProcessed: { $ne: true }, answerableUntil: { $lt: new Date() } })
-    .sort({ answerableUntil: 1 })
     .toArray();
+
+  stale.sort((a, b) => a.answerableUntil.getTime() - b.answerableUntil.getTime());
 
   for (const s of stale) {
     await settleQuestion(teamId, round, s.challengeSlug);

@@ -192,11 +192,51 @@ export function similarityToMarks(similarity: number, gamePoints = 10): number {
   const s = Math.min(1, Math.max(0, similarity > 1 ? similarity / 100 : similarity));
   if (s < IMAGE_SCORE_MIN_SIMILARITY) return 0;
 
-  const band = IMAGE_SCORE_BANDS.find((b) => s >= b.atLeast);
-  if (!band) return 0;
+  /**
+   * Continuous, not banded.
+   *
+   * The ladder used to snap to its band's marks, so every team between 0.85 and
+   * 0.95 similarity scored exactly 9 — the bands themselves were manufacturing
+   * the ties. The band points are now interpolated between instead: the curve
+   * passes through each configured (similarity, marks) pair, so the ladder's
+   * deliberate generosity is preserved exactly at those points while everything
+   * between them varies smoothly.
+   *
+   * The top anchor is (1.0, full marks) rather than (0.95, full marks), so full
+   * marks means a genuinely exact recreation instead of a whole band of them.
+   */
+  const anchors = [...IMAGE_SCORE_BANDS]
+    .map((b) => ({ at: b.atLeast, marks: b.marks }))
+    .sort((a, b) => a.at - b.at);
 
-  const scaled = gamePoints === 10 ? band.marks : Math.round((band.marks / 10) * gamePoints);
-  return Math.min(gamePoints, Math.max(0, scaled));
+  // Anchor the bottom at the cut-off and the top at a perfect match.
+  //
+  // Bands already worth full marks are DROPPED rather than kept alongside the
+  // top anchor. The configured ladder awards 10 from 0.95 upward, so keeping
+  // that point would make the final segment run 10 -> 10 — flat, and every
+  // similarity above 0.95 would collapse back onto the same mark, which is the
+  // banding this change exists to remove.
+  const points = [
+    { at: IMAGE_SCORE_MIN_SIMILARITY, marks: 0 },
+    ...anchors.filter((a) => a.at > IMAGE_SCORE_MIN_SIMILARITY && a.at < 1 && a.marks < 10),
+    { at: 1, marks: 10 },
+  ];
+
+  let marks = 10;
+  for (let i = 0; i < points.length - 1; i++) {
+    const lo = points[i];
+    const hi = points[i + 1];
+    if (s >= lo.at && s <= hi.at) {
+      const span = hi.at - lo.at;
+      const t = span === 0 ? 0 : (s - lo.at) / span;
+      marks = lo.marks + (hi.marks - lo.marks) * t;
+      break;
+    }
+  }
+
+  const scaled = (marks / 10) * gamePoints;
+  // 4dp, matching the similarity it derives from.
+  return Math.min(gamePoints, Math.max(0, Math.round(scaled * 10_000) / 10_000));
 }
 
 /** Maps the vision judge's 0..1 similarity onto the game's marks. */

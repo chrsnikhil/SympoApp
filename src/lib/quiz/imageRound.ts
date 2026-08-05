@@ -25,11 +25,17 @@ import type { Challenge, PromptImage } from "@/lib/db/types";
  */
 
 /**
- * 3m30s, matching the rules text and the reference-image reveal schedule
- * (the 30s peek opens at 2m30s, exactly one minute before this deadline).
- * Kept in step with `round1.ts`'s phase calculation.
+ * 8 minutes, per the coordinator's call — raised from 3m30s because teams
+ * have to leave the tab, prompt an image generator, wait for it, download and
+ * upload, and 3m30s did not survive contact with real generator latency.
+ *
+ * THE ONE definition. `round1.ts` decides when the phase times out and
+ * `api/quiz/round1` computes the closing time the client counts down to; both
+ * import this. They were three separate 210_000 literals, which is a silent
+ * way for the round to end at one time and the judge to think it ended at
+ * another.
  */
-export const IMAGE_ROUND_DURATION_MS = 210_000;
+export const IMAGE_ROUND_DURATION_MS = 480_000;
 
 export const IMAGE_CHALLENGE_SLUG = "image-1";
 
