@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDitherLoop } from "./useDitherLoop";
+import { useDitherSetting } from "./useDitherSetting";
 
 /**
  * Renders the Image Replication reference/upload previews with the easy copy
@@ -132,6 +134,8 @@ export default function ProtectedImage({
   const [stamp, setStamp] = useState(() => new Date().toLocaleTimeString());
   const [layoutSeed, setLayoutSeed] = useState(() => Math.floor(Math.random() * 1_000_000));
   const [obscured, setObscured] = useState(false);
+  const [layoutEpoch, setLayoutEpoch] = useState(0);
+  const { ditherEnabled } = useDitherSetting();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -240,10 +244,32 @@ export default function ProtectedImage({
 
   useEffect(() => {
     if (!ready) return;
-    const onResize = () => draw();
+    // Bumping the epoch restarts the dither loop below: its snapshot of the
+    // composited base is taken once, so a resize that redraws at a new size
+    // would otherwise leave it alternating stale pixels at the old dimensions.
+    const onResize = () => {
+      draw();
+      setLayoutEpoch((n) => n + 1);
+    };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, [ready, draw]);
+
+  /**
+   * Temporal dithering, when the coordinator has switched it on.
+   *
+   * Wrapping `draw` means the watermark is dithered along WITH the artwork
+   * rather than being composited over a dithered image — if the watermark were
+   * a stable layer on top, a single captured frame would still carry a clean,
+   * readable watermark over noise, which is the one part of the frame we do not
+   * need to protect and the part most useful for locating the image beneath.
+   */
+  useDitherLoop({
+    canvasRef,
+    enabled: ditherEnabled,
+    paintBase: () => draw(),
+    deps: [ready, draw, layoutEpoch],
+  });
 
   useEffect(() => {
     if (!protectFocusLoss) return;

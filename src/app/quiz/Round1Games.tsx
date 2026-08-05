@@ -6,6 +6,9 @@ import FrozenScreen from "./FrozenScreen";
 import MemoryGrid from "./MemoryGrid";
 import ProtectedImage from "./ProtectedImage";
 import ScreenshotGuard from "./ScreenshotGuard";
+import DitheredImage from "./DitheredImage";
+import FlickerNotice from "./FlickerNotice";
+import { useDitherSetting } from "./useDitherSetting";
 import SpiderTimer from "./SpiderTimer";
 import { useProctorStrikes } from "@/lib/quiz/useProctorStrikes";
 
@@ -136,6 +139,10 @@ export default function Round1Games({ teamName }: { teamName: string }) {
           <p className="comic-shout text-xl text-glitch-cyan">{transition}</p>
         </div>
       )}
+
+      {/* Before the games, not after — informed consent is only informed if it
+          arrives before the flicker does. Renders nothing when the flag is off. */}
+      <FlickerNotice />
 
       <PhaseTracker phase={data.phase} />
 
@@ -871,6 +878,7 @@ function ImageReplication({
  * attempt, since the puzzle itself is the difficulty, not a one-shot penalty.
  */
 function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disabled: boolean; onSolved: () => void }) {
+  const { ditherEnabled } = useDitherSetting();
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1040,7 +1048,13 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
             >
               {isRevealed && images[i] ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={images[i]} alt={`Tile ${i + 1}`} className="h-full w-full object-contain p-1" />
+                <DitheredImage
+                  src={images[i]}
+                  alt={`Tile ${i + 1}`}
+                  dither={ditherEnabled}
+                  fit="contain"
+                  className="h-full w-full p-1"
+                />
               ) : (
                 <div className="grid h-full place-items-center text-[0.65rem] uppercase tracking-widest text-paper-white/30 font-mono">
                   TILE {i + 1}
