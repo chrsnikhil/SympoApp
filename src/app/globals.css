@@ -729,3 +729,54 @@ html.web-shooter-active textarea {
   pointer-events: none;
 }
 
+
+/* ── CTF / hunt theme ──────────────────────────────────────────────────────
+   Scoped to [data-event] rather than left global: these are element-level
+   rules with !important, and unscoped they restyle every quiz heading and
+   control too. `layout.tsx` stamps data-event on <body> from the Host
+   header, which is the same signal the proxy and /enter dispatch on. */
+
+[data-event="ctf"], [data-event="hunt"] {
+  --background: #070308;
+  --foreground: #f8fafc;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+.font-avengeance,
+.font-spider-heading,
+[data-event="ctf"] :is(h1, h2, h3), [data-event="hunt"] :is(h1, h2, h3) {
+  font-family: var(--font-chakra), 'Chakra Petch', system-ui, sans-serif !important;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+[data-event="ctf"] :is(h4, h5, h6, .font-spider-subheading), [data-event="hunt"] :is(h4, h5, h6, .font-spider-subheading) {
+  font-family: var(--font-space), 'Space Grotesk', system-ui, sans-serif !important;
+  letter-spacing: 0.03em;
+  font-weight: 600;
+}
+
+[data-event="ctf"] :is(p, span, div, button, input, label, select, textarea), [data-event="hunt"] :is(p, span, div, button, input, label, select, textarea) {
+  font-family: var(--font-outfit), 'Outfit', system-ui, sans-serif;
+}
+
+code, pre, .font-mono {
+  font-family: var(--font-fira), 'Fira Code', monospace !important;
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  20%, 60% {
+    transform: translateX(-5px);
+  }
+  40%, 80% {
+    transform: translateX(5px);
+  }
+}
+

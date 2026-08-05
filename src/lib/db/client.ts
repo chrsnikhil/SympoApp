@@ -13,6 +13,7 @@ import type {
   Coin,
   HuntProgress,
   LeaderboardSnapshot,
+  LylaProgress,
   MemoryGameState,
   Participant,
   ProctorFlag,
@@ -146,6 +147,8 @@ export const collections = {
     (await getDb()).collection<HuntProgress>("hunt_progress"),
   leaderboards: async (): Promise<Collection<LeaderboardSnapshot>> =>
     (await getDb()).collection<LeaderboardSnapshot>("leaderboard_snapshots"),
+  lylaProgress: async (): Promise<Collection<LylaProgress>> =>
+    (await getDb()).collection<LylaProgress>("lyla_progress"),
   coins: async (): Promise<Collection<Coin>> => (await getDb()).collection<Coin>("coins"),
   promptImages: async (): Promise<Collection<PromptImage>> =>
     (await getDb()).collection<PromptImage>("prompt_images"),
@@ -182,7 +185,7 @@ export const collections = {
  * not fatal.
  */
 export async function ensureIndexes(): Promise<void> {
-  const [codes, challenges, subs, scores, hunt, boards, images, memory, serves, quals, comebacks, flags, freezes] =
+  const [codes, challenges, subs, scores, hunt, boards, lyla, images, memory, serves, quals, comebacks, flags, freezes] =
     await Promise.all([
       collections.accessCodes(),
       collections.challenges(),
@@ -190,6 +193,7 @@ export async function ensureIndexes(): Promise<void> {
       collections.scoreEvents(),
       collections.huntProgress(),
       collections.leaderboards(),
+      collections.lylaProgress(),
       // No index needed for `coins` — it's keyed by `_id`, unique for free.
       collections.promptImages(),
       collections.memoryStates(),
@@ -206,10 +210,14 @@ export async function ensureIndexes(): Promise<void> {
     ["submissions.team_time", subs.createIndex({ teamId: 1, receivedAt: -1 })],
     ["submissions.status", subs.createIndex({ status: 1 })],
     ["submissions.challenge_team", subs.createIndex({ challengeId: 1, teamId: 1, receivedAt: 1 })],
+    // CTF solve counts and the dynamic leaderboard scan by correctness.
+    ["submissions.challenge_correct", subs.createIndex({ challengeId: 1, "verdict.correct": 1 })],
+    ["submissions.challenge_correct_time", subs.createIndex({ challengeId: 1, "verdict.correct": 1, receivedAt: 1 })],
     ["score_events.team", scores.createIndex({ teamId: 1 })],
     ["score_events.event_at", scores.createIndex({ event: 1, at: -1 })],
     ["hunt_progress.team_slug", hunt.createIndex({ teamId: 1, challengeSlug: 1 }, { unique: true })],
     ["leaderboards.event", boards.createIndex({ event: 1 }, { unique: true })],
+    ["lyla_progress.team", lyla.createIndex({ teamId: 1 }, { unique: true })],
     ["prompt_images.team_slug", images.createIndex({ teamId: 1, challengeSlug: 1 }, { unique: true })],
     ["memory_states.team_slug", memory.createIndex({ teamId: 1, challengeSlug: 1 }, { unique: true })],
     // Unique so a team can't be served the same question twice and restart its clock.
@@ -231,3 +239,4 @@ export async function ensureIndexes(): Promise<void> {
     console.warn(`[indexes] could not create ${name}: ${message}`);
   }
 }
+

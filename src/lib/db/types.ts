@@ -31,11 +31,17 @@ export type AvatarId =
 export interface Team {
   _id?: ObjectId;
   name: string;
+  nameKey?: string;
   /** Set when the team's coin is claimed. */
   avatar?: AvatarId;
   /** The coin number that granted it, 1..60. Kept so a coin can be traced. */
   coin?: number;
   createdAt: Date;
+  banned?: boolean;
+  bannedReason?: string;
+  bannedAt?: Date;
+  penaltyPoints?: number;
+  passwordHash?: string;
 }
 
 export interface Participant {
@@ -87,6 +93,26 @@ export interface Challenge {
     limitSeconds?: number;
     /** quiz mcq: bonus for answering fast — rounds 2/3 don't use this (flat scoring), kept for format completeness. */
     speedBonus?: number;
+    initialPoints?: number;
+    /** minimum score after decay */
+    minimumPoints?: number;
+    /** number of solves before score starts decreasing */
+    decayAfter?: number;
+    /** challenge category (Web, Crypto, Forensics, etc.) */
+    category?: string;
+    /** difficulty category (Easy, Medium, Hard) */
+    difficulty?: "Easy" | "Medium" | "Hard" | string;
+    /** detailed description / prompt */
+    description?: string;
+    /** additional scenario details / instructions */
+    details?: string;
+    /** structured hints array */
+    hints?: Array<{ id: number; text: string; unlockSeconds: number }>;
+    /** challenge attachments (ZIP, PDF, PCAP, Images) */
+    attachments?: string[];
+    /** status: open, closed, hidden, released */
+    status?: "open" | "closed" | "hidden" | "released";
+    disabled?: boolean;
     /** quiz: which round this question belongs to. */
     round?: QuizRound;
     /** quiz: how the answer is scored/served. */
@@ -205,7 +231,25 @@ export interface LeaderboardSnapshot {
     teamName: string;
     points: number;
     lastScoreAt: Date | null;
+    solvedCount?: number;
   }>;
+}
+
+export interface LylaMessage {
+  id: string;
+  sender: "user" | "lyla" | "system";
+  text: string;
+  timestamp: string;
+  layer?: number;
+}
+
+export interface LylaProgress {
+  _id?: ObjectId;
+  teamId: ObjectId;
+  layer: number; // 1 to 6 (6 is completed payload discharge)
+  attempts?: number; // failed attempts for current layer
+  messages: LylaMessage[];
+  updatedAt: Date;
 }
 
 // ── Tech quiz ────────────────────────────────────────────────────────────────
