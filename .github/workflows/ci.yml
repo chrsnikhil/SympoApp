@@ -21,7 +21,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
 
@@ -32,16 +32,16 @@ jobs:
 
       - name: Rebuild native bindings (tailwind oxide + sharp + rollup)
         run: |
-          # tailwind oxide
-          npm rebuild @tailwindcss/oxide --update-binary || true
-          npm i @tailwindcss/oxide-linux-x64-gnu --no-save || true
+          # tailwind oxide – fail fast if the platform binary cannot be installed
+          npm rebuild @tailwindcss/oxide --update-binary
+          npm install --no-save @tailwindcss/oxide-linux-x64-gnu@latest
 
           # sharp – rebuild to get the correct linux-x64 binary
-          npm rebuild sharp --update-binary || true
+          npm rebuild sharp --update-binary
 
-          # rollup – rebuild to get the correct linux-x64 binary
+          # rollup – rebuild to get the correct linux-x64 binary (optional)
           npm rebuild @rollup/rollup-linux-x64-gnu --update-binary || true
-          npm i @rollup/rollup-linux-x64-gnu --no-save || true
+          npm install --no-save @rollup/rollup-linux-x64-gnu@latest || true
 
       - name: Check for UTF-8 BOMs
         # A BOM in globals.css breaks the Tailwind build with an error that
