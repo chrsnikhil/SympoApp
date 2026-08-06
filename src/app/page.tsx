@@ -4,6 +4,13 @@ import WebShooter, { WebNet } from "@/app/quiz/WebShooter";
 /**
  * Serves app.<domain> / www.<domain> / localhost.
  * Platform front door themed with Spider-Verse Symposium styling.
+ *
+ * THIS IS THE FRONT DOOR FOR THE WHOLE PLATFORM, NOT FOR ONE EVENT. It briefly
+ * became `redirect("/universe")`, which removed the only link to /enter — the
+ * entry point every event logs in through — and hid the tech quiz, a separate
+ * live event on the same deployment, behind a URL nobody had been given.
+ *
+ * A new event gets a link from here. It does not get to be the redirect target.
  */
 export default function Home() {
   return (
@@ -50,6 +57,25 @@ export default function Home() {
               Enter the Multiverse
             </span>
           </Link>
+
+          {/* Second event on the same platform. A link, not a redirect —
+              /universe is gated, so a logged-out click lands on /enter with
+              ?rt= pointing back here. */}
+          <div className="mt-8 pt-6 border-t-2 border-on-surface/15">
+            <p className="font-label-sm text-on-surface-variant uppercase tracking-[0.2em] text-xs mb-3">
+              Also running
+            </p>
+            <Link
+              href="/universe"
+              data-web-target=""
+              className="font-headline-lg text-on-background uppercase tracking-wider underline decoration-primary decoration-2 underline-offset-4 hover:text-primary transition-colors"
+            >
+              Find Your Universe →
+            </Link>
+            <p className="font-body-md text-on-surface-variant text-xs mt-2">
+              The treasure hunt. Bring your coin number.
+            </p>
+          </div>
         </div>
       </div>
     </main>
