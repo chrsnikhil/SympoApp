@@ -115,7 +115,7 @@ export const DITHER_GEN_BUDGET_MS = 6;
  * frame — and the image is down to a third of its contrast. 64 is the measured
  * balance between the two.
  */
-export const DEFAULT_RANGE_FLOOR = 100;
+export const DEFAULT_RANGE_FLOOR = 67;
 
 /**
  * Frames per cycle. The eye integrates over roughly 1/25s — about 2.5 frames
@@ -125,7 +125,7 @@ export const DEFAULT_RANGE_FLOOR = 100;
  * and a frame slot whose content can be almost pure decoy while the other two
  * carry the compensation between them.
  */
-export const DEFAULT_FRAME_COUNT = 3;
+export const DEFAULT_FRAME_COUNT = 2;
 
 /**
  * Edge length of the decoy mosaic cells, in px.
@@ -135,7 +135,7 @@ export const DEFAULT_FRAME_COUNT = 3;
  * approach per-pixel noise, which is exactly what failed. 16 is the measured
  * compromise — see the concealment numbers in the dither report.
  */
-export const DEFAULT_DECOY_BLOCK = 48;
+export const DEFAULT_DECOY_BLOCK = 4;
 
 /**
  * Band the decoy cells are drawn from, given the range floor the base was
