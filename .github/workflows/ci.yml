@@ -36,8 +36,10 @@ jobs:
         run: |
           rm -rf node_modules
           npm install
+          npm rebuild lightningcss --update-binary || true
           npm rebuild @tailwindcss/oxide --update-binary
           npm rebuild sharp --update-binary
+          npm install --no-save @rollup/rollup-linux-x64-gnu || true
           npm rebuild @rollup/rollup-linux-x64-gnu --update-binary || true
 
       - name: Check for UTF-8 BOMs
@@ -61,5 +63,6 @@ jobs:
         run: npm run build
 
       - name: Build Docker image
+        # --no-cache ensures no stale host node_modules bleed into the image.
         # Proves the Dockerfile still works before a deploy discovers it doesn't.
-        run: docker build -t xplore26-events:ci .
+        run: docker build --no-cache -t xplore26-events:ci .

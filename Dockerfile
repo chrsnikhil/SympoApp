@@ -12,29 +12,21 @@
 # libc causes "Cannot find module lightningcss.linux-x64-musl.node" errors at
 # build time. Switching to a glibc image is the simplest and most reliable fix.
 
-# ---- deps: install once, cached on package-lock.json ----
-FROM node:20-bullseye-slim AS deps
-# Install system deps required by native modules (sharp/libvips, build tools)
+# ---- build: install deps fresh inside this image so native binaries match ----
+FROM node:20-bullseye-slim AS builder
+# System deps must be present before npm ci so native addons compile correctly
 RUN apt-get update \
   && apt-get install -y --no-install-recommends build-essential ca-certificates libvips-dev python3 \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json ./
-# `npm ci` (not install) so the lockfile is authoritative and builds are
-# reproducible across CI and local.
+# Run npm ci INSIDE this image — never copy node_modules from host or another
+# stage, because native .node binaries are platform-specific (glibc vs musl).
 RUN npm ci
-# Rebuild native bindings so linux-x64-gnu binaries are present inside the image.
-# Runner-side CI rebuilds do NOT propagate into Docker — this step must live here.
+# Ensure native bindings are built for this image's glibc runtime
+RUN npm rebuild lightningcss --update-binary || true
 RUN npm rebuild @tailwindcss/oxide --update-binary || true
 RUN npm rebuild sharp --update-binary || true
-
-# ---- build ----
-FROM node:20-bullseye-slim AS builder
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends libvips-dev \
-  && rm -rf /var/lib/apt/lists/*
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Next reads env at build time for static optimisation. These are placeholders:
