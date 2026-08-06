@@ -3,6 +3,18 @@ import PuzzleBoard from "./PuzzleBoard";
 import PuzzlePiece from "./PuzzlePiece";
 import ProgressBar from "./ProgressBar";
 
+const PIECE_FILES: Record<number, string> = {
+  1: "q_7x9a2.png",
+  2: "q_3m8k1.png",
+  3: "q_9p4v7.png",
+  4: "q_1b6w5.png",
+  5: "q_8z2y4.png",
+  6: "q_4c7j9.png",
+  7: "q_0t3e6.png",
+  8: "q_5r1u8.png",
+  9: "q_2n9h3.png",
+};
+
 export default function QrPuzzle() {
   const createShuffledPieces = () => {
     const pieces = [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -130,17 +142,17 @@ export default function QrPuzzle() {
               Scrambled Pieces
             </h4>
 
-            <div className="grid grid-cols-3 gap-2 bg-[#120819] border border-white/5 p-4 rounded-xl">
+            <div className="grid grid-cols-3 gap-2 bg-[#120819] border border-white/5 p-4 rounded-xl aspect-square">
 
               {trayPieces.map((id) => (
 
                 <div
                   key={id}
-                  className="aspect-square"
+                  className="aspect-square w-full h-full"
                 >
                   <PuzzlePiece
                     id={id}
-                    imageSrc={`/uploads/ctf/easy-03-qr-puzzle/piece-${id}.png`}
+                    imageSrc={`/uploads/ctf/easy-03-qr-puzzle/${PIECE_FILES[id]}`}
                     draggable={!checking}
                     onDragStart={handleDragStart}
                   />

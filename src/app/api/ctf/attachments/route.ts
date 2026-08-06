@@ -31,8 +31,11 @@ export async function GET(request: Request) {
     // Verify filename belongs to challenge attachments list or slug
     const attachments = challenge.config.attachments ?? [];
     const isAttached = attachments.includes(fileName) || fileName === `${slug}.zip` || fileName === `${slug}.pdf` || fileName === `${slug}.pcap`;
-    
-    if (!isAttached && attachments.length > 0) {
+
+    // Unconditional. Challenges seeded with `attachments: []` used to skip this
+    // check entirely, which let any authenticated participant pull every file
+    // under public/uploads/ctf by naming another challenge's slug.
+    if (!isAttached) {
       return NextResponse.json({ error: "Attachment not associated with this challenge" }, { status: 403 });
     }
 
@@ -41,34 +44,15 @@ export async function GET(request: Request) {
     const filePath = join(storageDir, fileName.replace(/\.\./g, "")); // sanitize path traversal
 
     if (!existsSync(filePath)) {
-      // Return a dynamic sample attachment placeholder if file on disk isn't present
-      const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-      let contentType = "application/octet-stream";
-      let dummyBuffer: Buffer;
-
-      if (extension === "pdf") {
-        contentType = "application/pdf";
-        dummyBuffer = Buffer.from(`%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Count 1 /Kids [3 0 R] >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >> endobj\n4 0 obj << /Length 55 >> stream\nBT /F1 12 Tf 100 700 TD (${challenge.title} CTF Attachment) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000062 00000 n\n0000000117 00000 n\n0000000225 00000 n\ntrailer << /Size 5 /Root 1 0 R >>\nstartxref\n331\n%%EOF`);
-      } else if (extension === "png" || extension === "jpg" || extension === "jpeg") {
-        contentType = extension === "png" ? "image/png" : "image/jpeg";
-        // 1x1 transparent PNG buffer
-        dummyBuffer = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
-      } else if (extension === "zip") {
-        contentType = "application/zip";
-        // PK zip header placeholder
-        dummyBuffer = Buffer.from("504b0304140000000000", "hex");
-      } else {
-        contentType = "application/octet-stream"; // e.g. pcap
-        dummyBuffer = Buffer.from(`CTF-ATTACHMENT-HEADER:${challenge.slug}`);
-      }
-
-      return new Response(new Uint8Array(dummyBuffer), {
-        headers: {
-          "Content-Type": contentType,
-          "Content-Disposition": `attachment; filename="${fileName}"`,
-          "Cache-Control": "private, no-cache, no-store, must-revalidate",
-        },
-      });
+      // This used to serve a fake 1x1 PNG / 10-byte ZIP with HTTP 200, which is
+      // indistinguishable from a corrupt download and — now that responses are
+      // cached for a day — would stick for the rest of the event. A real
+      // attachment missing from disk is an error, so say so, and never cache it.
+      console.error(`[api/ctf/attachments] missing file on disk: ${filePath} (slug=${slug})`);
+      return NextResponse.json(
+        { error: "Attachment is not available" },
+        { status: 404, headers: { "Cache-Control": "no-store" } }
+      );
     }
 
     const fileData = readFileSync(filePath);
@@ -84,7 +68,7 @@ export async function GET(request: Request) {
       headers: {
         "Content-Type": mimeType,
         "Content-Disposition": `attachment; filename="${fileName}"`,
-        "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        "Cache-Control": "private, max-age=86400, stale-while-revalidate=3600",
       },
     });
   } catch (err) {

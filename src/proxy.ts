@@ -70,6 +70,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (pathname.toLowerCase() === "/cannon-protocol" || pathname.toLowerCase() === "/cannon-protocol/") {
+    return NextResponse.redirect(new URL("/canon-protocol", request.url));
+  }
+
   if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     return NextResponse.next();
   }
@@ -112,6 +116,22 @@ export async function proxy(request: NextRequest) {
 
   // Subdomain routing: rewrite the subdomain into its route group segment.
   if (event) {
+    // Admin console routes and standalone challenge apps (like /canon-protocol) live at top-level
+    // and must NOT be rewritten with event subdirectories.
+    if (
+      pathname.startsWith(SECRET_ADMIN_PATH) ||
+      pathname === "/admin" ||
+      pathname.startsWith("/admin/") ||
+      pathname === "/canon-protocol" ||
+      pathname.startsWith("/canon-protocol/")
+    ) {
+      const res = NextResponse.next();
+      res.headers.set("x-team-id", session.teamId);
+      res.headers.set("x-participant-id", session.sub);
+      res.headers.set("x-event", event);
+      return res;
+    }
+
     const url = request.nextUrl.clone();
     const cleanPathname = pathname.startsWith(`/${event}`) ? pathname.slice(event.length + 1) || "/" : pathname;
     url.pathname = `/${event}${cleanPathname === "/" ? "" : cleanPathname}`;
