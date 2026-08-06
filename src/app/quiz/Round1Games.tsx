@@ -5,6 +5,7 @@ import Celebration from "./Celebration";
 import FrozenScreen from "./FrozenScreen";
 import MemoryGrid from "./MemoryGrid";
 import ProtectedImage from "./ProtectedImage";
+import ServerDitheredImage from "./ServerDitheredImage";
 import ScreenshotGuard from "./ScreenshotGuard";
 import DitheredImage from "./DitheredImage";
 import FlickerNotice from "./FlickerNotice";
@@ -553,20 +554,32 @@ function ImageReplication({
   // Server-issued, logged against this team — burnt into the watermark so a
   // leaked screenshot identifies who was holding it.
   const [refSessionId, setRefSessionId] = useState<string | null>(null);
+  /**
+   * Pre-dithered frames from the server, when the dither is on.
+   *
+   * The endpoint returns EITHER these or a plain `dataUrl`, never both — with
+   * the dither on the clean image is never serialised at all, which is the
+   * point: noising a picture in the browser left a pristine copy sitting in the
+   * Network tab, so the protection only ever stopped screenshots of the screen.
+   */
+  const [refFrames, setRefFrames] = useState<{ frames: string[]; width: number; height: number } | null>(null);
 
   useEffect(() => {
-    if (game.referenceImage && !refDataUrl) {
+    if (game.referenceImage && !refDataUrl && !refFrames) {
       fetch("/api/quiz/round1/reference", { cache: "no-store" })
         .then((r) => r.json())
         .then((json) => {
-          if (json.dataUrl) {
+          if (Array.isArray(json.frames) && json.frames.length > 0) {
+            setRefFrames({ frames: json.frames, width: json.width, height: json.height });
+            setRefSessionId(json.sessionId ?? null);
+          } else if (json.dataUrl) {
             setRefDataUrl(json.dataUrl);
             setRefSessionId(json.sessionId ?? null);
           }
         })
         .catch(console.error);
     }
-  }, [game.referenceImage, refDataUrl]);
+  }, [game.referenceImage, refDataUrl, refFrames]);
 
   // Poll from the moment an image is banked. Before the deadline this just
   // reports "saved"; crossing the deadline is what makes the server run the
@@ -688,7 +701,19 @@ function ImageReplication({
                   Hides in {isInitialVisible ? initialSecondsLeft : midGameSecondsLeft}s
                 </span>
               </div>
-              {refDataUrl ? (
+              {refFrames ? (
+                // Dither on: the server sent frames and nothing else. The
+                // watermark is already baked into them, so ProtectedImage's
+                // client-side drawing would be redundant here — and its input,
+                // a clean image, is exactly what no longer exists.
+                <ServerDitheredImage
+                  frames={refFrames.frames}
+                  width={refFrames.width}
+                  height={refFrames.height}
+                  alt="The reference image to recreate"
+                  className="border-2 border-paper-white/20 bg-ink-black/80"
+                />
+              ) : refDataUrl ? (
                 <ProtectedImage
                   src={refDataUrl}
                   sessionId={refSessionId}
@@ -696,10 +721,6 @@ function ImageReplication({
                   teamName={teamName}
                   className="border-2 border-paper-white/20 bg-ink-black/80"
                   protectFocusLoss
-                  // The one surface in the app that dithers. Teams are scored
-                  // on recreating this image, so it is the only one they have a
-                  // real incentive to capture and work from offline.
-                  dither
                 />
               ) : (
                 <div className="flex h-64 items-center justify-center border-2 border-paper-white/20 bg-ink-black/80">

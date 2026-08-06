@@ -31,7 +31,9 @@ export default function DitherPreview() {
   const [rangeFloor, setRangeFloor] = useState(DEFAULT_RANGE_FLOOR);
   const [frameCount, setFrameCount] = useState<2 | 3>(DEFAULT_FRAME_COUNT as 2 | 3);
   const [blockSize, setBlockSize] = useState(DEFAULT_DECOY_BLOCK);
-  const [src, setSrc] = useState("/quiz/card-1.jpeg");
+  // Defaults to the actual Round 1 Game 1 reference, because that is the image
+  // the dither has to stay legible over. Dev-only route; 404s in production.
+  const [src, setSrc] = useState("/api/dev/reference");
 
   if (process.env.NODE_ENV !== "development") {
     return <p className="p-8 font-comic text-paper-white">Not found.</p>;
