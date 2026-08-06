@@ -21,11 +21,14 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - run: npm ci
+      - name: Clean npm cache
+        run: npm cache clean --force
+
+      - run: npm ci --verbose
 
       - name: Install system dependencies (libvips for sharp)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq libvips-dev
