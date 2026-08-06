@@ -16,9 +16,13 @@ interface PuzzleState {
 /**
  * The only thing in the hunt that submits an answer.
  *
- * Puzzles call onSolve(code) and know nothing about the network, their own
- * answerHash, or how points work. That is deliberate: the anti-cheat decision
- * is implemented once here rather than four times with three different bugs.
+ * Puzzles call onAnswer(text) with whatever the player has proposed and know
+ * nothing about the network, their own answerHash, or how points work — and,
+ * crucially, nothing about whether the proposal is right. That is deliberate:
+ * the anti-cheat decision is implemented once, on the server, rather than four
+ * times in four client bundles with three different bugs. /api/submit hashes
+ * the payload and compares it to challenge.config.answerHash; that comparison
+ * is the only thing in the system that recognises a correct answer.
  *
  * Spider-Punk themed shell with chromatic glitch titles, halftone panels,
  * and punk rock action buttons.
@@ -213,7 +217,7 @@ export default function HuntShell() {
 
         {/* Puzzle Component */}
         <div className="my-6">
-          <Puzzle config={current!.config} onSolve={(code) => setAnswer(code)} />
+          <Puzzle config={current!.config} onAnswer={(text) => setAnswer(text)} />
         </div>
 
         <div className="punk-divider" />
