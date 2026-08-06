@@ -532,7 +532,11 @@ export default function AdminDashboard() {
                           </td>
                           <td>
                             <span className="font-mono text-sm font-bold text-comic-yellow bg-ink-black/80 px-2.5 py-1 border border-comic-yellow/40 rounded">
-                              +{j.points} PTS
+                              {/* toFixed(1) so the column reads as one column:
+                                  the award is already rounded to 1dp, but JS
+                                  drops a trailing zero, which would print "+6
+                                  PTS" beside "+2.4 PTS". */}
+                              +{j.points.toFixed(1)} PTS
                             </span>
                           </td>
                           <td>

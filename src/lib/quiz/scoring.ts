@@ -235,8 +235,24 @@ export function similarityToMarks(similarity: number, gamePoints = 10): number {
   }
 
   const scaled = (marks / 10) * gamePoints;
-  // 4dp, matching the similarity it derives from.
-  return Math.min(gamePoints, Math.max(0, Math.round(scaled * 10_000) / 10_000));
+  /**
+   * ONE decimal place on the awarded score.
+   *
+   * It used to carry four, matching the similarity it derives from, which put
+   * "+5.9707 PTS" on the results screen. That reads as false precision: the
+   * digits past the first come from a model's integer judgements pushed through
+   * a weighted average, so the fourth decimal is arithmetic rather than
+   * measurement, and showing it invites teams to argue about a number that was
+   * never that exact.
+   *
+   * The resolution it existed for is not lost, because it never lived here.
+   * `similarity` is still stored at 4dp and is what separates two teams whose
+   * marks round to the same value — the sorts in the admin overview and in
+   * standings fall through to it. Rounding the AWARD while ranking on the finer
+   * number is the honest arrangement: teams see a score they can reason about,
+   * and ties are still broken by something real.
+   */
+  return Math.min(gamePoints, Math.max(0, Math.round(scaled * 10) / 10));
 }
 
 /** Maps the vision judge's 0..1 similarity onto the game's marks. */
