@@ -44,4 +44,29 @@ describe("safeRedirectTarget", () => {
   it("falls back on an unparseable rt", () => {
     expect(safeRedirectTarget("http://[::1", ORIGIN, FALLBACK)).toBe(FALLBACK);
   });
+
+  // The redirect loop the hand-written checks used to prevent. Without the
+  // /enter refusal this target re-enters the same branch on arrival and
+  // assigns location.href again, forever.
+  it("refuses /enter, which would send the login page back to itself", () => {
+    expect(safeRedirectTarget("/enter", ORIGIN, FALLBACK)).toBe(FALLBACK);
+  });
+
+  it("refuses a self-perpetuating /enter target carrying its own rt", () => {
+    expect(safeRedirectTarget("/enter?rt=/enter", ORIGIN, FALLBACK)).toBe(FALLBACK);
+  });
+
+  it("refuses a percent-encoded /enter", () => {
+    expect(safeRedirectTarget("/%65nter", ORIGIN, FALLBACK)).toBe(FALLBACK);
+  });
+
+  it("still allows a path that merely starts with the same letters", () => {
+    expect(safeRedirectTarget("/entertainment", ORIGIN, FALLBACK)).toBe("/entertainment");
+  });
+
+  // The admin guard stays a bare prefix on purpose - narrowing it to segment
+  // matching to mirror /enter would start admitting /admin-console.
+  it("refuses /admin-console, not just the /admin segment", () => {
+    expect(safeRedirectTarget("/admin-console", ORIGIN, FALLBACK)).toBe(FALLBACK);
+  });
 });
