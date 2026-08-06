@@ -5,17 +5,34 @@
 # people arrive at once). `output: "standalone"` in next.config.ts is what
 # makes the final stage tiny: it copies only the modules actually imported
 # instead of the whole node_modules tree.
+#
+# NOTE: We use node:20-bullseye-slim (glibc/Debian) instead of node:20-alpine
+# (musl) because most native Node modules (lightningcss, @tailwindcss/oxide,
+# sharp) ship prebuilt binaries only for linux-x64-gnu (glibc). Alpine's musl
+# libc causes "Cannot find module lightningcss.linux-x64-musl.node" errors at
+# build time. Switching to a glibc image is the simplest and most reliable fix.
 
 # ---- deps: install once, cached on package-lock.json ----
-FROM node:20-alpine AS deps
+FROM node:20-bullseye-slim AS deps
+# Install system deps required by native modules (sharp/libvips, build tools)
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends build-essential ca-certificates libvips-dev python3 \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json ./
 # `npm ci` (not install) so the lockfile is authoritative and builds are
 # reproducible across CI and local.
 RUN npm ci
+# Rebuild native bindings so linux-x64-gnu binaries are present inside the image.
+# Runner-side CI rebuilds do NOT propagate into Docker — this step must live here.
+RUN npm rebuild @tailwindcss/oxide --update-binary || true
+RUN npm rebuild sharp --update-binary || true
 
 # ---- build ----
-FROM node:20-alpine AS builder
+FROM node:20-bullseye-slim AS builder
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends libvips-dev \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -50,7 +67,7 @@ ENV NEXT_PUBLIC_QUIZ_DITHER=$NEXT_PUBLIC_QUIZ_DITHER
 RUN npm run build
 
 # ---- runner ----
-FROM node:20-alpine AS runner
+FROM node:20-bullseye-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -60,7 +77,7 @@ ENV HOSTNAME=0.0.0.0
 
 # Run as a non-root user. If anything in the app is ever compromised, the
 # blast radius shouldn't include root in the container.
-RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs nextjs
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
