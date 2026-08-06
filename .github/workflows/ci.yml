@@ -30,17 +30,19 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq libvips-dev build-essential python3
 
       - name: Clean install dependencies
-        # npm ci has a known bug (#4828) where it skips platform-specific optional
-        # packages (e.g. @tailwindcss/oxide-linux-x64-gnu). A clean npm install
-        # resolves optional deps correctly for the current platform.
+        # All platform-specific native binaries are listed in optionalDependencies
+        # in package.json. A fresh npm install ensures they resolve for linux-x64.
         run: |
           rm -rf node_modules
           npm install
-          npm rebuild lightningcss --update-binary || true
-          npm rebuild @tailwindcss/oxide --update-binary
-          npm rebuild sharp --update-binary
-          npm install --no-save @rollup/rollup-linux-x64-gnu || true
-          npm rebuild @rollup/rollup-linux-x64-gnu --update-binary || true
+          # Fallback: explicitly install the oxide binary if npm skipped it
+          npm install --no-save @tailwindcss/oxide-linux-x64-gnu@4.3.3 || true
+
+      - name: Verify native bindings
+        # Fail fast with a clear message if critical native binaries are missing
+        run: |
+          node -e "require('@tailwindcss/oxide'); console.log('✅ tailwind oxide OK')"
+          node -e "require('sharp'); console.log('✅ sharp OK')"
 
       - name: Check for UTF-8 BOMs
         # A BOM in globals.css breaks the Tailwind build with an error that
