@@ -27,15 +27,17 @@ jobs:
 
       - run: npm ci
 
+      - name: Install system dependencies (libvips for sharp)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libvips-dev
+
       - name: Rebuild native bindings (tailwind oxide + sharp)
         run: |
           # tailwind oxide
           npm rebuild @tailwindcss/oxide --update-binary || true
           npm i @tailwindcss/oxide-linux-x64-gnu --no-save || true
 
-          # sharp – required by Next.js image optimisation at build time
+          # sharp – rebuild to get the correct linux-x64 binary
           npm rebuild sharp --update-binary || true
-          npm i sharp-linux-x64-gnu --no-save || true
 
       - name: Check for UTF-8 BOMs
         # A BOM in globals.css breaks the Tailwind build with an error that
