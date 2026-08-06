@@ -1,65 +1,83 @@
-import Image from "next/image";
+import Link from "next/link";
+import WebShooter, { WebNet } from "@/app/quiz/WebShooter";
 
+/**
+ * Serves app.<domain> / www.<domain> / localhost.
+ * Platform front door themed with Spider-Verse Symposium styling.
+ *
+ * THIS IS THE FRONT DOOR FOR THE WHOLE PLATFORM, NOT FOR ONE EVENT. It briefly
+ * became `redirect("/universe")`, which removed the only link to /enter — the
+ * entry point every event logs in through — and hid the tech quiz, a separate
+ * live event on the same deployment, behind a URL nobody had been given.
+ *
+ * A new event gets a link from here. It does not get to be the redirect target.
+ */
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden px-5 bg-transparent font-body-md text-on-surface">
+      <WebShooter colour="#a41616" webColour="#41617e" gloveColour="#1b1b1c" shape="classic" />
+
+      {/* Background radial glow */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: "radial-gradient(ellipse at 50% 0%, rgba(164,22,22,0.15) 0%, transparent 60%)",
+        }}
+      />
+
+      <div className="relative z-10 w-full max-w-lg bg-surface comic-border p-8 md:p-12 text-center comic-tilt-left">
+        <WebNet colour="#41617e" originX={94} originY={4} animate={false} />
+        <WebNet colour="#a41616" originX={4} originY={98} animate={false} />
+
+        <div className="relative z-10">
+          <p className="font-label-sm text-primary uppercase tracking-[0.25em] mb-2">XPLORE&apos;26 · LICET</p>
+          
+          <h1
+            className="font-display-xl text-4xl sm:text-6xl uppercase italic text-on-background tracking-tighter drop-shadow-[4px_4px_0px_rgba(164,22,22,1)] leading-none mb-3"
+            style={{ WebkitTextStroke: "2px #1b1b1c" }}
+          >
+            Spider Multiverse
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          
+          <div className="bg-primary text-on-primary font-headline-lg text-headline-lg-mobile px-4 py-1 comic-border inline-block -rotate-2 mb-4">
+            TECH QUIZ
+          </div>
+
+          <p className="font-body-md text-on-surface-variant text-sm sm:text-base leading-relaxed max-w-sm mx-auto mb-8">
+            Three rounds. One multiverse. Enter with the number stamped on your coin or your access code.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+          <Link
+            href="/enter"
+            data-web-target=""
+            className="relative bg-primary px-8 py-4 comic-border comic-tilt-right inline-flex transition-all duration-100 hover:translate-x-1 hover:translate-y-1 hover:shadow-none shadow-[6px_6px_0px_0px_rgba(27,27,28,1)] active:scale-95"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <span className="font-display-xl text-headline-lg-mobile text-on-primary uppercase tracking-widest">
+              Enter the Multiverse
+            </span>
+          </Link>
+
+          {/* Second event on the same platform. A link, not a redirect —
+              /universe is gated, so a logged-out click lands on /enter with
+              ?rt= pointing back here. */}
+          <div className="mt-8 pt-6 border-t-2 border-on-surface/15">
+            <p className="font-label-sm text-on-surface-variant uppercase tracking-[0.2em] text-xs mb-3">
+              Also running
+            </p>
+            <Link
+              href="/universe"
+              data-web-target=""
+              className="font-headline-lg text-on-background uppercase tracking-wider underline decoration-primary decoration-2 underline-offset-4 hover:text-primary transition-colors"
+            >
+              Find Your Universe →
+            </Link>
+            <p className="font-body-md text-on-surface-variant text-xs mt-2">
+              The treasure hunt. Bring your coin number.
+            </p>
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }

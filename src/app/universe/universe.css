@@ -1,0 +1,918 @@
+/* ══════════════════════════════════════════════════════════════════════════
+ * FIND YOUR UNIVERSE — Dedicated styles
+ * Keeps all universe-specific CSS isolated from the base project.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Screen Transition ─────────────────────────────────────────────────── */
+.universe-fade-in {
+  animation: universe-fade 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes universe-fade {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── Scanline Overlay ──────────────────────────────────────────────────── */
+.universe-scanlines {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.06) 2px,
+    rgba(0, 0, 0, 0.06) 4px
+  );
+  animation: scanline-scroll 8s linear infinite;
+}
+
+@keyframes scanline-scroll {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 100px;
+  }
+}
+
+/* ── Shake (Wrong Answer) ──────────────────────────────────────────────── */
+.universe-shake {
+  animation: universe-shake-kf 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes universe-shake-kf {
+  10%, 90%  { transform: translateX(-1px); }
+  20%, 80%  { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60%  { transform: translateX(4px); }
+  100%      { transform: translateX(0); }
+}
+
+/* ── Floating Particles ────────────────────────────────────────────────── */
+.universe-particles {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.universe-particle {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0;
+  animation: universe-float linear infinite;
+}
+
+@keyframes universe-float {
+  0% {
+    opacity: 0;
+    transform: translateY(100vh) scale(0);
+  }
+  10% {
+    opacity: 0.6;
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10vh) scale(1);
+  }
+}
+
+/* ── High Contrast Input ─────────────────────────────────────────────────── */
+.universe-input {
+  width: 100%;
+  padding: 0.85rem 1.25rem;
+  font-family: var(--font-geist-mono), 'Geist Mono', monospace;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-align: center;
+  color: #FFFFFF;
+  background: #161622;
+  border: 2px solid var(--glitch-cyan);
+  border-radius: 4px;
+  outline: none;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.7), 0 0 15px rgba(0, 245, 212, 0.2);
+  transition: all 0.2s ease;
+}
+
+.universe-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 1rem;
+  font-weight: normal;
+}
+
+.universe-input:focus {
+  border-color: #00F5D4;
+  background: #1d1d2b;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.7), 0 0 25px rgba(0, 245, 212, 0.45);
+}
+
+/* ── Formula Badge ─────────────────────────────────────────────────────── */
+.universe-formula {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  padding: 0.4rem 0.8rem;
+  font-family: var(--font-geist-mono), 'Geist Mono', monospace;
+  font-size: 0.75rem;
+  color: rgba(242, 239, 233, 0.35);
+  background: rgba(17, 17, 17, 0.6);
+  border: 1px solid rgba(242, 239, 233, 0.08);
+  backdrop-filter: blur(8px);
+  z-index: 10;
+  letter-spacing: 0.05em;
+}
+
+/* ── Code Block (formula display) ──────────────────────────────────────── */
+.universe-code-block {
+  padding: 1rem 1.5rem;
+  font-family: var(--font-geist-mono), 'Geist Mono', monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--glitch-cyan);
+  background: rgba(0, 245, 212, 0.04);
+  border: 1px solid rgba(0, 245, 212, 0.12);
+  text-align: left;
+}
+
+/* ── Universe Card (themed panel) ──────────────────────────────────────── */
+.universe-card {
+  background: rgba(13, 13, 18, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 2px solid rgba(0, 245, 212, 0.6);
+  border-radius: 8px;
+  position: relative;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.95),
+    0 0 35px rgba(0, 245, 212, 0.2);
+}
+
+.universe-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 1px solid transparent;
+  border-image: var(--universe-border-gradient, linear-gradient(135deg, var(--glitch-cyan) 0%, transparent 30%, transparent 70%, var(--punk-magenta) 100%)) 1;
+  pointer-events: none;
+}
+
+/* ── Glowing Orb (universe landing) ────────────────────────────────────── */
+.universe-orb {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.3;
+  animation: universe-orb-pulse 4s ease-in-out infinite alternate;
+}
+
+@keyframes universe-orb-pulse {
+  from {
+    opacity: 0.2;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 0.4;
+    transform: scale(1.05);
+  }
+}
+
+/* ── Step Badge ────────────────────────────────────────────────────────── */
+.universe-step-badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  font-family: var(--font-bangers), 'Bangers', Impact, sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: var(--punk-magenta);
+  color: var(--paper-white);
+  transform: rotate(-2deg);
+  border: 1px solid var(--paper-white);
+}
+
+/* ── Error Message ─────────────────────────────────────────────────────── */
+.universe-error {
+  color: var(--signal-wrong);
+  font-family: var(--font-geist-mono), 'Geist Mono', monospace;
+  font-size: 0.85rem;
+  padding: 0.5rem;
+  border: 1px solid rgba(247, 37, 133, 0.3);
+  background: rgba(247, 37, 133, 0.06);
+  animation: universe-error-flash 0.3s ease;
+}
+
+@keyframes universe-error-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ── Warp Tunnel Transition ────────────────────────────────────────────── */
+.universe-warp-in {
+  animation: universe-warp 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes universe-warp {
+  0% {
+    opacity: 0;
+    transform: scale(0.5) rotate(-5deg);
+    filter: blur(10px);
+  }
+  60% {
+    transform: scale(1.02) rotate(0deg);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    filter: blur(0);
+  }
+}
+
+/* ── Grid Line Accent (universe landing) ───────────────────────────────── */
+.universe-grid-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.03;
+  background-image:
+    linear-gradient(var(--universe-primary, var(--glitch-cyan)) 1px, transparent 1px),
+    linear-gradient(90deg, var(--universe-primary, var(--glitch-cyan)) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* ── 64-Grid Puzzle ────────────────────────────────────────────────────── */
+.universe-grid-container {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.universe-tile {
+  border: 2px solid rgba(10, 10, 10, 0.3);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: default;
+  user-select: none;
+}
+
+.universe-tile-highlighted {
+  transform: scale(1.03);
+  z-index: 2;
+  border-width: 2px;
+  animation: universe-tile-glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes universe-tile-glow {
+  from {
+    filter: brightness(1);
+  }
+  to {
+    filter: brightness(1.15);
+  }
+}
+
+.universe-tile-dimmed {
+  filter: grayscale(0.4);
+}
+
+.universe-letter-chip {
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.universe-letter-chip:hover {
+  transform: scale(1.12) rotate(-3deg);
+}
+
+/* ── Success Glow ──────────────────────────────────────────────────────── */
+.universe-success-block {
+  animation: universe-success-appear 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes universe-success-appear {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.universe-success-glow {
+  animation: universe-success-pulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes universe-success-pulse {
+  from {
+    filter: brightness(1);
+    transform: scale(1);
+  }
+  to {
+    filter: brightness(1.1);
+    transform: scale(1.02);
+  }
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .universe-orb {
+    width: 180px;
+    height: 180px;
+    filter: blur(50px);
+  }
+
+  .universe-formula {
+    bottom: 0.75rem;
+    left: 0.75rem;
+    font-size: 0.65rem;
+  }
+
+  .universe-grid-container {
+    max-width: 100%;
+  }
+
+  .universe-tile {
+    border-width: 1px;
+  }
+
+  .universe-letter-chip {
+    height: 2.25rem;
+    width: 2.25rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * DR. STRANGE PORTAL OVERLAY
+ * Canvas-based particle portal — minimal CSS, all rendering is in JS
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+.strange-portal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease-in;
+  background: transparent;
+}
+
+.strange-portal-overlay.sp-visible {
+  opacity: 1;
+}
+
+.strange-portal-overlay.sp-fade-out {
+  opacity: 0;
+  transition: opacity 0.5s ease-out;
+}
+
+.sp-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+@media (max-width: 640px) {
+  .web-shooter-image {
+    width: 100px;
+  }
+}
+
+
+/* ── Step 2 → 3 warp-out animation (applied to card on transition) ───── */
+.universe-warp-out {
+  animation: universe-warp-out-kf 0.6s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+
+@keyframes universe-warp-out-kf {
+  0% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    filter: blur(0px);
+  }
+  40% {
+    opacity: 0.8;
+    transform: scale(0.92) rotate(-1deg);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.3) rotate(-5deg);
+    filter: blur(20px);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * PORTAL EMERGE — Step 3 page reveals through a circular opening
+ *
+ * The clip-path circle expands from centre while the page scales up,
+ * creating the illusion of content emerging from the Dr Strange portal.
+ * A brightness flash at the start simulates stepping through light.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+.portal-emerge {
+  animation: portal-emerge-kf 2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes portal-emerge-kf {
+  0% {
+    clip-path: circle(0% at 50% 40%);
+    transform: scale(0.3);
+    opacity: 0;
+    filter: brightness(3) saturate(0.3);
+  }
+  15% {
+    opacity: 1;
+    filter: brightness(1.8) saturate(0.6);
+  }
+  40% {
+    clip-path: circle(40% at 50% 45%);
+    filter: brightness(1.1) saturate(1);
+  }
+  70% {
+    clip-path: circle(70% at 50% 48%);
+    transform: scale(1.01);
+  }
+  100% {
+    clip-path: circle(150% at 50% 50%);
+    transform: scale(1);
+    filter: brightness(1) saturate(1);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * SPIDER WEB CORNER DECORATIONS
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+.spider-web-corner {
+  pointer-events: none;
+  color: rgba(242, 239, 233, 0.08);
+  animation: web-corner-shimmer 4s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 4px rgba(242, 239, 233, 0.05));
+  transition: opacity 0.3s;
+}
+
+@keyframes web-corner-shimmer {
+  0% {
+    color: rgba(242, 239, 233, 0.06);
+    filter: drop-shadow(0 0 2px rgba(242, 239, 233, 0.02));
+  }
+  50% {
+    color: rgba(242, 239, 233, 0.12);
+    filter: drop-shadow(0 0 6px rgba(242, 239, 233, 0.08));
+  }
+  100% {
+    color: rgba(242, 239, 233, 0.08);
+    filter: drop-shadow(0 0 3px rgba(242, 239, 233, 0.04));
+  }
+}
+
+@media (max-width: 640px) {
+  .spider-web-corner {
+    width: 100px;
+    height: 100px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * CENTER SPIDER WEB (BEHIND INPUT CARD)
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+.center-spider-web {
+  pointer-events: none;
+  animation: center-web-pulse 6s ease-in-out infinite alternate;
+}
+
+@keyframes center-web-pulse {
+  0% {
+    transform: scale(0.98) rotate(0deg);
+    opacity: 0.55;
+    filter: drop-shadow(0 0 8px rgba(0, 245, 212, 0.2));
+  }
+  50% {
+    transform: scale(1.03) rotate(2deg);
+    opacity: 0.85;
+    filter: drop-shadow(0 0 18px rgba(247, 37, 133, 0.35));
+  }
+  100% {
+    transform: scale(1) rotate(-1deg);
+    opacity: 0.65;
+    filter: drop-shadow(0 0 12px rgba(0, 245, 212, 0.25));
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * WEB SHOOTER DEVICE
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+.web-shooter-device {
+  position: fixed;
+  bottom: 0px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 51;
+  pointer-events: none;
+  animation: web-shooter-appear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+}
+
+@keyframes web-shooter-appear {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(30px) scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+.web-shooter-image {
+  width: 150px;
+  height: auto;
+  filter: drop-shadow(0 0 12px rgba(0, 245, 212, 0.2)) drop-shadow(0 4px 16px rgba(0, 0, 0, 0.5));
+  transition: filter 0.3s ease, transform 0.3s ease;
+}
+
+.web-shooter-image-fired {
+  filter: drop-shadow(0 0 20px rgba(0, 245, 212, 0.6)) drop-shadow(0 0 40px rgba(0, 245, 212, 0.3)) drop-shadow(0 4px 16px rgba(0, 0, 0, 0.5));
+  animation: shooter-recoil 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes shooter-recoil {
+  0% { transform: scale(1) translateY(0); }
+  30% { transform: scale(0.92) translateY(4px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * WEB STRAND ANIMATION
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+.web-strand-path {
+  transition: stroke-dashoffset 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.web-strand-connected {
+  animation: web-strand-sway 3s ease-in-out infinite alternate;
+}
+
+@keyframes web-strand-sway {
+  0% {
+    filter: drop-shadow(0 0 2px rgba(242, 239, 233, 0.2));
+  }
+  50% {
+    filter: drop-shadow(0 0 4px rgba(242, 239, 233, 0.3));
+  }
+  100% {
+    filter: drop-shadow(0 0 2px rgba(242, 239, 233, 0.15));
+  }
+}
+
+/* Impact splat at button */
+.web-impact-splat {
+  animation: splat-appear 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes splat-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Button glow when web connects */
+.web-connected-glow {
+  animation: web-button-glow 0.6s ease-out, web-button-pulse 2s ease-in-out 0.6s infinite alternate;
+}
+
+@keyframes web-button-glow {
+  0% {
+    box-shadow: 0 0 0 rgba(242, 239, 233, 0);
+  }
+  50% {
+    box-shadow:
+      0 0 20px rgba(242, 239, 233, 0.4),
+      0 0 40px rgba(0, 245, 212, 0.2);
+  }
+  100% {
+    box-shadow:
+      0 0 10px rgba(242, 239, 233, 0.15),
+      0 0 20px rgba(0, 245, 212, 0.08);
+  }
+}
+
+@keyframes web-button-pulse {
+  from {
+    box-shadow:
+      0 0 8px rgba(242, 239, 233, 0.1),
+      0 0 16px rgba(0, 245, 212, 0.06);
+  }
+  to {
+    box-shadow:
+      0 0 14px rgba(242, 239, 233, 0.2),
+      0 0 28px rgba(0, 245, 212, 0.1);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * RGB COLOUR REVEAL — 2-Stage Reveal UI
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Stage enter animation ─────────────────────────────────────────────── */
+.reveal-stage-enter {
+  animation: reveal-stage-appear 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes reveal-stage-appear {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* ── Equation Block (Stage A) ──────────────────────────────────────────── */
+.reveal-equation-block {
+  padding: 1.25rem 1.5rem;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 245, 212, 0.15);
+  border-radius: 6px;
+  backdrop-filter: blur(8px);
+  position: relative;
+  overflow: hidden;
+}
+
+.reveal-equation-block::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 200%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 245, 212, 0.6), transparent);
+  animation: reveal-scanline 3s linear infinite;
+}
+
+@keyframes reveal-scanline {
+  from { transform: translateX(0); }
+  to { transform: translateX(50%); }
+}
+
+.reveal-equation-label {
+  font-family: var(--font-geist-mono), 'Geist Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+  opacity: 0.7;
+}
+
+.reveal-equation-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  font-family: var(--font-geist-mono), 'Geist Mono', monospace;
+  font-size: 0.95rem;
+  line-height: 1.8;
+}
+
+.reveal-channel-name {
+  font-weight: 700;
+  font-size: 1rem;
+  min-width: 1.2rem;
+}
+
+.reveal-equation-text {
+  color: rgba(242, 239, 233, 0.85);
+  letter-spacing: 0.03em;
+}
+
+/* ── Worked Math Block (Stage B) ───────────────────────────────────────── */
+.reveal-worked-block {
+  padding: 1rem 1.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 245, 212, 0.1);
+  border-radius: 6px;
+}
+
+.reveal-worked-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  font-family: var(--font-geist-mono), 'Geist Mono', monospace;
+  font-size: 0.85rem;
+  line-height: 1.8;
+}
+
+.reveal-worked-text {
+  color: rgba(242, 239, 233, 0.7);
+  letter-spacing: 0.02em;
+}
+
+/* ── Colour Swatch (Stage B) ───────────────────────────────────────────── */
+.reveal-swatch-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem 0;
+}
+
+.reveal-color-swatch {
+  width: 140px;
+  height: 140px;
+  border-radius: 16px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  animation: reveal-swatch-pulse 2.5s ease-in-out infinite alternate,
+             reveal-swatch-appear 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes reveal-swatch-appear {
+  from {
+    opacity: 0;
+    transform: scale(0) rotate(-10deg);
+    filter: blur(20px);
+  }
+  40% {
+    opacity: 1;
+    filter: blur(0);
+  }
+  to {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes reveal-swatch-pulse {
+  from {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  to {
+    transform: scale(1.04);
+    filter: brightness(1.12);
+  }
+}
+
+.reveal-hex-code {
+  animation: reveal-hex-appear 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}
+
+@keyframes reveal-hex-appear {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.reveal-rgb-values {
+  animation: reveal-hex-appear 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.5s both;
+}
+
+/* ── Identity Badge ────────────────────────────────────────────────────── */
+.reveal-identity-badge {
+  padding: 0.6rem 1rem;
+  font-family: var(--font-geist-mono), 'Geist Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-align: center;
+  border-radius: 4px;
+}
+
+/* ── RGB Input Fields ──────────────────────────────────────────────────── */
+.reveal-rgb-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.reveal-rgb-input-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.reveal-rgb-label {
+  font-family: var(--font-bangers), 'Bangers', Impact, sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+.reveal-rgb-field {
+  width: 100%;
+  padding: 0.7rem 0.5rem;
+  font-family: var(--font-geist-mono), 'Geist Mono', monospace;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-align: center;
+  color: #FFFFFF;
+  background: #161622;
+  border: 2px solid rgba(0, 245, 212, 0.3);
+  border-radius: 4px;
+  outline: none;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6);
+  transition: all 0.2s ease;
+  -moz-appearance: textfield;
+}
+
+.reveal-rgb-field::-webkit-inner-spin-button,
+.reveal-rgb-field::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.reveal-rgb-field::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 0.85rem;
+  font-weight: normal;
+}
+
+.reveal-rgb-field:focus {
+  background: #1d1d2b;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 245, 212, 0.15);
+}
+
+/* ── Live Colour Preview ───────────────────────────────────────────────── */
+.reveal-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  animation: reveal-stage-appear 0.3s ease both;
+}
+
+.reveal-preview-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  transition: background-color 0.2s ease;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.4);
+}
+
+.reveal-preview-hex {
+  letter-spacing: 0.08em;
+}
+
+/* ── Mobile adjustments ────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .reveal-color-swatch {
+    width: 110px;
+    height: 110px;
+  }
+
+  .reveal-equation-line,
+  .reveal-worked-line {
+    font-size: 0.78rem;
+  }
+
+  .reveal-rgb-inputs {
+    gap: 0.5rem;
+  }
+
+  .reveal-rgb-field {
+    font-size: 1rem;
+    padding: 0.6rem 0.3rem;
+  }
+
+  .reveal-rgb-label {
+    font-size: 0.95rem;
+  }
+}

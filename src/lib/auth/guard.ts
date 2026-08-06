@@ -1,5 +1,8 @@
 import { cookies } from "next/headers";
+import { ObjectId } from "mongodb";
 import { SESSION_COOKIE } from "@/lib/config";
+import { collections } from "@/lib/db/client";
+import { getCached } from "@/lib/cache";
 import { verifySession, type SessionClaims } from "./session";
 
 /**
@@ -12,7 +15,24 @@ import { verifySession, type SessionClaims } from "./session";
  */
 export async function getSession(): Promise<SessionClaims | null> {
   const store = await cookies();
-  return verifySession(store.get(SESSION_COOKIE)?.value);
+  const token = store.get(SESSION_COOKIE)?.value || store.get("xplore_session")?.value;
+  const session = await verifySession(token);
+  if (!session) return null;
+
+  if (session.role === "admin") return session;
+
+  try {
+    const hasTeam = await getCached(`team-exists:${session.teamId}`, 30000, async () => {
+      const teams = await collections.teams();
+      const team = await teams.findOne({ _id: new ObjectId(session.teamId) });
+      return team !== null;
+    });
+    if (!hasTeam) return null;
+  } catch {
+    return session;
+  }
+
+  return session;
 }
 
 export class UnauthorizedError extends Error {
@@ -26,5 +46,24 @@ export class UnauthorizedError extends Error {
 export async function requireSession(): Promise<SessionClaims> {
   const session = await getSession();
   if (!session) throw new UnauthorizedError();
+  return session;
+}
+
+export class ForbiddenError extends Error {
+  constructor() {
+    super("Admin only");
+    this.name = "ForbiddenError";
+  }
+}
+
+/**
+ * For the operations that decide the event: cutting to the next round,
+ * settling the comparative Round 1 games, and reading the admin dashboard's
+ * data. The role is a signed claim in the session, so this is still a
+ * zero-DB-read check.
+ */
+export async function requireAdmin(): Promise<SessionClaims> {
+  const session = await requireSession();
+  if (session.role !== "admin") throw new ForbiddenError();
   return session;
 }

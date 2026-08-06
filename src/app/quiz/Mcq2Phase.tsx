@@ -1,0 +1,573 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { QuizRound } from "@/lib/db/types";
+import Celebration from "./Celebration";
+
+import SpiderTimer from "./SpiderTimer";
+
+interface Question {
+  slug: string;
+  title: string;
+  round: QuizRound;
+  points: number;
+  options: string[];
+  readUntil: string;
+  answerableUntil: string;
+  eliminated: number[];
+  hint: string | null;
+  index: number;
+  total: number;
+  image?: string | null;
+}
+
+interface Verdict {
+  correct: boolean;
+  points: number;
+  meta?: Record<string, unknown>;
+}
+
+type AbilityId = "fifty-fifty" | "double-points" | "safety-net" | "free-pass";
+
+interface PowerView {
+  id: AbilityId;
+  label: string;
+  description: string;
+  tagline: string;
+}
+
+/** The power firing on the question currently on screen. */
+interface ActivePower extends PowerView {
+  eliminated: number[];
+  /** Web-Slinger's Pass answered it for them — there is nothing left to pick. */
+  autoAnswered: boolean;
+}
+
+/**
+ * The Comeback Meter, exactly as the server computed it. Delivered inside the
+ * question payload rather than fetched separately, so the meter on screen can
+ * never belong to a different question than the one being displayed.
+ */
+interface ComebackView {
+  rank: number | null;
+  isRankOne: boolean;
+  eligible: boolean;
+  bars: number;
+  maxBars: number;
+  stored: PowerView | null;
+  active: PowerView | null;
+  activeOnSlug: string | null;
+}
+
+function parseQuestionTitle(title: string) {
+  if (!title) return { prompt: "", code: null };
+  const lines = title.split("\n");
+
+  const isCodeLine = (line: string) => {
+    const t = line.trim();
+    return (
+      t.startsWith("#include") ||
+      t.startsWith("using namespace") ||
+      t.startsWith("def ") ||
+      t.startsWith("class ") ||
+      t.startsWith("import ") ||
+      t.startsWith("int main") ||
+      t.startsWith("int f(") ||
+      t.startsWith("int ") ||
+      t.startsWith("void ") ||
+      t.startsWith("struct ") ||
+      t.startsWith("public static") ||
+      t.startsWith("x = ") ||
+      t.startsWith("print(") ||
+      t.startsWith("cout") ||
+      t.startsWith("return ") ||
+      t.includes("nonlocal ") ||
+      (t.includes("{") && !t.toLowerCase().startsWith("what")) ||
+      (t.includes("}") && t.length < 5)
+    );
+  };
+
+  const firstCodeIdx = lines.findIndex(isCodeLine);
+  if (firstCodeIdx !== -1) {
+    const prompt = lines.slice(0, firstCodeIdx).join("\n").trim();
+    const code = lines.slice(firstCodeIdx).join("\n").trim();
+    return { prompt: prompt || title, code };
+  }
+
+  return { prompt: title, code: null };
+}
+
+export default function Mcq2Phase({
+  round,
+  persona,
+}: {
+  round: QuizRound;
+  persona: { colour: string; webColour: string; shout: string; miss: string };
+}) {
+  const [question, setQuestion] = useState<Question | null>(null);
+  const [done, setDone] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [choice, setChoice] = useState<number | null>(null);
+  const [verdict, setVerdict] = useState<Verdict | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [now, setNow] = useState(0);
+  const [comeback, setComeback] = useState<ComebackView | null>(null);
+  const [activePower, setActivePower] = useState<ActivePower | null>(null);
+
+  const inFlight = useRef(false);
+  const clockSkewMs = useRef(0);
+
+  /**
+   * One request for the question, the power firing on it, and the meter. They
+   * used to be two independent fetches on two cadences, which is how the
+   * screen ended up showing a meter that belonged to a different question.
+   */
+  const loadQuestion = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setChoice(null);
+    setVerdict(null);
+    try {
+      const fetchStart = Date.now();
+      const res = await fetch(`/api/quiz/serve?round=${round}`, { cache: "no-store" });
+      const body = await res.json();
+      if (!res.ok) {
+        setError(body.error ?? "Could not load the question");
+        setQuestion(null);
+        setActivePower(null);
+      } else if (body.done) {
+        setDone(true);
+        setQuestion(null);
+        setActivePower(null);
+        setComeback(body.comeback ?? null);
+      } else {
+        if (body.serverNow) {
+          clockSkewMs.current = fetchStart - new Date(body.serverNow).getTime();
+        }
+        setQuestion(body);
+        setActivePower(body.activePower ?? null);
+        setComeback(body.comeback ?? null);
+      }
+    } catch {
+      setError("Network problem — check your connection");
+    } finally {
+      setLoading(false);
+    }
+  }, [round]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      await loadQuestion();
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadQuestion]);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 200);
+    return () => clearInterval(id);
+  }, []);
+
+  const syncedNow = (now > 0 ? now : Date.now()) - clockSkewMs.current;
+  const readUntilMs = question ? new Date(question.readUntil).getTime() : 0;
+  const answerableUntilMs = question ? new Date(question.answerableUntil).getTime() : 0;
+  const phase: "read" | "select" | "closed" = !question
+    ? "closed"
+    : syncedNow < readUntilMs
+      ? "read"
+      : syncedNow < answerableUntilMs
+        ? "select"
+        : "closed";
+
+  useEffect(() => {
+    if (!question) return;
+    if (phase === "closed") {
+      const timer = setInterval(() => {
+        void loadQuestion();
+      }, 500);
+      return () => clearInterval(timer);
+    }
+  }, [phase, question, loadQuestion]);
+
+  async function submit() {
+    if (!question || inFlight.current || choice === null) return;
+    inFlight.current = true;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ event: "quiz", challengeSlug: question.slug, payload: String(choice) }),
+      });
+      const body = await res.json();
+      if (!res.ok) setError(body.error ?? "Submission failed");
+      else setVerdict(body);
+    } catch {
+      setError("Network problem — your answer may not have been recorded");
+    } finally {
+      inFlight.current = false;
+      setSubmitting(false);
+    }
+  }
+
+  // NOTE: Web-Slinger's Pass is NOT auto-submitted from here. It used to be —
+  // the browser POSTed a sentinel "-1" while a second copy of the same logic
+  // ran on the server, and both fired during the read phase where the grader
+  // correctly rejects everything, so the strongest power in the game reliably
+  // scored zero. Powers are activated and awarded server-side, once, in
+  // /api/quiz/serve; this component only renders the result.
+
+  const parsed = question ? parseQuestionTitle(question.title) : { prompt: "", code: null };
+  const isSnippet = !!parsed.code;
+  const readTotalSeconds = isSnippet ? 10 : 6;
+  const selectTotalSeconds = isSnippet ? 15 : 10;
+  const readSecondsLeft = Math.max(0, Math.ceil((readUntilMs - syncedNow) / 1000));
+  const selectSecondsLeft = Math.max(0, Math.ceil((answerableUntilMs - syncedNow) / 1000));
+  const urgent = phase === "select" && selectSecondsLeft <= 3;
+  const letters = ["A", "B", "C", "D"];
+  const tilts = ["comic-tilt-left", "", "comic-tilt-right", "-rotate-1"];
+
+  return (
+    <div>
+      {error && (
+        <div role="alert" className="pop-in mb-6 comic-border bg-primary text-on-primary p-4 font-headline-lg text-caption-bold uppercase">
+          {error}
+        </div>
+      )}
+
+      {loading && !question && (
+        <p className="font-display-xl text-headline-lg uppercase text-on-surface-variant text-center my-12">Loading Question…</p>
+      )}
+
+      {done && (
+        <div className="space-y-6">
+          <div className="bg-surface comic-border p-10 text-center relative overflow-hidden comic-tilt-left">
+            <div className="absolute inset-0 ben-day pointer-events-none opacity-20"></div>
+            {round === 3 && <Celebration />}
+            <div className="relative z-10">
+              <h2 className="font-display-xl text-[40px] uppercase italic text-on-background mt-2">
+                {round === 3 ? "Multiverse Complete" : "Round Complete"}
+              </h2>
+              <p className="font-body-md text-on-surface-variant max-w-md mx-auto mt-2">
+                {round === 3
+                  ? "That's every question across every universe. Check out your final standings!"
+                  : "Every question answered! Standings are live."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {question && (
+        <article key={question.slug} className="space-y-6">
+          {/* Status / Timer Header bar */}
+          <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
+            <div className="bg-surface comic-border-sm p-2 flex items-center gap-3 comic-tilt-left">
+              <SpiderTimer
+                secondsLeft={phase === "read" ? readSecondsLeft : selectSecondsLeft}
+                totalSeconds={phase === "read" ? readTotalSeconds : selectTotalSeconds}
+                urgent={urgent}
+                size={80}
+                format="seconds"
+                phaseLabel={phase === "read" ? "READ" : "PICK"}
+              />
+            </div>
+
+            <div className="flex-1 min-w-[160px] bg-surface-container comic-border-sm h-6 relative overflow-hidden mx-2">
+              <div
+                className="absolute inset-y-0 left-0 bg-primary transition-all duration-300"
+                style={{
+                  width: `${Math.max(
+                    0,
+                    Math.min(
+                      100,
+                      phase === "read"
+                        ? ((readUntilMs - syncedNow) / (readTotalSeconds * 1000)) * 100
+                        : ((answerableUntilMs - syncedNow) / (selectTotalSeconds * 1000)) * 100
+                    )
+                  )}%`,
+                }}
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* The active power is announced by its own panel under the
+                  question — see ActivePowerBanner. It used to ALSO be squeezed
+                  into a chip here, off a different condition, so the two could
+                  contradict each other on the same screen. */}
+              <div className="bg-tertiary-fixed comic-border-sm p-3 comic-tilt-right flex flex-col items-center">
+                <span className="font-label-sm uppercase text-[10px] block leading-none">Points</span>
+                <span className="font-display-xl text-headline-lg-mobile">{question.points}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Question Box */}
+          {(() => {
+            const parsed = parseQuestionTitle(question.title);
+            return (
+              <div className="bg-surface-container-lowest comic-border p-6 md:p-10 relative overflow-hidden">
+                <div className="absolute inset-0 ben-day pointer-events-none opacity-10"></div>
+                <p className="font-label-sm text-primary uppercase tracking-[0.2em] mb-3 relative z-10">
+                  Question {question.index} / {question.total}
+                </p>
+                
+                <h2 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface leading-tight relative z-10 whitespace-pre-line mb-3">
+                  {parsed.prompt}
+                </h2>
+
+                {parsed.code && (
+                  <div className="relative z-10 my-4 comic-border rounded-lg overflow-hidden bg-[#0a0b0e] shadow-xl">
+                    <div className="bg-[#16171d] border-b-2 border-ink-black px-4 py-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-spider-red inline-block border border-ink-black" />
+                        <span className="w-3 h-3 rounded-full bg-comic-yellow inline-block border border-ink-black" />
+                        <span className="w-3 h-3 rounded-full bg-signal-good inline-block border border-ink-black" />
+                      </div>
+                      <span className="font-mono text-[11px] font-bold text-glitch-cyan uppercase tracking-widest flex items-center gap-1.5">
+                        CODE SNIPPET
+                      </span>
+                    </div>
+                    <pre className="p-4 sm:p-6 font-mono text-sm md:text-base text-glitch-cyan leading-relaxed overflow-x-auto whitespace-pre bg-[#0a0b0e] border-t border-paper-white/10 select-none">
+                      <code>{parsed.code}</code>
+                    </pre>
+                  </div>
+                )}
+
+                {question.image && (
+                  <div className="relative z-10 my-4 flex justify-center">
+                    <img
+                      src={question.image}
+                      alt="Question Image"
+                      className="max-h-72 w-auto object-contain comic-border bg-surface p-2 shadow-md"
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ACTIVE POWER — sits between the question and the options, so it
+              can't cover either one and is read on the way down to answering. */}
+          {activePower && <ActivePowerBanner power={activePower} />}
+
+          {question.hint && (
+            <div className="bg-tertiary-fixed p-4 comic-border comic-tilt-left">
+              <span className="font-label-sm text-on-tertiary-fixed-variant uppercase text-[11px] block font-bold">Intel Hint</span>
+              <p className="font-body-md text-on-tertiary-fixed font-bold italic">{question.hint}</p>
+            </div>
+          )}
+
+          {/* Web-Slinger's Pass answers for the team — there is nothing to pick. */}
+          {activePower?.autoAnswered && !verdict && (
+            <div className="pop-in bg-tertiary-fixed text-on-tertiary-fixed comic-border p-6 comic-tilt-left text-center">
+              <div className="font-display-xl text-[32px] uppercase leading-none">Locked In For You</div>
+              <div className="font-label-sm uppercase text-sm mt-2">
+                +{question.points} points banked. Sit tight for the next question.
+              </div>
+            </div>
+          )}
+
+          {/* Options Grid */}
+          {!verdict && !activePower?.autoAnswered && (
+            <div>
+              {phase === "read" ? (
+                <div className="bg-surface comic-border p-8 text-center comic-tilt-right">
+                  <div className="font-display-xl text-headline-lg text-on-surface-variant uppercase mb-1">Options Locked</div>
+                  <p className="font-label-sm text-on-surface-variant uppercase text-xs">
+                    Reading window active — options reveal in {readSecondsLeft}s
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-panel-gap">
+                    {question.options.map((opt, i) => {
+                      const struck = question.eliminated.includes(i);
+                      const picked = choice === i;
+                      const disabled = struck || phase !== "select" || verdict !== null;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          data-web-target
+                          disabled={disabled}
+                          onClick={() => setChoice(i)}
+                          className={`quiz-answer group relative comic-border p-6 ${tilts[i % 4]} hover:rotate-0 hover:scale-105 transition-all duration-200 text-left overflow-hidden min-h-[125px] ${
+                            picked
+                              ? "bg-primary/20 border-4 border-primary shadow-[8px_8px_0px_rgba(27,27,28,1)] scale-[1.02]"
+                              : "bg-surface"
+                          } ${disabled ? "opacity-35 cursor-not-allowed" : ""}`}
+                        >
+                          {/* Full Spider Web Overlay covering 100% of the selected option card */}
+                          {picked && (
+                            <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+                              {/* Web texture mask covering full container */}
+                              <div
+                                className="absolute inset-0 opacity-45 animate-pulse"
+                                style={{
+                                  backgroundColor: persona.colour ?? "#e5223b",
+                                  WebkitMaskImage: "url(/quiz/web.svg)",
+                                  maskImage: "url(/quiz/web.svg)",
+                                  WebkitMaskSize: "cover",
+                                  maskSize: "cover",
+                                  WebkitMaskRepeat: "no-repeat",
+                                  maskRepeat: "no-repeat",
+                                  WebkitMaskPosition: "center",
+                                  maskPosition: "center",
+                                }}
+                              />
+                              {/* Radial web strands reaching all 4 corners and edges */}
+                              <svg className="w-full h-full absolute inset-0 opacity-60" viewBox="0 0 400 150" preserveAspectRatio="none" fill="none" stroke={persona.colour ?? "#e5223b"}>
+                                <path d="M 0,0 L 400,150 M 400,0 L 0,150 M 200,0 L 200,150 M 0,75 L 400,75" strokeWidth="2.5" opacity="0.6" />
+                                <polygon points="200,25 300,75 200,125 100,75" strokeWidth="2" opacity="0.5" fill={`${persona.colour ?? "#e5223b"}22`} />
+                                <polygon points="200,8 375,75 200,142 25,75" strokeWidth="1.5" opacity="0.4" />
+                                <path d="M 0 0 Q 70 30 100 0 M 0 0 Q 30 70 0 100" strokeWidth="2.5" />
+                                <path d="M 400 0 Q 330 30 300 0 M 400 0 Q 370 70 400 100" strokeWidth="2.5" />
+                                <path d="M 0 150 Q 70 120 100 150 M 0 150 Q 30 80 0 50" strokeWidth="2.5" />
+                                <path d="M 400 150 Q 330 120 300 150 M 400 150 Q 370 80 400 50" strokeWidth="2.5" />
+                              </svg>
+                              {/* Top-right "WEB LOCKED" badge */}
+                              <div className="absolute top-2 right-2 bg-primary text-on-primary px-2.5 py-0.5 comic-border text-[10px] font-headline-lg uppercase tracking-wider shadow">
+                                WEB LOCKED
+                              </div>
+                            </div>
+                          )}
+
+                          <span className={`absolute top-2 left-2 font-display-xl text-2xl transition-colors ${
+                            picked ? "text-primary font-black opacity-100 scale-110" : "text-surface-container-highest opacity-70"
+                          }`}>
+                            {letters[i]}
+                          </span>
+
+                          <div className="relative z-10 h-full flex flex-col justify-end pt-5">
+                            <span className={`font-headline-lg text-headline-lg-mobile transition-all ${
+                              picked ? "text-primary font-black text-lg sm:text-xl drop-shadow" : "text-on-surface"
+                            }`}>
+                              {opt}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={submit}
+                      disabled={submitting || phase !== "select" || choice === null || verdict !== null}
+                      className="relative bg-primary px-10 py-5 comic-border comic-tilt-right transition-all duration-100 hover:translate-x-1 hover:translate-y-1 hover:shadow-none shadow-[8px_8px_0px_0px_rgba(27,27,28,1)] active:scale-95 disabled:opacity-40"
+                    >
+                      <span className="font-display-xl text-headline-lg-mobile text-on-primary uppercase tracking-widest">
+                        {verdict ? "LOCKED IN" : submitting ? "Locking in…" : "Lock it in"}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Verdict Box */}
+          {verdict && (
+            <div className="pop-in mt-6">
+              {verdict.correct ? (
+                <div className="bg-tertiary-fixed text-on-tertiary-fixed comic-border p-6 comic-tilt-left text-center">
+                  <div className="font-display-xl text-[36px] uppercase leading-none">{persona.shout}</div>
+                  <div className="font-label-sm uppercase text-sm mt-1">+{verdict.points} Points Earned!</div>
+                </div>
+              ) : (
+                <div className="bg-primary text-on-primary comic-border p-6 comic-tilt-right text-center">
+                  <div className="font-display-xl text-[36px] uppercase leading-none">{persona.miss}</div>
+                  <div className="font-label-sm uppercase text-sm mt-1">No points awarded. Next question coming up...</div>
+                </div>
+              )}
+            </div>
+          )}
+        </article>
+      )}
+
+      {/* COMEBACK METER — Round 3 only, and never for Rank #1. Rendered only
+          once the server has actually said this team is eligible: `comeback`
+          being null used to read as "not rank one" and painted a meter for the
+          leader whenever the status fetch hiccupped. */}
+      {round === 3 && comeback?.eligible && (
+        <section className="bg-surface comic-border p-6 mt-8 comic-tilt-left">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="font-display-xl text-headline-lg-mobile text-primary flex items-center gap-2">
+                <span>COMEBACK METER</span>
+                <span className="font-label-sm text-xs text-on-surface-variant">
+                  ({comeback.bars} / {comeback.maxBars} BARS)
+                </span>
+              </div>
+              <div className="font-label-sm text-xs text-on-surface-variant uppercase mt-1">
+                {comeback.stored
+                  ? "Meter holds while a power is banked — it refills once the power is spent."
+                  : "Every missed question fills a bar. Fill all three to unlock a Spider Power!"}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {Array.from({ length: comeback.maxBars }, (_, i) => i + 1).map((notch) => (
+                <div
+                  key={notch}
+                  className={`h-6 w-10 comic-border-sm transition-all duration-300 ${
+                    comeback.bars >= notch ? "bg-tertiary-fixed" : "bg-surface-container"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Banked, not yet firing. The old UI could never show this state at
+              all — grant, attach and activation all happened in one request. */}
+          {comeback.stored && (
+            <div className="mt-4 pt-4 border-t-2 border-dashed border-on-surface/20 flex flex-wrap items-center gap-3">
+              <span className="text-2xl leading-none" aria-hidden="true">
+                🕷️
+              </span>
+              <div>
+                <div className="font-display-xl text-headline-lg-mobile text-primary uppercase">
+                  Power Ready: {comeback.stored.label}
+                </div>
+                <div className="font-label-sm text-xs text-on-surface-variant uppercase">
+                  Fires automatically on your next question. {comeback.stored.description}
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The "which power is firing right now" indicator, per the coordinator's spec:
+ * clearly visible, beside the question flow, covering neither the question nor
+ * the answer options.
+ */
+function ActivePowerBanner({ power }: { power: ActivePower }) {
+  return (
+    <section
+      aria-live="polite"
+      className="pop-in comic-border bg-glitch-cyan text-ink-black p-5 comic-tilt-right relative overflow-hidden"
+    >
+      <div className="absolute inset-0 ben-day pointer-events-none opacity-20" />
+      <div className="relative z-10 flex items-center gap-4">
+        <span className="text-[40px] leading-none shrink-0" aria-hidden="true">
+          🕷️
+        </span>
+        <div className="min-w-0">
+          <div className="font-label-sm uppercase text-[11px] tracking-[0.25em] font-bold">Active Power</div>
+          <div className="font-display-xl text-headline-lg-mobile uppercase leading-none mt-1">{power.label}</div>
+          <div className="font-body-md text-sm italic mt-1.5">{power.tagline}</div>
+        </div>
+      </div>
+    </section>
+  );
+}
