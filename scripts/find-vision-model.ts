@@ -46,6 +46,38 @@ async function listOpenRouterVisionModels(): Promise<string[]> {
   return [...free, ...paid];
 }
 
+/**
+ * Groq's OpenAI-compatible model list.
+ *
+ * Unlike OpenRouter, the payload carries no modality field — every entry looks
+ * identical whether or not it can see. So there is nothing to filter on, and
+ * guessing from the id ("does it contain 'vision'?") goes stale the moment
+ * Groq renames a family. Everything is returned and `probe` decides: a model
+ * that cannot accept an image fails the two-image request, which is exactly
+ * the signal we want and the only one that can't drift.
+ */
+async function listGroqModels(): Promise<string[]> {
+  const res = await fetch("https://api.groq.com/openai/v1/models", {
+    headers: { authorization: `Bearer ${GROQ_KEY}` },
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!res.ok) {
+    console.log(`  models list failed: HTTP ${res.status} ${(await res.text()).slice(0, 160)}`);
+    return [];
+  }
+  const body = (await res.json()) as { data?: Array<{ id: string }> };
+  const ids = (body.data ?? []).map((m) => m.id);
+
+  // Probing costs a real request each, so put the plausible ones first rather
+  // than burning the budget on whisper/guard/tts models that certainly can't.
+  const unlikely = /whisper|tts|guard|embed|rerank|moderation/i;
+  const likely = /vision|scout|maverick|llava|vl\b|multimodal/i;
+  return [
+    ...ids.filter((id) => likely.test(id) && !unlikely.test(id)),
+    ...ids.filter((id) => !likely.test(id) && !unlikely.test(id)),
+  ];
+}
+
 async function probe(url: string, key: string, model: string): Promise<{ ok: boolean; detail: string }> {
   try {
     const res = await fetch(url, {
@@ -112,6 +144,27 @@ async function main() {
     }
   }
 
+  if (GROQ_KEY) {
+    console.log("── Groq: probing models for image input ──");
+    const models = await listGroqModels();
+    console.log(`  ${models.length} model(s) to try\n`);
+
+    const url = "https://api.groq.com/openai/v1/chat/completions";
+    let found = 0;
+    for (const model of models.slice(0, 12)) {
+      process.stdout.write(`  probing ${model} … `);
+      const r = await probe(url, GROQ_KEY, model);
+      console.log(r.ok ? `OK — ${r.detail}` : `fail — ${r.detail}`);
+      if (r.ok) {
+        working.push({ provider: "groq", url, model, sample: r.detail });
+        // Three gives IMAGE_JUDGE_MODEL a real fallback chain: the judge walks
+        // the list in order, so a rate-limited first choice drops to the next
+        // instead of failing the team's judging outright.
+        if (++found >= 3) break;
+      }
+    }
+  }
+
   console.log(`\n${"─".repeat(70)}`);
   if (working.length === 0) {
     console.log("No working vision model found — Game 1 judging cannot run without one.");
@@ -120,9 +173,20 @@ async function main() {
 
   console.log("WORKING VISION MODELS:\n");
   for (const w of working) console.log(`  ${w.model}\n    via ${w.url}\n    sample: ${w.sample}\n`);
+
+  // Emit every model from the winning provider, not just the first. The judge
+  // tries IMAGE_JUDGE_MODEL in order and falls through on error, so a list is
+  // the difference between one rate-limited model failing a team's judging and
+  // it quietly succeeding on the next.
+  const url = working[0].url;
+  const sameProvider = working.filter((w) => w.url === url).map((w) => w.model);
+
   console.log("Set in .env.local:");
-  console.log(`  IMAGE_JUDGE_MODEL="${working[0].model}"`);
-  console.log(`  VISION_API_URL="${working[0].url}"`);
+  console.log(`  IMAGE_JUDGE_MODEL="${sameProvider.join(",")}"`);
+  console.log(`  VISION_API_URL="${url}"`);
+  if (sameProvider.length === 1) {
+    console.log("\n  NOTE: only one working model — there is no fallback if it rate-limits.");
+  }
   process.exit(0);
 }
 
