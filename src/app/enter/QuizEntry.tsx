@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { avatarForCoin, parseCoin } from "@/lib/quiz/avatars";
-import { eventHostFor } from "@/lib/config";
+import { eventFromHost, eventHostFor } from "@/lib/config";
 import { safeRedirectTarget } from "@/lib/auth/safeRedirect";
 import WebShooter from "@/app/quiz/WebShooter";
 import ComicHeader from "@/components/ui/ComicHeader";
@@ -13,6 +13,22 @@ import TeamAvatar from "@/components/ui/TeamAvatar";
  * Entry page with Spider-Verse Symposium styling.
  * Preserves all POST /api/enter routing and verification logic.
  */
+/**
+ * Where to send a participant who logged in with no `?rt=` to follow.
+ *
+ * `/enter` is served on every event subdomain, so the fallback cannot be a
+ * fixed path. It used to be a hardcoded "/quiz": on hunt.<domain>/enter the
+ * proxy then rewrote /quiz into /hunt/quiz, which does not exist, and the
+ * participant landed on a 404 immediately after a successful login.
+ *
+ * When the host names an event, "/" is the answer — the proxy rewrites it into
+ * that event's route group. Only the neutral app/www/localhost hosts, where
+ * "/" is the platform landing page rather than an event, keep /quiz.
+ */
+function postLoginPath(): string {
+  return eventFromHost(window.location.hostname) ? "/" : "/quiz";
+}
+
 export default function QuizEntry() {
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +52,7 @@ export default function QuizEntry() {
           } else if (data.role === "admin") {
             window.location.href = "/admin/quiz";
           } else {
-            window.location.href = "/quiz";
+            window.location.href = postLoginPath();
           }
         }
       })
@@ -93,7 +109,7 @@ export default function QuizEntry() {
         if (data.role === "admin") {
           window.location.href = "/admin/quiz";
         } else {
-          window.location.href = "/quiz";
+          window.location.href = postLoginPath();
         }
       }, 150);
     } catch (err) {

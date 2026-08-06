@@ -62,10 +62,27 @@ export async function materialize(event: EventKey | "overall"): Promise<Leaderbo
 
     const teamStats = new Map<string, TeamCtfStats>();
 
+    // Only teams that actually played the CTF belong on the CTF board.
+    //
+    // `teams` is one global collection — a Team is a coin, with no event field —
+    // so seeding this from every team document put the quiz's teams ("Quiz
+    // Control", "Test Team 1".."Smoke Test") onto the CTF leaderboard at 0 pts,
+    // alongside the hunt's and the code event's. Participation is derived from
+    // the CTF ledger instead: any submission of type "ctf", or any
+    // {event: "ctf"} score row — which is how an admin penalty reaches a team
+    // that has not solved anything yet.
+    const scoreEventsCollection = await collections.scoreEvents();
+    const [submittedIds, scoredIds] = await Promise.all([
+      subsCollection.distinct("teamId", { type: "ctf" }),
+      scoreEventsCollection.distinct("teamId", { event: "ctf" }),
+    ]);
+    const ctfTeamIds = new Set([...submittedIds, ...scoredIds].map((id) => String(id)));
+
     // Initialize non-banned teams (excluding Admin Team) with initial penalty deductions if any
     for (const t of teamDocs) {
       const tid = String(t._id);
       if (bannedTeamIds.has(tid)) continue;
+      if (!ctfTeamIds.has(tid)) continue;
       teamStats.set(tid, {
         teamId: tid,
         points: -(t.penaltyPoints ?? 0),

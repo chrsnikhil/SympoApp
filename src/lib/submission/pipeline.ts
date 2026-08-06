@@ -1,6 +1,6 @@
 import { ObjectId } from "mongodb";
 import { LIMITS, type EventKey } from "@/lib/config";
-import { collections } from "@/lib/db/client";
+import { collections, getDb } from "@/lib/db/client";
 import { FROZEN_MESSAGE, isTeamFrozen } from "@/lib/quiz/proctorGuard";
 import { withThrottleRetry } from "@/lib/db/retry";
 import { graderFor } from "@/lib/graders";
@@ -97,7 +97,12 @@ async function checkSectionBonus(
   // Haven't solved every challenge yet
   if (solves.length !== challengeList.length) return;
 
-  const start = solves[0].receivedAt.getTime();
+  // Fetch CTF start time
+  const db = await getDb();
+  const setting = await db.collection("system_settings").findOne({ key: "ctf_event_state" });
+  if (!setting?.startedAt) return;
+
+  const start = new Date(setting.startedAt).getTime();
   const end = solves[solves.length - 1].receivedAt.getTime();
 
   const minutes = (end - start) / 60000;

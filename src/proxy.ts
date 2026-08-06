@@ -40,8 +40,26 @@ const SECRET_ADMIN_PATH = "/spider-hq-admin-9981";
 /** Paths that must never be rewritten or gated. */
 const PUBLIC_PREFIXES = ["/_next", "/api/health", "/favicon.ico", "/enter", "/api/enter", "/admin"];
 
-/** Gated even without an event subdomain — see PATH-BASED ROUTING above. */
-const PROTECTED_PREFIXES = ["/ctf", SECRET_ADMIN_PATH, "/hunt", "/code", "/quiz"];
+/**
+ * Gated even without an event subdomain — see PATH-BASED ROUTING above.
+ *
+ * Matching is `pathname === p || pathname.startsWith(p + "/")`, so a prefix
+ * only covers its own tree. `/hunt` does NOT cover `/hunt-test`: the string
+ * starts with "/hunt" but neither equals it nor continues with a slash. Any
+ * new top-level route tree has to be listed here explicitly — being adjacent
+ * to a gated one buys nothing.
+ */
+const PROTECTED_PREFIXES = [
+  "/ctf",
+  SECRET_ADMIN_PATH,
+  "/hunt",
+  // Sibling of /hunt, not a child of it. Renders the 64-grid puzzle with the
+  // real seeded content and no auth at all unless it is named here.
+  "/hunt-test",
+  "/code",
+  "/quiz",
+  "/universe",
+];
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -50,6 +68,10 @@ export async function proxy(request: NextRequest) {
   // way to log in. Exact match only: everything under it stays gated.
   if (pathname === SECRET_ADMIN_PATH) {
     return NextResponse.next();
+  }
+
+  if (pathname.toLowerCase() === "/cannon-protocol" || pathname.toLowerCase() === "/cannon-protocol/") {
+    return NextResponse.redirect(new URL("/canon-protocol", request.url));
   }
 
   if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
@@ -94,6 +116,22 @@ export async function proxy(request: NextRequest) {
 
   // Subdomain routing: rewrite the subdomain into its route group segment.
   if (event) {
+    // Admin console routes and standalone challenge apps (like /canon-protocol) live at top-level
+    // and must NOT be rewritten with event subdirectories.
+    if (
+      pathname.startsWith(SECRET_ADMIN_PATH) ||
+      pathname === "/admin" ||
+      pathname.startsWith("/admin/") ||
+      pathname === "/canon-protocol" ||
+      pathname.startsWith("/canon-protocol/")
+    ) {
+      const res = NextResponse.next();
+      res.headers.set("x-team-id", session.teamId);
+      res.headers.set("x-participant-id", session.sub);
+      res.headers.set("x-event", event);
+      return res;
+    }
+
     const url = request.nextUrl.clone();
     const cleanPathname = pathname.startsWith(`/${event}`) ? pathname.slice(event.length + 1) || "/" : pathname;
     url.pathname = `/${event}${cleanPathname === "/" ? "" : cleanPathname}`;

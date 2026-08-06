@@ -80,6 +80,7 @@ export interface Challenge {
   points: number;
   opensAt: Date | null;
   closesAt: Date | null;
+  disabled?: boolean;
   config: {
     /** hunt + ctf: sha256 of the accepted answer/flag. */
     answerHash?: string;
