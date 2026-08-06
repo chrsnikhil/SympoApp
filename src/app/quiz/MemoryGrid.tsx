@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import DitheredImage from "./DitheredImage";
-import { useDitherSetting } from "./useDitherSetting";
 
 /** Character card visual metadata */
 const VARIANT_LOOK: Record<string, { label: string; colour: string; image?: string }> = {
@@ -57,7 +56,6 @@ export default function MemoryGrid({ slug, onDone }: { slug: string; onDone: (po
   const [error, setError] = useState<string | null>(null);
   const [pendingMismatch, setPendingMismatch] = useState<MismatchItem[]>([]);
   const mismatchTimer = useRef<number | null>(null);
-  const { ditherEnabled } = useDitherSetting();
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/quiz/memory?slug=${encodeURIComponent(slug)}`, { cache: "no-store" });
@@ -214,9 +212,12 @@ export default function MemoryGrid({ slug, onDone }: { slug: string; onDone: (po
                 >
                   {look?.image ? (
                     <DitheredImage
+                      // No dither here. A memory card is shown for a couple of
+                      // seconds and has to be recognised in that window, which
+                      // is exactly what the noise interferes with. Still drawn
+                      // to a canvas, so the image stays undraggable.
                       src={look.image}
                       alt={look.label}
-                      dither={ditherEnabled}
                       fit="cover"
                       className="h-full w-full"
                     />
