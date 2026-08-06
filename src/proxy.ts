@@ -40,8 +40,26 @@ const SECRET_ADMIN_PATH = "/spider-hq-admin-9981";
 /** Paths that must never be rewritten or gated. */
 const PUBLIC_PREFIXES = ["/_next", "/api/health", "/favicon.ico", "/enter", "/api/enter", "/admin"];
 
-/** Gated even without an event subdomain — see PATH-BASED ROUTING above. */
-const PROTECTED_PREFIXES = ["/ctf", SECRET_ADMIN_PATH, "/hunt", "/code", "/quiz"];
+/**
+ * Gated even without an event subdomain — see PATH-BASED ROUTING above.
+ *
+ * Matching is `pathname === p || pathname.startsWith(p + "/")`, so a prefix
+ * only covers its own tree. `/hunt` does NOT cover `/hunt-test`: the string
+ * starts with "/hunt" but neither equals it nor continues with a slash. Any
+ * new top-level route tree has to be listed here explicitly — being adjacent
+ * to a gated one buys nothing.
+ */
+const PROTECTED_PREFIXES = [
+  "/ctf",
+  SECRET_ADMIN_PATH,
+  "/hunt",
+  // Sibling of /hunt, not a child of it. Renders the 64-grid puzzle with the
+  // real seeded content and no auth at all unless it is named here.
+  "/hunt-test",
+  "/code",
+  "/quiz",
+  "/universe",
+];
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

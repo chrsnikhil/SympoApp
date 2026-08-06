@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "check:bom": "node scripts/check-bom.mjs",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "seed:quiz": "tsx --env-file=.env.local scripts/seed-quiz.ts",
     "db:local": "tsx scripts/dev-db.ts"
@@ -18,7 +19,8 @@
     "mongodb": "^6.13.0",
     "next": "16.2.11",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
