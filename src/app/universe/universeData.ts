@@ -17,8 +17,6 @@ export interface UniverseTheme {
   particleColor: string;
   /** Hex shade used for grid tile backgrounds */
   tileColor: string;
-  /** Pre-assigned 8-letter word (placeholder — swap before seeding) */
-  word: string;
 }
 
 export const UNIVERSES: UniverseTheme[] = [
@@ -36,7 +34,6 @@ export const UNIVERSES: UniverseTheme[] = [
       "linear-gradient(135deg, #E63946 0%, transparent 40%, transparent 60%, #1D3557 100%)",
     particleColor: "#E63946",
     tileColor: "#C1121F",
-    word: "COMPILER",
   },
   {
     index: 1,
@@ -52,7 +49,6 @@ export const UNIVERSES: UniverseTheme[] = [
       "linear-gradient(135deg, #FF6B00 0%, transparent 40%, transparent 60%, #FFA500 100%)",
     particleColor: "#FF6B00",
     tileColor: "#E85D04",
-    word: "DATABASE",
   },
   {
     index: 2,
@@ -68,7 +64,6 @@ export const UNIVERSES: UniverseTheme[] = [
       "linear-gradient(135deg, #FFD60A 0%, transparent 40%, transparent 60%, #FF9E00 100%)",
     particleColor: "#FFD60A",
     tileColor: "#E9C46A",
-    word: "FUNCTION",
   },
   {
     index: 3,
@@ -84,7 +79,6 @@ export const UNIVERSES: UniverseTheme[] = [
       "linear-gradient(135deg, #00B4D8 0%, transparent 40%, transparent 60%, #006B80 100%)",
     particleColor: "#00B4D8",
     tileColor: "#2A9D8F",
-    word: "VARIABLE",
   },
   {
     index: 4,
@@ -100,7 +94,6 @@ export const UNIVERSES: UniverseTheme[] = [
       "linear-gradient(135deg, #4361EE 0%, transparent 40%, transparent 60%, #7209B7 100%)",
     particleColor: "#4361EE",
     tileColor: "#3A56D4",
-    word: "TERMINAL",
   },
   {
     index: 5,
@@ -116,7 +109,6 @@ export const UNIVERSES: UniverseTheme[] = [
       "linear-gradient(135deg, #9B5DE5 0%, transparent 40%, transparent 60%, #F72585 100%)",
     particleColor: "#9B5DE5",
     tileColor: "#7B2FBE",
-    word: "OVERFLOW",
   },
   {
     index: 6,
@@ -132,7 +124,6 @@ export const UNIVERSES: UniverseTheme[] = [
       "linear-gradient(135deg, #FF006E 0%, transparent 40%, transparent 60%, #DC2626 100%)",
     particleColor: "#FF006E",
     tileColor: "#D90066",
-    word: "DECODING",
   },
   {
     index: 7,
@@ -148,6 +139,5 @@ export const UNIVERSES: UniverseTheme[] = [
       "linear-gradient(135deg, #E0E0E0 0%, transparent 40%, transparent 60%, #666666 100%)",
     particleColor: "#999999",
     tileColor: "#B0B0B0",
-    word: "PROTOCOL",
   },
 ];
