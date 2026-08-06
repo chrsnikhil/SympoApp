@@ -61,6 +61,36 @@ const PROTECTED_PREFIXES = [
   "/universe",
 ];
 
+/**
+ * Gated, but NOT rewritten into an event's route group.
+ *
+ * Gating and rewriting are two separate decisions, and a route tree that lives
+ * at the top level of `src/app` needs both answered. `PROTECTED_PREFIXES` above
+ * only makes a path require a session; if the path is not also listed here, an
+ * event subdomain rewrites it into that event's directory and Next answers 404.
+ *
+ * That is exactly how /universe broke: it was added to PROTECTED_PREFIXES, so
+ * logged-out visitors were correctly bounced, while a logged-IN participant on
+ * hunt.<domain>/universe had it rewritten to /hunt/universe — a directory that
+ * does not exist — and the hunt's own entry point 404'd. The pages live at
+ * src/app/universe/**, not src/app/hunt/universe/**.
+ *
+ * Rule of thumb: if the route tree is a top-level directory in src/app rather
+ * than a child of an event's directory, it belongs in BOTH lists.
+ */
+const NO_REWRITE_PREFIXES = [
+  SECRET_ADMIN_PATH,
+  "/admin",
+  "/canon-protocol",
+  "/universe",
+  "/hunt-test",
+];
+
+/** `pathname === p || pathname.startsWith(p + "/")` — segment-aware, so /hunt never covers /hunt-test. */
+function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {
+  return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
@@ -90,7 +120,7 @@ export async function proxy(request: NextRequest) {
 
   const host = request.headers.get("host");
   const event = eventFromHost(host);
-  const isProtectedPath = PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const isProtectedPath = matchesPrefix(pathname, PROTECTED_PREFIXES);
 
   // Neither an event subdomain (app.*, www.*, localhost) nor a protected
   // path — serve as-is.
@@ -118,13 +148,7 @@ export async function proxy(request: NextRequest) {
   if (event) {
     // Admin console routes and standalone challenge apps (like /canon-protocol) live at top-level
     // and must NOT be rewritten with event subdirectories.
-    if (
-      pathname.startsWith(SECRET_ADMIN_PATH) ||
-      pathname === "/admin" ||
-      pathname.startsWith("/admin/") ||
-      pathname === "/canon-protocol" ||
-      pathname.startsWith("/canon-protocol/")
-    ) {
+    if (matchesPrefix(pathname, NO_REWRITE_PREFIXES)) {
       const res = NextResponse.next();
       res.headers.set("x-team-id", session.teamId);
       res.headers.set("x-participant-id", session.sub);
