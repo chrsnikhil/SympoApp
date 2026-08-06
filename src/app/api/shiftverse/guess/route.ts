@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
 import { SHIFTVERSE_DURATION_MS } from "@/lib/config";
 import { claimSlot } from "@/lib/shiftverse/slot";
+import { submit } from "@/lib/submission/pipeline";
 
 /**
  * Per-team attempt limiting.
@@ -88,15 +89,36 @@ export async function POST(request: Request) {
 
     // Server clock decides, not the client's. A board served 20 minutes ago is
     // closed regardless of what the browser believes.
+    //
+    // Checked BEFORE the pipeline call, not after: submit() is event-agnostic
+    // and has no notion of a Shiftverse deadline, so there is no ordering
+    // inside it that could enforce this. A guess that arrives late must never
+    // reach the grader at all, or a correct-but-late answer would score.
     if (isBoardExpired(slot.startTime, Date.now())) {
       return NextResponse.json({ correct: false, expired: true }, { status: 200 });
     }
 
-    const correct = guessed.toUpperCase() === slot.plaintextWord.toUpperCase();
+    const outcome = await submit({
+      event: "shiftverse",
+      challengeSlug: "shiftverse",
+      payload: guessed,
+      session,
+    });
+
+    if (!outcome.ok) {
+      return NextResponse.json({ error: outcome.error }, { status: outcome.status });
+    }
+    if (outcome.status === 202) {
+      return NextResponse.json({ correct: false, pending: true });
+    }
 
     // The plaintext is returned ONLY on a correct guess. Returning it on a
     // miss would hand the answer to anyone willing to guess once.
-    return NextResponse.json(correct ? { correct, decryptedWord: slot.plaintextWord } : { correct });
+    return NextResponse.json(
+      outcome.correct
+        ? { correct: true, decryptedWord: slot.plaintextWord, points: outcome.points }
+        : { correct: false }
+    );
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });

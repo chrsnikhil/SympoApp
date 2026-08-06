@@ -80,6 +80,27 @@ async function seed() {
 
   await coll.insertMany(teamDocs);
   console.log(`\nSeeded ${teamDocs.length} shiftverse teams successfully.`);
+
+  // The pipeline resolves a challenge by {type, slug} before grading a guess —
+  // without this row every shiftverse submission 404s at that lookup.
+  const challenges = await collections.challenges();
+  await challenges.updateOne(
+    { type: "shiftverse", slug: "shiftverse" },
+    {
+      $set: {
+        type: "shiftverse",
+        slug: "shiftverse",
+        title: "Shift-Verse",
+        points: 100,
+        opensAt: null,
+        closesAt: null,
+        config: {},
+      },
+    },
+    { upsert: true }
+  );
+  console.log("Seeded the shiftverse challenge row.");
+
   process.exit(0);
 }
 
