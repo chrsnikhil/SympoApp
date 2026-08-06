@@ -10,8 +10,7 @@
  * Run with:  npx tsx --test src/__tests__/universeColor.test.ts
  */
 
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, assert } from "vitest";
 import {
   getUniverseColor,
   UNIVERSE_COLOR_DEFS,

@@ -59,6 +59,7 @@ const PROTECTED_PREFIXES = [
   "/code",
   "/quiz",
   "/universe",
+  "/shiftverse",
 ];
 
 /**

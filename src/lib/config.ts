@@ -6,7 +6,7 @@
  * `app/(hunt)/clue/3`. Adding an event = adding a row here plus a route group.
  */
 
-export const EVENTS = ["hunt", "ctf", "code", "quiz"] as const;
+export const EVENTS = ["hunt", "ctf", "code", "quiz", "shiftverse"] as const;
 export type EventKey = (typeof EVENTS)[number];
 
 /** Hosts that are NOT an event: the auth/entry surface. */
@@ -119,6 +119,9 @@ export const LIMITS = {
   /** Per-team submissions allowed per rolling window. */
   rateLimit: { windowMs: 10_000, max: 20 },
 };
+
+/** How long a team has on its Shiftverse word once the board is first served. */
+export const SHIFTVERSE_DURATION_MS = 15 * 60 * 1000;
 
 /**
  * Resolve a Host header to an event key.

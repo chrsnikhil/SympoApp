@@ -170,6 +170,8 @@ export const collections = {
     (await getDb()).collection<RankCounter>("rank_counters"),
   quizState: async (): Promise<Collection<QuizState>> =>
     (await getDb()).collection<QuizState>("quiz_state"),
+  shiftverseTeams: async (): Promise<Collection<import("./types").ShiftverseTeam>> =>
+    (await getDb()).collection<import("./types").ShiftverseTeam>("shiftverse_teams"),
 };
 
 /**
@@ -185,7 +187,7 @@ export const collections = {
  * not fatal.
  */
 export async function ensureIndexes(): Promise<void> {
-  const [codes, challenges, subs, scores, hunt, boards, lyla, images, memory, serves, quals, comebacks, flags, freezes] =
+  const [codes, challenges, subs, scores, hunt, boards, lyla, images, memory, serves, quals, comebacks, flags, freezes, shiftverse] =
     await Promise.all([
       collections.accessCodes(),
       collections.challenges(),
@@ -202,6 +204,7 @@ export async function ensureIndexes(): Promise<void> {
       collections.comebackStates(),
       collections.proctorFlags(),
       collections.proctorFreezes(),
+      collections.shiftverseTeams(),
     ]);
 
   const wanted: Array<[string, Promise<unknown>]> = [
@@ -227,6 +230,15 @@ export async function ensureIndexes(): Promise<void> {
     ["comeback_states.team_round", comebacks.createIndex({ teamId: 1, round: 1 }, { unique: true })],
     ["proctor_flags.team_round", flags.createIndex({ teamId: 1, round: 1, at: -1 })],
     ["proctor_freezes.team_round", freezes.createIndex({ teamId: 1, round: 1 }, { unique: true })],
+    // Unique because two rows sharing a teamNumber means two teams handed the
+    // same board. The seed checks for duplicates too, but the constraint is
+    // what makes it impossible rather than merely unlikely.
+    ["shiftverse_teams.number", shiftverse.createIndex({ teamNumber: 1 }, { unique: true })],
+    // claimSlot() looks a slot up by teamId on every guess and every state
+    // poll, and orders that lookup by teamNumber. Cosmos refuses to sort on a
+    // path its index policy does not cover — the failure that took quiz Round 3
+    // down — so these are load-bearing, not merely performance.
+    ["shiftverse_teams.team", shiftverse.createIndex({ teamId: 1 })],
   ];
 
   const results = await Promise.allSettled(wanted.map(([, p]) => p));
