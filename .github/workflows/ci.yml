@@ -32,6 +32,9 @@ jobs:
           npm rebuild @tailwindcss/oxide --update-binary || true
           npm i @tailwindcss/oxide-linux-x64-gnu --no-save || true
 
+      - name: Ensure sharp native binding for Next.js image optimization
+        run: npm install --os=linux --cpu=x64 sharp --no-save
+
       - name: Check for UTF-8 BOMs
         # A BOM in globals.css breaks the Tailwind build with an error that
         # points at neither the file nor the cause. Catch it here instead.
