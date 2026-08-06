@@ -1,21 +1,4 @@
 import type { Metadata } from "next";
-<<<<<<< HEAD
-import { Bangers, Outfit, Geist_Mono } from "next/font/google";
-import "./globals.css";
-
-const bangers = Bangers({
-  weight: "400",
-  variable: "--font-bangers",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const outfit = Outfit({
-  variable: "--font-outfit",
-  subsets: ["latin"],
-  display: "swap",
-});
-=======
 import { headers } from "next/headers";
 import {
   Anybody, Bricolage_Grotesque, Courier_Prime, Inter, Anton, Bangers, Geist_Mono,
@@ -32,7 +15,6 @@ const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono"
 const anybody = Anybody({ subsets: ["latin"], variable: "--font-anybody" });
 const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-bricolage" });
 const courier = Courier_Prime({ weight: ["400", "700"], subsets: ["latin"], variable: "--font-courier" });
->>>>>>> 78fcb4a7d0f77ff38652ba67994f78b49dd95ce5
 
 /* CTF / hunt faces. Both sets load on every page: they are CSS variables, and
    only the rules that reference them decide which is actually painted. */
@@ -47,14 +29,8 @@ const FONT_VARS = [
 ].map((f) => f.variable).join(" ");
 
 export const metadata: Metadata = {
-<<<<<<< HEAD
-  title: "XPLORE'26 · Treasure Hunt",
-  description:
-    "Spider-Punk themed treasure hunt — solve the 8×8 colour grid puzzle to reveal the code.",
-=======
   title: "XPLORE'26",
   description: "XPLORE'26 event platform — quiz, treasure hunt, CTF and speed coding.",
->>>>>>> 78fcb4a7d0f77ff38652ba67994f78b49dd95ce5
 };
 
 /**
@@ -70,13 +46,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const event = eventFromHost((await headers()).get("host"));
 
   return (
-<<<<<<< HEAD
-    <html
-      lang="en"
-      className={`${bangers.variable} ${outfit.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
-=======
     <html lang="en" className={`${FONT_VARS} h-full antialiased`}>
       <head>
         <link
@@ -101,7 +70,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <div className="relative z-10 flex-1 flex flex-col">{children}</div>
         <div className="noise-overlay" aria-hidden="true" />
       </body>
->>>>>>> 78fcb4a7d0f77ff38652ba67994f78b49dd95ce5
     </html>
   );
 }
