@@ -72,6 +72,10 @@ export default function ChallengeDetailPage() {
 
   const fetchChallenge = useCallback(async () => {
     if (!slug) return;
+    if (slug.toLowerCase() === "canon-protocol" || slug.toLowerCase() === "cannon-protocol") {
+      router.replace("/canon-protocol");
+      return;
+    }
     try {
       const res = await fetch(`/api/ctf/challenge/${encodeURIComponent(slug)}`);
       if (res.status === 401) {
@@ -90,6 +94,14 @@ export default function ChallengeDetailPage() {
           return;
         }
         setChallenge(data.challenge);
+
+        // The API resolves fuzzy slugs ("hard-1", "HARD-01") to the canonical
+        // one, but /api/submit and /api/ctf/attachments both match exactly.
+        // Rewrite the URL so every link, reload and share uses the real slug.
+        if (data.challenge.slug && data.challenge.slug !== slug) {
+          router.replace(`/ctf/${data.challenge.slug}`);
+        }
+
         if (data.remainingSeconds !== undefined) setRemainingSecs(data.remainingSeconds);
         if (data.teamId) setTeamId(data.teamId);
         if (data.teamScore !== undefined) setTeamScore(data.teamScore);
@@ -123,7 +135,7 @@ export default function ChallengeDetailPage() {
 
   async function handleFlagSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!flagInput.trim() || !slug) return;
+    if (!flagInput.trim() || !challenge?.slug) return;
 
     setSubmitting(true);
     setFeedback({ ok: true, msg: "Evaluating flag submission..." });
@@ -132,7 +144,7 @@ export default function ChallengeDetailPage() {
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ event: "ctf", challengeSlug: slug, payload: flagInput.trim() }),
+        body: JSON.stringify({ event: "ctf", challengeSlug: challenge.slug, payload: flagInput.trim() }),
       });
       const result = await res.json();
 
@@ -154,9 +166,13 @@ export default function ChallengeDetailPage() {
   }
 
   function handleDownloadAttachment(fileName?: string) {
-    if (!slug) return;
-    const name = fileName || `${slug}.zip`;
-    window.open(`/api/ctf/attachments?slug=${encodeURIComponent(slug)}&file=${encodeURIComponent(name)}`, "_blank");
+    const canonicalSlug = challenge?.slug;
+    if (!canonicalSlug) return;
+    const name = fileName || `${canonicalSlug}.zip`;
+    window.open(
+      `/api/ctf/attachments?slug=${encodeURIComponent(canonicalSlug)}&file=${encodeURIComponent(name)}`,
+      "_blank"
+    );
   }
 
   function toggleHint(hintId: number) {
@@ -207,6 +223,10 @@ export default function ChallengeDetailPage() {
       </main>
     );
   }
+
+  // Always drive rendering off the challenge the API actually resolved, never
+  // off the raw URL segment — the two differ whenever a fuzzy slug was used.
+  const canonicalSlug = challenge.slug;
 
   return (
     <main className="min-h-screen bg-[#070308] text-gray-100 font-sans relative overflow-x-hidden pb-20 selection:bg-red-500 selection:text-white">
@@ -295,7 +315,7 @@ export default function ChallengeDetailPage() {
           </div>
 
           {/* Download Attachment Box */}
-          {slug !== "easy-03" && challenge.attachments && challenge.attachments.length > 0 && (
+          {canonicalSlug !== "easy-03" && challenge.attachments && challenge.attachments.length > 0 && (
             <div className="bg-[#150a1d] border border-red-500/20 rounded-2xl p-4 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-red-950 border border-red-500/40 flex items-center justify-center text-red-400 font-bold text-xs">
@@ -319,11 +339,11 @@ export default function ChallengeDetailPage() {
           )}
 
           {/* SINGLE UNIFIED PANEL (Empty header title "") */}
-          {slug === "easy-03" ? (
+          {canonicalSlug === "easy-03" ? (
             <div className="space-y-6">
               <QrPuzzle />
             </div>
-          ) : slug === "easy-01" ? (
+          ) : canonicalSlug === "easy-01" ? (
             <div className="space-y-6">
               <div className="bg-[#120819]/90 border border-red-500/30 rounded-2xl p-6 md:p-8 shadow-lg backdrop-blur-md">
                 <div className="text-base md:text-lg text-slate-100 font-normal leading-relaxed whitespace-pre-line">
@@ -332,7 +352,7 @@ export default function ChallengeDetailPage() {
               </div>
               <SpiderOtpRace />
             </div>
-          ) : slug === "medium-02" ? (
+          ) : canonicalSlug === "hard-01" ? (
             <div className="space-y-6">
               <div className="bg-[#120819]/90 border border-red-500/30 rounded-2xl p-6 md:p-8 shadow-lg backdrop-blur-md space-y-6">
                 <div className="text-base md:text-lg text-slate-100 font-normal leading-relaxed whitespace-pre-line">
@@ -363,7 +383,7 @@ export default function ChallengeDetailPage() {
                 </div>
               </div>
             </div>
-          ) : slug === "hard-01" ? (
+          ) : canonicalSlug === "medium-02" ? (
             <div className="space-y-3">
               <h3 className="text-base font-black uppercase tracking-widest text-red-400 font-avengeance">
                 INTERACTIVE TERMINAL

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { appendScore } from "@/lib/score/ledger";
 import { ObjectId } from "mongodb";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
 import { collections } from "@/lib/db/client";
@@ -13,6 +14,14 @@ const VALID_KINDS: ProctorFlagKind[] = [
 
 /** Strikes 1-3 are warnings; the 4th one freezes. */
 const STRIKE_LIMIT = 3;
+
+/**
+ * Points charged when a team is frozen. Deliberately meaningful against a
+ * Connections tile (12 for a first-place first-tile solve, 1-4 for a late one)
+ * without being a round-ender — the point is to make tab-switching a bad trade,
+ * not to eliminate a team for it.
+ */
+const FREEZE_PENALTY_POINTS = 10;
 
 /** Kinds that count toward the strike-and-freeze system.
  *
@@ -88,9 +97,34 @@ export async function POST(request: Request) {
 
     if (frozen) {
       await flags.insertOne({ teamId, round, kind: "freeze", at: now });
+
+      /**
+       * A freeze has to cost something, or it is a free pause.
+       *
+       * Neither Round 1 game runs on a per-team clock — the memory game is
+       * capped by flips, Connections is paced by the coordinator's reveals — so
+       * being frozen consumed no resource the team had. They returned with every
+       * flip and every attempt intact, which made three tab switches a way to
+       * buy thinking time rather than a penalty for taking it.
+       *
+       * A points deduction rather than flips or time: it applies whichever game
+       * the team is in, needs no per-phase special casing, and a team can read
+       * it on the leaderboard and see exactly what it cost.
+       *
+       * Charged at the freeze, once, not at unfreeze. Unfreeze is a coordinator
+       * action — a penalty that landed only when someone got round to clearing
+       * it would be arbitrary in size and dodgeable by simply not asking.
+       */
+      await appendScore({
+        teamId,
+        event: "quiz",
+        points: -FREEZE_PENALTY_POINTS,
+        reason: `proctor-freeze-round-${round}`,
+        at: now,
+      });
     }
 
-    return NextResponse.json({ ok: true, strikes, frozen, reason: frozenReason });
+    return NextResponse.json({ ok: true, strikes, frozen, reason: frozenReason, penalty: frozen ? FREEZE_PENALTY_POINTS : 0 });
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });

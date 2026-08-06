@@ -26,6 +26,11 @@ jobs:
 
       - run: npm ci
 
+      - name: Check for UTF-8 BOMs
+        # A BOM in globals.css breaks the Tailwind build with an error that
+        # points at neither the file nor the cause. Catch it here instead.
+        run: npm run check:bom
+
       - name: Typecheck
         run: npx tsc --noEmit
 

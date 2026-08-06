@@ -151,7 +151,13 @@ export async function scoreConnections(
    */
   const PUZZLE_ALIASES: Record<string, string[]> = {
     "connections-1": ["heap sort", "heapsort"],
-    "connections-2": ["gpu", "gpus", "graphics processing unit", "graphics card"],
+    // "nvidia" is a vendor, not the technical term the puzzle title asks for,
+    // so it is here by a coordinator ruling during live testing rather than
+    // because it is a synonym: teams were reading "Gamers chase it. AI depends
+    // on it." and answering the brand, which demonstrates they solved the clue.
+    // Additive, so the seeded "gpu" keeps scoring exactly as before and no
+    // already-awarded rank changes.
+    "connections-2": ["gpu", "gpus", "graphics processing unit", "graphics card", "nvidia", "nvidia gpu"],
     "connections-3": ["blockchain", "block chain"],
     "connections-4": ["pytorch", "py torch", "torch"],
     "connections-5": ["api", "apis", "rest api", "web api", "application programming interface", "restful api", "endpoint"],

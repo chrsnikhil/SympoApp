@@ -191,9 +191,6 @@ export default function SpiderOtpRace() {
                   {activeRevealedCode}
                 </span>
               </div>
-              <span className="text-[10px] text-gray-500 italic">
-                Base64 Chunk
-              </span>
             </div>
           )}
         </div>

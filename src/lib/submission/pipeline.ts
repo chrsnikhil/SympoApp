@@ -1,11 +1,13 @@
 import { ObjectId } from "mongodb";
 import { LIMITS, type EventKey } from "@/lib/config";
-import { collections } from "@/lib/db/client";
+import { collections, getDb } from "@/lib/db/client";
+import { FROZEN_MESSAGE, isTeamFrozen } from "@/lib/quiz/proctorGuard";
 import { withThrottleRetry } from "@/lib/db/retry";
 import { graderFor } from "@/lib/graders";
 import { appendScore } from "@/lib/score/ledger";
 import { materialize } from "@/lib/leaderboard/materialize";
 import type { SessionClaims } from "@/lib/auth/session";
+import type { QuizRound } from "@/lib/db/types";
 
 /**
  * THE submission pipeline. Every user action in every event flows through
@@ -95,7 +97,12 @@ async function checkSectionBonus(
   // Haven't solved every challenge yet
   if (solves.length !== challengeList.length) return;
 
-  const start = solves[0].receivedAt.getTime();
+  // Fetch CTF start time
+  const db = await getDb();
+  const setting = await db.collection("system_settings").findOne({ key: "ctf_event_state" });
+  if (!setting?.startedAt) return;
+
+  const start = new Date(setting.startedAt).getTime();
   const end = solves[solves.length - 1].receivedAt.getTime();
 
   const minutes = (end - start) / 60000;
@@ -138,6 +145,25 @@ export async function submit(args: SubmitArgs): Promise<SubmitOutcome> {
   // 3 ── Resolve the challenge and check its window.
   const challenges = await collections.challenges();
   const challenge = await withThrottleRetry(() => challenges.findOne({ type: event, slug: challengeSlug }));
+
+  /**
+   * A frozen team cannot submit.
+   *
+   * The freeze used to exist only in the UI: `/api/quiz/round1` reported it so
+   * the client could paint an overlay, and no write path ever asked. So it
+   * stopped an honest team and nobody else — a second tab still polling, or
+   * DevTools, played straight through it.
+   *
+   * Placed after the challenge lookup because the round comes off the challenge
+   * (freezes are recorded per quiz round), and quiz-only because no other event
+   * runs the tab-switch proctor, so there is nothing to look up for them.
+   */
+  if (event === "quiz") {
+    const round = challenge?.config.round as QuizRound | undefined;
+    if (round && (await isTeamFrozen(teamId, round))) {
+      return { ok: false, status: 403, error: FROZEN_MESSAGE };
+    }
+  }
   if (!challenge?._id) return { ok: false, status: 404, error: "Challenge not found" };
 
   if (challenge.config?.format !== "prompt-image") {

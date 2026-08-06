@@ -34,8 +34,17 @@ export default function SecretAdminLoginPage() {
 
       const rawRt = new URLSearchParams(window.location.search).get("rt");
       let targetRedirect = "/spider-hq-admin-9981/ctf";
-      if (rawRt && rawRt.startsWith("/spider-hq-admin-9981")) {
-        targetRedirect = rawRt;
+      if (rawRt) {
+        try {
+          const parsed = new URL(rawRt, window.location.origin);
+          if (parsed.pathname.startsWith("/spider-hq-admin-9981") || parsed.pathname.startsWith("/admin")) {
+            targetRedirect = parsed.pathname + parsed.search;
+          }
+        } catch {
+          if (rawRt.startsWith("/spider-hq-admin-9981") || rawRt.startsWith("/admin")) {
+            targetRedirect = rawRt;
+          }
+        }
       }
 
       window.location.href = targetRedirect;
