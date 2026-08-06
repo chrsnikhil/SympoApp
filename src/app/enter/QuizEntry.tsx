@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { avatarForCoin, parseCoin } from "@/lib/quiz/avatars";
 import { eventHostFor } from "@/lib/config";
+import { safeRedirectTarget } from "@/lib/auth/safeRedirect";
 import WebShooter from "@/app/quiz/WebShooter";
 import ComicHeader from "@/components/ui/ComicHeader";
 import ComicButton from "@/components/ui/ComicButton";
@@ -24,8 +25,14 @@ export default function QuizEntry() {
         if (res.ok) {
           const data = await res.json();
           const rt = new URLSearchParams(window.location.search).get("rt");
-          if (rt && !rt.endsWith("/") && !rt.includes("/enter") && !rt.endsWith("/enter")) {
-            window.location.href = rt;
+          // Same-origin only. The previous guard checked that `rt` did not end in
+          // "/" and did not contain "/enter" — it never checked the ORIGIN, so
+          // `?rt=https://evil.example/x` passed all three tests and navigated
+          // there. This effect runs for anyone arriving with a session cookie,
+          // so it did not even need a login to fire.
+          const target = safeRedirectTarget(rt, window.location.origin, "");
+          if (target) {
+            window.location.href = target;
           } else if (data.role === "admin") {
             window.location.href = "/admin/quiz";
           } else {
@@ -76,8 +83,9 @@ export default function QuizEntry() {
       }
 
       const rt = new URLSearchParams(window.location.search).get("rt");
-      if (rt && !rt.endsWith("/") && !rt.includes("/enter") && !rt.endsWith("/enter")) {
-        window.location.href = rt;
+      const target2 = safeRedirectTarget(rt, window.location.origin, "");
+      if (target2) {
+        window.location.href = target2;
         return;
       }
 
