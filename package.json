@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "check:bom": "node scripts/check-bom.mjs",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "seed:quiz": "tsx --env-file=.env.local scripts/seed-quiz.ts",
     "db:local": "tsx scripts/dev-db.ts"
