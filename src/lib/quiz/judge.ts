@@ -318,6 +318,72 @@ function buildSystem(rubric: readonly Criterion[]): string {
 
 export type ImageDataUrl = string;
 
+/**
+ * How hard to lean on a throttled vision API before giving up on a model.
+ *
+ * This matters more than it looks. The account has exactly ONE vision model —
+ * Groq withdrew the llama-4 vision ids, and qwen is the only remaining id that
+ * accepts image content — so the model loop below has no second model to fall
+ * through to. A 429 that is not retried here is a team that gets no score.
+ * That is precisely the failure the IMAGE_JUDGE_MODEL comment warns about:
+ * "a Round 1 judging pass that dies on the first rate limit loses the whole
+ * game's scores."
+ */
+export const RETRY_ATTEMPTS = 4;
+export const RETRY_BASE_MS = 800;
+export const RETRY_MAX_MS = 8_000;
+
+/**
+ * Free-tier limits are per-minute, so the way to lose a round is to fire every
+ * team's image at once and have the back half rejected together. A modest
+ * ceiling keeps a 60-team batch inside the quota for a few seconds of extra
+ * wall clock that nobody is watching — judging already runs behind a "pending"
+ * state.
+ */
+const JUDGE_CONCURRENCY = 3;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Retry throttling and transient server errors; never a 4xx we caused. */
+export function isRetryable(status: number): boolean {
+  return status === 429 || status === 408 || status >= 500;
+}
+
+/**
+ * `Retry-After` is honoured when present — it is the only source that knows the
+ * real quota window, and guessing shorter just burns another attempt. Otherwise
+ * exponential backoff WITH jitter: without jitter, a batch throttled at the
+ * same instant retries at the same instant and throttles again in lockstep.
+ */
+export function retryDelayMs(response: Response, attempt: number): number {
+  const header = response.headers.get("retry-after");
+  if (header) {
+    const seconds = Number(header);
+    if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1000, RETRY_MAX_MS);
+    const at = Date.parse(header);
+    if (Number.isFinite(at)) return Math.min(Math.max(at - Date.now(), 0), RETRY_MAX_MS);
+  }
+  const backoff = Math.min(RETRY_BASE_MS * 2 ** attempt, RETRY_MAX_MS);
+  return backoff / 2 + Math.random() * (backoff / 2);
+}
+
+/**
+ * Run `fn` over `items` with at most `limit` in flight. Results keep input
+ * order regardless of completion order, since the caller pairs results back to
+ * teams positionally before ranking.
+ */
+export async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    for (let i = next++; i < items.length; i = next++) {
+      results[i] = await fn(items[i]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 export async function judgeImage(challenge: Challenge, referenceImage: ImageDataUrl, submittedImage: ImageDataUrl): Promise<JudgeVerdict> {
   const rubric = rubricFor(challenge);
 
@@ -352,6 +418,7 @@ export async function judgeImage(challenge: Challenge, referenceImage: ImageData
   if (key) {
     // Current working vision models
     for (const model of VISION_MODELS) {
+      for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
       try {
         const response = await fetch(API_URL, {
           method: "POST",
@@ -422,12 +489,32 @@ export async function judgeImage(challenge: Challenge, referenceImage: ImageData
             const parsed = parseVerdict(content, rubric);
             return { similarity: toSimilarity(parsed.cheating_detected, parsed.criteria, rubric), ...parsed };
           }
-        } else {
-          const errBody = await response.text();
-          console.error(`[judgeImage] vision API error (${model}): HTTP ${response.status}`, errBody);
+          // 200 with no content is not retryable by waiting — move to the next
+          // model rather than asking the same one for the same empty answer.
+          console.error(`[judgeImage] vision API returned no content (${model})`);
+          break;
         }
+
+        const errBody = await response.text();
+        if (isRetryable(response.status) && attempt < RETRY_ATTEMPTS - 1) {
+          const wait = retryDelayMs(response, attempt);
+          console.warn(
+            `[judgeImage] ${model} HTTP ${response.status}, retrying in ${Math.round(wait)}ms ` +
+              `(attempt ${attempt + 1}/${RETRY_ATTEMPTS})`
+          );
+          await sleep(wait);
+          continue;
+        }
+        console.error(`[judgeImage] vision API error (${model}): HTTP ${response.status}`, errBody);
+        break;
       } catch (e) {
-        console.error(`[judgeImage] vision model (${model}) failed:`, e);
+        // A timeout or socket error is worth one more go for the same reason a
+        // 429 is: with a single model there is nothing to fall through to.
+        const isLast = attempt === RETRY_ATTEMPTS - 1;
+        console.error(`[judgeImage] vision model (${model}) failed${isLast ? "" : ", retrying"}:`, e);
+        if (isLast) break;
+        await sleep(retryDelayMs(new Response(null), attempt));
+      }
       }
     }
   }
@@ -457,15 +544,16 @@ export interface JudgeBatch {
 }
 
 export async function judgeAll(challenge: Challenge, referenceImage: ImageDataUrl, submissions: JudgedSubmission[]): Promise<JudgeBatch> {
-  const settled = await Promise.all(
-    submissions.map(async (s) => {
-      try {
-        return { teamId: s.teamId, verdict: await judgeImage(challenge, referenceImage, s.image) };
-      } catch (err) {
-        return { teamId: s.teamId, reason: err instanceof Error ? err.message : String(err) };
-      }
-    })
-  );
+  // Bounded, not Promise.all. Firing 60 images at a per-minute free-tier quota
+  // simultaneously is the most reliable way to have most of them rejected
+  // together — and a rejected judge call is a team with no score.
+  const settled = await mapWithConcurrency(submissions, JUDGE_CONCURRENCY, async (s) => {
+    try {
+      return { teamId: s.teamId, verdict: await judgeImage(challenge, referenceImage, s.image) };
+    } catch (err) {
+      return { teamId: s.teamId, reason: err instanceof Error ? err.message : String(err) };
+    }
+  });
 
   const judged = settled
     .filter((r): r is { teamId: string; verdict: JudgeVerdict } => "verdict" in r)
