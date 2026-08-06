@@ -29,6 +29,16 @@ export interface HuntPuzzle {
 /**
  * Puzzle registry. Only the 64 Grid is implemented; the others use
  * PlaceholderPuzzle until their components are built.
+ *
+ * This is the client-side half of a fact whose server-side half is
+ * PLAYABLE_HUNT_SLUGS in `src/lib/hunt/content.ts`. Neither can be derived from
+ * the other — this file imports React components, so it cannot be pulled into a
+ * route handler — which means shipping a puzzle is a two-line change: give it a
+ * real Component here, and add its slug there.
+ *
+ * `/api/hunt/progress` returns only the slugs on that list, so anything still
+ * mapped to PlaceholderPuzzle below is never rendered rather than shown as a
+ * "Coming Soon" tile a team cannot solve.
  */
 export const REGISTRY: Record<string, HuntPuzzle> = {
   "hunt-cipher":  { slug: "hunt-cipher",  title: "Caesar Cipher",    Component: PlaceholderPuzzle },

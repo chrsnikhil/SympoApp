@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
 import { collections } from "@/lib/db/client";
-import { HUNT_SLUGS } from "@/lib/hunt/content";
+import { PLAYABLE_HUNT_SLUGS } from "@/lib/hunt/content";
 
 /**
  * What this team can play, and how far they have got.
@@ -43,8 +43,14 @@ export async function GET() {
     // silently un-solving every puzzle a team has already gotten points for
     // (and letting appendScore fire a second time), which is worse than the
     // bug this fixes.
+    //
+    // Only the playable puzzles are unlocked and returned. The rest are seeded
+    // and gradeable but have no component yet, so surfacing them showed the
+    // team three "Coming Soon" tiles worth 100 points each that nothing could
+    // solve. Unlocking is scoped to the same list so no progress row is created
+    // for a puzzle a team cannot reach.
     await Promise.all(
-      HUNT_SLUGS.map((challengeSlug) =>
+      PLAYABLE_HUNT_SLUGS.map((challengeSlug) =>
         progress.updateOne(
           { teamId, challengeSlug },
           {
@@ -61,11 +67,11 @@ export async function GET() {
       )
     );
 
-    const docs = await challenges.find({ type: "hunt", slug: { $in: [...HUNT_SLUGS] } }).toArray();
+    const docs = await challenges.find({ type: "hunt", slug: { $in: [...PLAYABLE_HUNT_SLUGS] } }).toArray();
     const rows = await progress.find({ teamId }).toArray();
     const byslug = new Map(rows.map((r) => [r.challengeSlug, r]));
 
-    const puzzles = HUNT_SLUGS.map((slug) => {
+    const puzzles = PLAYABLE_HUNT_SLUGS.map((slug) => {
       const doc = docs.find((d) => d.slug === slug);
       const row = byslug.get(slug);
       if (!doc || !row) return null;
