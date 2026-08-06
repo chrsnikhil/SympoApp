@@ -388,8 +388,10 @@ export interface QuizServe {
   eliminated?: number[];
   /** Set when the team skips; the question scores zero and can't be revisited. */
   skipped?: boolean;
-  /**
-   * Set once this serve's outcome has been folded into the team's comeback
+  /** Shuffled option order for this serve: optionOrder[displayIndex] = originalIndex.
+   *  Stored so polls re-serve the same order rather than re-shuffling each time. */
+  optionOrder?: number[];
+  /** Set once this serve's outcome has been folded into the team's comeback
    * streak (see `lib/quiz/comeback.ts`), so a reload or a retried request
    * can't double-count it.
    */

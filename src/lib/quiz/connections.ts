@@ -72,7 +72,7 @@ export async function scoreConnections(
     return { correct: false, points: 0, meta: { reason: "max-attempts-reached" } };
   }
 
-  const guess = payload.trim();
+  const guess = payload.trim().toLowerCase();
 
   // A real guess (not the timeout/no-answer path below, which has its own
   // dedup) is capped at one per revealed tile — enforced here, not just by

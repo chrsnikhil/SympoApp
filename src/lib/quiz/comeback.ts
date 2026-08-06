@@ -306,7 +306,16 @@ export async function settleQuestion(
     return;
   }
 
-  // 5 ── Failure fills exactly one bar. Correct answers never fill.
+  // 5 ── Only the bottom 2 ranked teams are eligible for meter progression.
+  //      Teams ranked above the bottom 2 are not eligible; flush any patch
+  //      (e.g. freeze-restore) but do not touch their streak or grant powers.
+  const COMEBACK_ELIGIBLE_FROM_BOTTOM = 2;
+  if (rank < table.length - COMEBACK_ELIGIBLE_FROM_BOTTOM) {
+    if (Object.keys(patch).length > 0) await states.updateOne({ teamId, round }, { $set: patch });
+    return;
+  }
+
+  // 6 ── Failure fills exactly one bar. Correct answers never fill.
   const before = bars;
   if (failed) bars = Math.min(MAX_BARS, bars + 1);
   if (bars !== before) console.log(`[comeback] meter team=${team} q=${slug} ${before}→${bars}/${MAX_BARS}`);
