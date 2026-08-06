@@ -55,3 +55,8 @@ private/reference/*
 !private/reference/.gitkeep
 
 !.env.example
+
+# Shiftverse puzzle words. Deliberately NOT committed: this repo is public on
+# GitHub, and 40 plaintext answers pushed there are 40 solved puzzles. Carry
+# the real file to the event machine out of band.
+private/shiftverse/words.json

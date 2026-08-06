@@ -32,7 +32,7 @@ describe("POST /api/shiftverse/guess", () => {
   it("returns 401 when there is no valid session", async () => {
     requireSession.mockRejectedValue(new UnauthorizedError());
 
-    const res = await POST(req({ guessedWord: "MILESMORALES" }));
+    const res = await POST(req({ guessedWord: "TESTWORDALPHA" }));
 
     expect(res.status).toBe(401);
     const body = await res.json();

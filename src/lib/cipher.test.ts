@@ -23,7 +23,7 @@ describe("caesarEncrypt", () => {
 describe("caesarDecrypt", () => {
   it("round-trips every shift for a real puzzle word", () => {
     for (let shift = 0; shift < 26; shift++) {
-      expect(caesarDecrypt(caesarEncrypt("MILESMORALES", shift), shift)).toBe("MILESMORALES");
+      expect(caesarDecrypt(caesarEncrypt("TESTWORDALPHA", shift), shift)).toBe("TESTWORDALPHA");
     }
   });
 });

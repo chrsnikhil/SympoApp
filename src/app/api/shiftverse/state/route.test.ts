@@ -52,9 +52,9 @@ describe("GET /api/shiftverse/state", () => {
       claimedAt: new Date(),
       // The whole point: these two exist on the document and must not
       // survive into the JSON response.
-      plaintextWord: "MILESMORALES",
+      plaintextWord: "TESTWORDALPHA",
       shiftKey: 13,
-      encryptedWord: "PLOHVPRUDOHV",
+      encryptedWord: "WHVWZRUGDOSKD",
       perLetterGuesses: [1, 2, 3],
       startTime: Date.now(),
     });
@@ -66,6 +66,6 @@ describe("GET /api/shiftverse/state", () => {
     expect(body).not.toHaveProperty("plaintextWord");
     expect(body).not.toHaveProperty("shiftKey");
     expect(body.teamNumber).toBe(7);
-    expect(body.encryptedWord).toBe("PLOHVPRUDOHV");
+    expect(body.encryptedWord).toBe("WHVWZRUGDOSKD");
   });
 });

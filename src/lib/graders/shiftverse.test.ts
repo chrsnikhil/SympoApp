@@ -2,13 +2,13 @@ import { ObjectId } from "mongodb";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const slot = {
-  teamNumber: 1, plaintextWord: "MILESMORALES", encryptedWord: "PLOHVPRUDOHV",
+  teamNumber: 1, plaintextWord: "TESTWORDALPHA", encryptedWord: "WHVWZRUGDOSKD",
   startTime: Date.now(), perLetterGuesses: [], teamId: new ObjectId(), claimedAt: new Date(), shiftKey: 3,
 };
 
 // A second team with a different word, so "does the grader resolve against the
 // CALLER's slot" is answerable rather than assumed.
-const otherSlot = { ...slot, teamNumber: 2, plaintextWord: "GWENSTACY", teamId: new ObjectId() };
+const otherSlot = { ...slot, teamNumber: 2, plaintextWord: "TESTWORDBETA", teamId: new ObjectId() };
 
 vi.mock("@/lib/shiftverse/slot", () => ({
   claimSlot: async (teamId: ObjectId) =>
@@ -52,13 +52,13 @@ beforeEach(() => {
 
 describe("gradeShiftverse", () => {
   it("awards the challenge's points for the right word", async () => {
-    const r = await gradeShiftverse(input("milesmorales"));
+    const r = await gradeShiftverse(input("testwordalpha"));
     expect(r.correct).toBe(true);
     expect(r.points).toBe(100);
   });
 
   it("scores nothing for a wrong word", async () => {
-    const r = await gradeShiftverse(input("GWENSTACY"));
+    const r = await gradeShiftverse(input("TESTWORDBETA"));
     expect(r.correct).toBe(false);
     expect(r.points).toBe(0);
   });
@@ -67,10 +67,10 @@ describe("gradeShiftverse", () => {
   // correct:false. This one does not: it requires the grader to actually
   // resolve the caller's own slot, which is the behaviour that replaced it.
   it("grades against the CALLER's slot, not any slot", async () => {
-    // "GWENSTACY" is team 2's word and wrong for team 1...
-    expect((await gradeShiftverse(input("GWENSTACY", slot.teamId))).correct).toBe(false);
+    // "TESTWORDBETA" is team 2's word and wrong for team 1...
+    expect((await gradeShiftverse(input("TESTWORDBETA", slot.teamId))).correct).toBe(false);
     // ...and right for team 2.
-    const r = await gradeShiftverse(input("GWENSTACY", otherSlot.teamId));
+    const r = await gradeShiftverse(input("TESTWORDBETA", otherSlot.teamId));
     expect(r.correct).toBe(true);
     expect(r.meta?.teamNumber).toBe(2);
   });
@@ -78,7 +78,7 @@ describe("gradeShiftverse", () => {
   describe("already-solved guard", () => {
     it("refuses to score a repeat of a word the team already got right", async () => {
       priorSolve = { _id: new ObjectId() };
-      const r = await gradeShiftverse(input("milesmorales"));
+      const r = await gradeShiftverse(input("testwordalpha"));
       expect(r.correct).toBe(false);
       expect(r.points).toBe(0);
       expect(r.meta?.reason).toBe("already-solved");
@@ -87,12 +87,12 @@ describe("gradeShiftverse", () => {
     // Without this the pipeline appends challenge.points per call, so a team
     // could farm the leaderboard until its board expired.
     it("pays exactly once across repeated correct submissions", async () => {
-      const first = await gradeShiftverse(input("milesmorales"));
+      const first = await gradeShiftverse(input("testwordalpha"));
       expect(first.points).toBe(100);
       // The pipeline has now recorded a correct verdict.
       priorSolve = { _id: new ObjectId() };
-      const second = await gradeShiftverse(input("milesmorales"));
-      const third = await gradeShiftverse(input("milesmorales"));
+      const second = await gradeShiftverse(input("testwordalpha"));
+      const third = await gradeShiftverse(input("testwordalpha"));
       expect(second.points + third.points).toBe(0);
     });
 
@@ -109,7 +109,7 @@ describe("gradeShiftverse", () => {
     });
 
     it("scopes the check to this team and this challenge", async () => {
-      await gradeShiftverse(input("milesmorales"));
+      await gradeShiftverse(input("testwordalpha"));
       expect(lastQuery).toMatchObject({ teamId: slot.teamId, "verdict.correct": true });
       expect(lastQuery).toHaveProperty("challengeId");
     });
@@ -117,7 +117,7 @@ describe("gradeShiftverse", () => {
     // A .sort() here would throw on Cosmos unless the path is indexed — the
     // failure that took quiz Round 3 down. findOne must stay sort-free.
     it("queries without a sort", async () => {
-      await gradeShiftverse(input("milesmorales"));
+      await gradeShiftverse(input("testwordalpha"));
       expect(lastQuery).not.toHaveProperty("$orderby");
     });
   });

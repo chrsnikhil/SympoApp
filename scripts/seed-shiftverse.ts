@@ -1,48 +1,53 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { caesarEncrypt } from '../src/lib/cipher';
-import { collections } from '../src/lib/db/client';
+import { collections, ensureIndexes } from '../src/lib/db/client';
 
-const TEAMS: { teamNumber: number; word: string }[] = [
-  { teamNumber: 1, word: 'MILESMORALES' },
-  { teamNumber: 2, word: 'GWENSTACY' },
-  { teamNumber: 3, word: 'MIGUELOHARA' },
-  { teamNumber: 4, word: 'HOBIEBROWN' },
-  { teamNumber: 5, word: 'BENREILLY' },
-  { teamNumber: 6, word: 'PETERBPARKER' },
-  { teamNumber: 7, word: 'SCARLETSPIDER' },
-  { teamNumber: 8, word: 'SPIDERBYTE' },
-  { teamNumber: 9, word: 'SPIDERPUNK' },
-  { teamNumber: 10, word: 'SPIDERNOIR' },
-  { teamNumber: 11, word: 'SPIDERHAM' },
-  { teamNumber: 12, word: 'MAYDAYPARKER' },
-  { teamNumber: 13, word: 'MUMBATTAN' },
-  { teamNumber: 14, word: 'SPOTDIMENSION' },
-  { teamNumber: 15, word: 'OLIVIAOCTAVIUS' },
-  { teamNumber: 16, word: 'JEFFERSONDAVIS' },
-  { teamNumber: 17, word: 'LEAPOFFAITH' },
-  { teamNumber: 18, word: 'SPIDERSOCIETY' },
-  { teamNumber: 19, word: 'CANONEVENT' },
-  { teamNumber: 20, word: 'DIMENSIONALGLITCH' },
-  { teamNumber: 21, word: 'MULTIVERSE' },
-  { teamNumber: 22, word: 'COLLIDER' },
-  { teamNumber: 23, word: 'DIMENSION' },
-  { teamNumber: 24, word: 'MULTIVERSALPORTAL' },
-  { teamNumber: 25, word: 'ALCHEMAXLABS' },
-  { teamNumber: 26, word: 'GLITCHING' },
-  { teamNumber: 27, word: 'WEBOFSECRETS' },
-  { teamNumber: 28, word: 'SPIDEYSENSE' },
-  { teamNumber: 29, word: 'WALLCRAWLER' },
-  { teamNumber: 30, word: 'WEBSHOOTERS' },
-  { teamNumber: 31, word: 'WEBWARRIOR' },
-  { teamNumber: 32, word: 'BEYONDVERSE' },
-  { teamNumber: 33, word: 'ACROSSVERSE' },
-  { teamNumber: 34, word: 'INTOTHEVERSE' },
-  { teamNumber: 35, word: 'WATCHTHEMORAL' },
-  { teamNumber: 36, word: 'CAPTAINSACRIFICE' },
-  { teamNumber: 37, word: 'SPIDERSOCIETY' },
-  { teamNumber: 38, word: 'REDEMPTION' },
-  { teamNumber: 39, word: 'SPOTANOMALY' },
-  { teamNumber: 40, word: 'EVERYONECANBEAHERO' },
-];
+/**
+ * The puzzle words live outside the repository.
+ *
+ * They used to be a literal array in this file, on a PUBLIC GitHub repo - forty
+ * plaintext answers, readable by anyone who found the repo, which is forty
+ * solved puzzles. Reading them from an ignored file means the repo carries the
+ * seeding logic and the shape, and the answers travel to the event machine
+ * separately.
+ *
+ * NOTE: the words that were committed here are in this repository's git
+ * history and cannot be unpublished by deleting them from HEAD. Treat every
+ * word that was ever committed as burned and generate fresh ones for the live
+ * event - see private/shiftverse/words.example.json for the format.
+ */
+const WORDS_PATH = join(process.cwd(), 'private', 'shiftverse', 'words.json');
+
+if (!existsSync(WORDS_PATH)) {
+  console.error(
+    [
+      "",
+      `  Missing ${WORDS_PATH}`,
+      "",
+      "  The puzzle words are not committed — this repo is public.",
+      "  Copy private/shiftverse/words.example.json to words.json and fill it in.",
+      "",
+    ].join("\n")
+  );
+  process.exit(1);
+}
+
+const TEAMS: { teamNumber: number; word: string }[] = JSON.parse(readFileSync(WORDS_PATH, 'utf8'));
+
+if (!Array.isArray(TEAMS) || TEAMS.length === 0) {
+  console.error(`\n  ${WORDS_PATH} parsed but held no teams.\n`);
+  process.exit(1);
+}
+
+// A duplicate teamNumber silently gives two teams the same board. The unique
+// index would reject the seed partway through with a less obvious error, so
+// catch it here, where the message can name the offender.
+const duplicates = TEAMS.map((t) => t.teamNumber).filter((n, i, all) => all.indexOf(n) !== i);
+if (duplicates.length > 0) {
+  console.error(`\n  Duplicate teamNumber(s) in ${WORDS_PATH}: ${[...new Set(duplicates)].join(", ")}\n`);
+  process.exit(1);
+}
 
 /**
  * Random, 1..25 — deliberately independent of `teamNumber`. Never 0 (a zero
@@ -61,11 +66,24 @@ async function seed() {
   await coll.deleteMany({});
   console.log('Cleared existing shiftverse teams.');
 
+  // Indexes AFTER the delete and BEFORE the insert, and that order is not
+  // arbitrary: Cosmos refuses to build a unique index on a collection that
+  // already holds documents, so a seed that inserted first would leave
+  // shiftverse_teams.number silently uncreated — and ensureIndexes only warns
+  // on failure, so nothing would look wrong until two teams shared a board.
+  await ensureIndexes();
+  console.log('Ensured indexes on an empty collection.');
+
   const teamDocs = TEAMS.map(({ teamNumber, word }) => {
     const shiftKey = randomShiftKey();
     const encryptedWord = caesarEncrypt(word, shiftKey);
-    console.log(`Team ${String(teamNumber).padStart(2, '0')}: "${word}" → shift ${shiftKey} → "${encryptedWord}"`);
-    
+    // Deliberately logs neither the plaintext word nor the shift key. This runs
+    // on the coordinator's machine, often on a projector or with someone
+    // watching, and printing all forty answers to a terminal undoes the point
+    // of keeping them out of the repo. The ciphertext is what teams already
+    // see, so it is safe to show and still confirms the seed did something.
+    console.log(`Team ${String(teamNumber).padStart(2, '0')}: → "${encryptedWord}"`);
+
     return {
       teamNumber,
       teamId: null,

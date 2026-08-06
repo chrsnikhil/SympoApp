@@ -24,7 +24,7 @@ beforeEach(async () => {
   await coll.deleteMany({});
   await coll.insertOne({
     teamNumber: 1, teamId: null, claimedAt: null,
-    plaintextWord: "MILESMORALES", encryptedWord: "PLOHVPRUDOHV",
+    plaintextWord: "TESTWORDALPHA", encryptedWord: "WHVWZRUGDOSKD",
     shiftKey: 3, perLetterGuesses: [1, 2, 3], startTime: 0,
   });
 });
