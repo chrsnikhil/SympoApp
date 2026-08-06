@@ -13,12 +13,22 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
-  // Puzzle components render and call onSolve(code) — that's the whole
+  // Puzzle components render and call onAnswer(text) — that's the whole
   // contract. They must never fetch (only HuntShell submits) and must never
-  // import @/lib/hunt/content (it carries hints and is server/shell-only;
-  // @/lib/hunt/codes is the one client-safe hunt module). This was enforced
-  // by convention only; make the two invariants a lint error so puzzle
-  // components can't drift from them by accident.
+  // import the answers.
+  //
+  // @/lib/hunt/codes USED TO BE BLESSED HERE as "the one client-safe hunt
+  // module". It is not, and never was. SixtyFourGrid imported CODES to compare
+  // against CODES.grid; bundlers do not tree-shake individual properties off an
+  // object read by member expression, so all four reveal codes —
+  // cipher/grid/circuit/room — shipped in the client chunk for a route where
+  // three of them had not even been unlocked. Reading them took a devtools
+  // search, not a solve.
+  //
+  // A puzzle cannot check its own answer without holding it, so it doesn't get
+  // to check: it reports what the player typed, HuntShell posts it, and the
+  // server hash-compares against challenge.config.answerHash. Both modules are
+  // banned below so the shortcut can't come back by accident.
   {
     files: ["src/app/hunt/puzzles/**/*.{ts,tsx}"],
     rules: {
@@ -29,7 +39,12 @@ const eslintConfig = defineConfig([
             {
               name: "@/lib/hunt/content",
               message:
-                "Puzzles never import hunt content (it carries hints/answerHash). Use @/lib/hunt/codes if you need a client-safe code, or lift the logic into HuntShell.",
+                "Puzzles never import hunt content — it carries the hints and every reveal code. Report the player's input via onAnswer(text) and let the server grade it.",
+            },
+            {
+              name: "@/lib/hunt/codes",
+              message:
+                "Puzzles never import the reveal codes. Importing CODES for one field ships all four in the client bundle. Report the player's input via onAnswer(text); /api/submit compares it to answerHash server-side.",
             },
           ],
         },

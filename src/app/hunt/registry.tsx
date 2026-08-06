@@ -4,7 +4,20 @@ import PlaceholderPuzzle from "./puzzles/PlaceholderPuzzle";
 
 export interface PuzzleProps {
   config: Record<string, unknown>;
-  onSolve: (code: string) => void;
+  /**
+   * Report the player's current proposed answer to the shell, which drops it
+   * into the answer box.
+   *
+   * This is NOT "the puzzle is solved". A puzzle component cannot know that,
+   * and must not try: the previous prop was `onSolve(code)`, called with a
+   * constant the component compared the player's typing against locally, which
+   * is only possible if the reveal code is in the client bundle. It was — all
+   * four of them, in the chunk for this route.
+   *
+   * The server's hash check against `challenge.config.answerHash` is the only
+   * judge. See HuntShell.submit.
+   */
+  onAnswer: (answer: string) => void;
 }
 
 export interface HuntPuzzle {
