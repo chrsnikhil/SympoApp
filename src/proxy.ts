@@ -41,7 +41,7 @@ const SECRET_ADMIN_PATH = "/spider-hq-admin-9981";
 const PUBLIC_PREFIXES = ["/_next", "/api/health", "/favicon.ico", "/enter", "/api/enter", "/admin"];
 
 /** Gated even without an event subdomain — see PATH-BASED ROUTING above. */
-const PROTECTED_PREFIXES = ["/ctf", SECRET_ADMIN_PATH, "/hunt", "/code", "/quiz"];
+const PROTECTED_PREFIXES = ["/ctf", SECRET_ADMIN_PATH, "/hunt", "/code", "/quiz", "/shiftverse"];
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
