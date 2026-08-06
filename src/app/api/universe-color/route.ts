@@ -1,67 +1,48 @@
 import { NextResponse } from "next/server";
+import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
+import { teamNumberFromSession } from "@/lib/universe/teamNumber";
 import { getUniverseColor } from "@/app/universe/universeColor";
 
 /**
  * POST /api/universe-color
  *
- * Accepts: { teamNumber: number }
- * Returns: { universeName, universeIndex, equations, rgb, hex }
+ * Returns: { universeName, universeIndex, equations }
  *
- * The computation happens server-side so participants can't inspect
- * client JS to reverse-engineer other teams' colours early.
- * Only the requesting team's equation set is returned.
+ * WHAT THIS DELIBERATELY DOES NOT RETURN. `getUniverseColor` also computes
+ * `worked` (the substituted arithmetic, e.g. "R = (12 + 7×5) mod 256 = 193")
+ * and `rgb`/`hex` (the answer itself). Solving those three equations by hand IS
+ * the puzzle, and any of those three fields hands it over — a participant only
+ * has to open the network tab. The whole point of computing server-side is that
+ * the answer stays server-side, so only the unsolved equations cross the wire.
+ * The single caller (app/universe/reveal/page.tsx) reads `.equations` and
+ * nothing else; grading happens at /api/universe-color/verify.
+ *
+ * The team number comes from the session, never the body — see
+ * `lib/universe/teamNumber.ts`.
  */
-export async function POST(request: Request) {
-  let body: unknown;
+export async function POST() {
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { error: "Malformed JSON body" },
-      { status: 400 },
-    );
+    const session = await requireSession();
+
+    const teamNumber = await teamNumberFromSession(session);
+    if (teamNumber === null) {
+      return NextResponse.json(
+        { error: "Your login has no coin number — see a coordinator" },
+        { status: 403 },
+      );
+    }
+
+    const result = getUniverseColor(teamNumber);
+
+    return NextResponse.json({
+      universeName: result.universeName,
+      universeIndex: result.universeIndex,
+      equations: result.equations,
+    });
+  } catch (err) {
+    if (err instanceof UnauthorizedError) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
-
-  const { teamNumber } = body as { teamNumber?: unknown };
-
-  // ── Validation ──────────────────────────────────────────────────────
-  if (teamNumber === undefined || teamNumber === null) {
-    return NextResponse.json(
-      { error: "teamNumber is required" },
-      { status: 400 },
-    );
-  }
-
-  if (typeof teamNumber !== "number" || !Number.isInteger(teamNumber)) {
-    return NextResponse.json(
-      { error: "teamNumber must be an integer" },
-      { status: 400 },
-    );
-  }
-
-  if (teamNumber < 0) {
-    return NextResponse.json(
-      { error: "teamNumber must be non-negative" },
-      { status: 400 },
-    );
-  }
-
-  if (teamNumber > 9999) {
-    return NextResponse.json(
-      { error: "teamNumber must be ≤ 9999" },
-      { status: 400 },
-    );
-  }
-
-  // ── Compute ─────────────────────────────────────────────────────────
-  const result = getUniverseColor(teamNumber);
-
-  return NextResponse.json({
-    universeName: result.universeName,
-    universeIndex: result.universeIndex,
-    equations: result.equations,
-    worked: result.worked,
-    rgb: result.rgb,
-    hex: result.hex,
-  });
 }
