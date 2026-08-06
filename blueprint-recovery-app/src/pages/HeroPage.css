@@ -1,0 +1,418 @@
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+/* Noir Cyberpunk Hero Container */
+.hero-wrapper {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  background-color: #121315;
+  color: #e4e2e1;
+  font-family: 'JetBrains Mono', monospace;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  background-image: 
+    radial-gradient(#25272a 15%, transparent 16%),
+    radial-gradient(#25272a 15%, transparent 16%);
+  background-size: 12px 12px;
+  background-position: 0 0, 6px 6px;
+}
+
+/* CRT Scanlines Overlay */
+.hero-wrapper::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%,
+    rgba(0, 0, 0, 0.35) 50%
+  ),
+  linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.03),
+    rgba(0, 255, 0, 0.01),
+    rgba(0, 0, 255, 0.03)
+  );
+  background-size: 100% 4px, 6px 100%;
+  pointer-events: none;
+  z-index: 40;
+}
+
+/* Header Navbar */
+.hero-header {
+  position: relative;
+  z-index: 50;
+  width: 100%;
+  padding: 16px 28px 8px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hero-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.hero-logo {
+  font-family: 'Anton', sans-serif;
+  font-size: 1.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+.hero-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.hero-nav-item {
+  color: #8e9096;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+}
+
+.hero-nav-item:hover {
+  color: #ffffff;
+}
+
+.hero-nav-item.active {
+  background-color: #00daf3;
+  color: #0d1117;
+  font-weight: 800;
+  box-shadow: 0 0 12px rgba(0, 218, 243, 0.4);
+}
+
+.hero-nav-icons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #8e9096;
+  margin-left: 8px;
+}
+
+.hero-nav-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.hero-nav-icon:hover {
+  opacity: 1;
+  color: #00daf3;
+}
+
+.hero-header-divider {
+  width: 100%;
+  border-bottom: 2px dashed #3a3d45;
+}
+
+/* Main Body Card Layout */
+.hero-main {
+  position: relative;
+  z-index: 50;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.hero-card {
+  position: relative;
+  width: 100%;
+  max-width: 1060px;
+  background-color: #17181c;
+  border: 1px solid #2e313a;
+  border-radius: 4px;
+  padding: 32px 36px;
+  box-shadow: 
+    0 12px 32px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  display: grid;
+  grid-template-columns: 1.25fr 0.9fr;
+  gap: 36px;
+  align-items: center;
+}
+
+@media (max-width: 868px) {
+  .hero-card {
+    grid-template-columns: 1fr;
+    padding: 24px;
+  }
+}
+
+/* Left Content Column */
+.hero-left {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+}
+
+.hero-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.hero-file-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #3d424e;
+  background: #111215;
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  color: #9da1ab;
+  letter-spacing: 0.06em;
+}
+
+.hero-file-icon {
+  font-size: 0.85rem;
+}
+
+.hero-priority-badge {
+  display: inline-block;
+  background-color: #dfba2c;
+  color: #840b0b;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 900;
+  padding: 3px 10px;
+  letter-spacing: 0.08em;
+  transform: rotate(-1.5deg);
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.hero-title {
+  font-family: 'Anton', sans-serif;
+  font-size: clamp(2.8rem, 5vw, 4.2rem);
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #ffffff;
+  margin: 0;
+  text-shadow: 3px 3px 0px rgba(0, 0, 0, 0.8);
+}
+
+.hero-description {
+  font-family: 'Courier Prime', monospace;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #b5b8c2;
+  border-left: 2px solid #00daf3;
+  padding-left: 14px;
+  margin: 4px 0;
+}
+
+.hero-redacted {
+  background: #2b2e36;
+  color: #2b2e36;
+  padding: 0 4px;
+  user-select: none;
+  letter-spacing: 2px;
+}
+
+/* Action Row */
+.hero-action-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.hero-btn-begin {
+  position: relative;
+  font-family: 'Anton', sans-serif;
+  font-size: 1.4rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background-color: #e4e2e1;
+  color: #111215;
+  padding: 12px 32px;
+  border: 2px solid #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  box-shadow: 4px 4px 0px #000000;
+}
+
+.hero-btn-begin:hover {
+  background-color: #00daf3;
+  color: #0b0d10;
+  border-color: #00daf3;
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px #000000;
+}
+
+.hero-btn-begin:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px #000000;
+}
+
+.hero-stability-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #c7a32c;
+  letter-spacing: 0.05em;
+}
+
+.hero-warning-icon {
+  font-size: 1rem;
+}
+
+.hero-prompt {
+  font-size: 0.8rem;
+  color: #00daf3;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+.hero-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background-color: #00daf3;
+  margin-left: 4px;
+  vertical-align: middle;
+  animation: heroBlink 1s infinite;
+}
+
+@keyframes heroBlink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* Right Detective Card Column */
+.hero-right {
+  display: flex;
+  justify-content: center;
+}
+
+.hero-portrait-frame {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  aspect-ratio: 4/4.5;
+  background-color: #0a0b0d;
+  border: 2px solid #363a45;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.7),
+    0 0 20px rgba(0, 218, 243, 0.15);
+}
+
+.hero-portrait-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: contrast(1.15) brightness(0.95);
+  transition: transform 0.4s ease;
+}
+
+.hero-portrait-frame:hover .hero-portrait-img {
+  transform: scale(1.03);
+}
+
+.hero-target-locked {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  background-color: rgba(13, 17, 23, 0.85);
+  border: 1px solid #00daf3;
+  color: #00daf3;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 0 10px rgba(0, 218, 243, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.hero-target-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #00daf3;
+  box-shadow: 0 0 8px #00daf3;
+  animation: targetPulse 1.5s infinite alternate;
+}
+
+@keyframes targetPulse {
+  0% { transform: scale(0.8); opacity: 0.6; }
+  100% { transform: scale(1.3); opacity: 1; }
+}
+
+/* Footer Status Bar */
+.hero-footer {
+  position: relative;
+  z-index: 50;
+  width: 100%;
+  padding: 12px 28px;
+  border-top: 1px solid #282a32;
+  background-color: #0e0f12;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.72rem;
+  color: #7b7f8c;
+}
+
+.hero-footer-left {
+  letter-spacing: 0.05em;
+}
+
+.hero-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.hero-footer-action {
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.hero-footer-action:hover {
+  color: #ffffff;
+}
+
+.hero-footer-highlight {
+  background-color: #e4e2e1;
+  color: #0e0f12;
+  padding: 2px 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
