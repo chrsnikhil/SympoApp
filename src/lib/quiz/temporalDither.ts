@@ -99,23 +99,35 @@ export const DITHER_GEN_BUDGET_MS = 6;
  * real and visible reduction in image quality, traded for the extremes
  * becoming hideable at all. 0 disables it.
  *
- * 100 by the coordinator's call after testing on a real display against a real
- * capture. It is a heavy setting: the image is compressed into [100, 155], so
- * roughly 55 of 255 tonal levels survive. That is a severe contrast loss, and
- * it was chosen deliberately over concealment — the reasoning below explains
- * why the floor has to be this aggressive to work at all.
+ * 38 by the coordinator's call, after viewing the real Round 1 reference on a
+ * real display at 100, then 67, then 38. Read the trade before changing it.
  *
- * With three frames the floor is worth triple: a pixel's single-frame range is `[max(0, 3v-510), min(255, 3v)]`, so
- * a black at `k` and a white at `255-k` can land on the SAME captured value
- * only once `k >= 43`, and the shared band widens by 6 per unit of floor
- * (`[255-3k, 3k]` — 130 values wide at 64). Below that threshold dark and
- * bright pixels are separable in every frame no matter what the noise does,
- * which is exactly how panel structure survived the previous version. The
- * asymptote is k=85, where every pixel can reach the full [0,255] in a single
- * frame — and the image is down to a third of its contrast. 64 is the measured
- * balance between the two.
+ * The floor is worth triple with three frames: a pixel's single-frame range is
+ * `[max(0, 3v-510), min(255, 3v)]`, so a black at `k` and a white at `255-k`
+ * can land on the SAME captured value only once `k >= 43`, and the shared band
+ * widens by 6 per unit of floor (`[255-3k, 3k]` — 130 values wide at 64). Below
+ * that threshold dark and bright pixels are separable in every frame no matter
+ * what the noise does, which is how panel structure survived an earlier version.
+ * The asymptote is k=85, where every pixel can reach the full [0,255] in one
+ * frame — and the image is down to a third of its contrast.
+ *
+ * So 38 is deliberately BELOW the k>=43 separability threshold, and that is a
+ * real weakening, measured rather than assumed. Rendering the reference at 38
+ * and at 67 and comparing single frames: at 67 a capture gives up a vague
+ * bright region and little else; at 38 the subject's silhouette, the light
+ * source, the large foreground object and the floor pattern are all
+ * discernible. That is enough to identify the scene — roughly the `subject` and
+ * `composition` criteria, 9 of the rubric's 23 weight — from one screenshot,
+ * though not the detail the other seven criteria score.
+ *
+ * It was chosen anyway because at 100 the image was compressed into [100, 155],
+ * about 55 of 255 tonal levels, and teams could not see well enough to recreate
+ * what they were being scored on. An unreadable reference fails the game more
+ * completely than a partially leaky one. If that balance needs revisiting, 67
+ * is the middle setting that was also tried, and 43 is the hard floor below
+ * which separability is guaranteed rather than merely likely.
  */
-export const DEFAULT_RANGE_FLOOR = 67;
+export const DEFAULT_RANGE_FLOOR = 38;
 
 /**
  * Frames per cycle. The eye integrates over roughly 1/25s — about 2.5 frames

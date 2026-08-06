@@ -177,7 +177,11 @@ export async function GET(request: Request) {
             judgedBy: typeof meta?.modelUsed === "string" ? meta.modelUsed : null,
           });
         }
-        judgedImages.sort((a, b) => b.points - a.points);
+        // Points are rounded to 1dp now, so two teams can genuinely tie on the
+        // award where four decimals made that near-impossible. Fall through to
+        // similarity, which is still stored at 4dp — the finer number does the
+        // separating even though the coarser one is what teams are shown.
+        judgedImages.sort((a, b) => b.points - a.points || (b.similarity ?? 0) - (a.similarity ?? 0));
       }
 
       // Solved-count per puzzle, for the coordinator's reveal panel — how many
