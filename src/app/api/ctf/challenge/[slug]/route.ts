@@ -29,6 +29,10 @@ export async function GET(
 
     const cleanSlug = decodeURIComponent(rawSlug).trim();
 
+    if (!cleanSlug) {
+      return NextResponse.json({ error: "Missing challenge slug" }, { status: 400 });
+    }
+
     const db = await getDb();
     const setting = await db.collection("system_settings").findOne({ key: SETTING_KEY });
     const eventState = setting?.state ?? "waiting";
@@ -67,12 +71,13 @@ export async function GET(
     const slugArray = Array.from(slugVariants);
     const escapedSlug = cleanSlug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+    // The title clause is anchored: an unanchored regex built from an empty or
+    // whitespace-only slug matches every challenge and returns an arbitrary one.
     const ch = await challengesCollection.findOne({
       $or: [
         { slug: { $in: slugArray } },
         { slug: { $regex: new RegExp(`^${escapedSlug}$`, "i") } },
-        { title: { $regex: new RegExp(escapedSlug, "i") } },
-        ...(cleanSlug.toLowerCase().includes("canon") ? [{ slug: "medium-02" }, { title: /canon protocol/i }] : [])
+        { title: { $regex: new RegExp(`^${escapedSlug}$`, "i") } },
       ]
     });
 
