@@ -1,0 +1,37 @@
+# Text normalisation for a mixed Windows/Linux/CI checkout.
+#
+# WHY THIS FILE EXISTS: a UTF-8 BOM at byte 0 of src/app/globals.css once broke
+# the production build outright. Tailwind copies the first bytes of the entry
+# stylesheet straight through into its output, and Lightning CSS then fails to
+# parse it with "Invalid dangling combinator in selector" — an error that names
+# neither the file nor the BOM, so it costs an afternoon to find.
+#
+# Git has no attribute that strips a BOM, so this file does the half it can
+# (line endings) and `npm run check:bom` — wired into CI — does the other half.
+# Keep both.
+
+* text=auto eol=lf
+
+# Source and config: always LF in the repo, no exceptions.
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.mjs   text eol=lf
+*.css   text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+# Binary assets — never normalise, never diff.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.ico   binary
+*.gif   binary
+*.mp4   binary
+*.woff  binary
+*.woff2 binary
+*.glb   binary
+*.pdf   binary
