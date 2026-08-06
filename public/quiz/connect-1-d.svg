@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="640" height="360">
+  <defs>
+    <pattern id="dots" width="10" height="10" patternUnits="userSpaceOnUse">
+      <circle cx="1.2" cy="1.2" r="1.2" fill="#ffffff" opacity="0.05"/>
+    </pattern>
+  </defs>
+  <rect width="640" height="360" fill="#0f1115"/>
+  <rect width="640" height="360" fill="url(#dots)"/>
+  <rect x="12" y="12" width="616" height="336" fill="none"
+        stroke="#2b303a" stroke-width="3" stroke-dasharray="14 10"/>
+  <text x="320" y="176" text-anchor="middle"
+        font-family="Anton, Impact, sans-serif" font-size="104" fill="#4a5160">1D</text>
+  <text x="320" y="222" text-anchor="middle"
+        font-family="Inter, system-ui, sans-serif" font-size="17"
+        letter-spacing="5" fill="#2b303a">PLACEHOLDER</text>
+  <text x="320" y="316" text-anchor="middle"
+        font-family="Inter, system-ui, sans-serif" font-size="14"
+        letter-spacing="2" fill="#2b303a">PUZZLE 1 — TILE 4 OF 4</text>
+</svg>

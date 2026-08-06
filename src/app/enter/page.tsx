@@ -1,57 +1,29 @@
-"use client";
-
-import { useState } from "react";
+import { headers } from "next/headers";
+import { eventFromHost } from "@/lib/config";
+import QuizEntry from "./QuizEntry";
+import PlatformEntry from "./PlatformEntry";
 
 /**
- * Entry page. Lives on the app/www host — the event subdomains bounce here
- * when there's no valid session, carrying ?rt= so we can send the user back.
+ * The login screen, picked by host — the UI counterpart to the dispatch in
+ * `api/enter/route.ts`.
+ *
+ * The quiz asks for a coin number and shows the avatar it unlocks; the CTF and
+ * hunt ask for a team name and password. Those are different forms posting
+ * different bodies, so the page that renders them has to know which event the
+ * visitor is on. `/enter` is in the proxy's PUBLIC_PREFIXES and is therefore
+ * never rewritten into a route group, which is why this reads the Host header
+ * itself rather than relying on the `x-event` header the proxy sets on
+ * rewritten requests.
+ *
+ * This is a server component purely so it can read that header; both branches
+ * below are the original client components, moved but not rewritten.
  */
-export default function EnterPage() {
-  const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+export default async function EnterPage() {
+  const host = (await headers()).get("host");
+  const event = eventFromHost(host);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/enter", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "That didn't work");
-        return;
-      }
-      // Return to wherever they were headed, else the app root.
-      const rt = new URLSearchParams(window.location.search).get("rt");
-      window.location.href = rt ?? "/";
-    } catch {
-      setError("Network error — try again");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <main style={{ display: "grid", placeItems: "center", minHeight: "100dvh", fontFamily: "system-ui" }}>
-      <form onSubmit={onSubmit} style={{ width: 320 }}>
-        <h1 style={{ fontSize: 28, marginBottom: 16 }}>Enter</h1>
-        <input
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          placeholder="XXXX-XXXXX-XXXXX"
-          autoComplete="one-time-code"
-          style={{ width: "100%", padding: 12, fontSize: 16, letterSpacing: 1 }}
-        />
-        {error && <p style={{ color: "#c00", marginTop: 8 }}>{error}</p>}
-        <button type="submit" disabled={busy} style={{ width: "100%", padding: 12, marginTop: 12, fontSize: 16 }}>
-          {busy ? "Checking…" : "Continue"}
-        </button>
-      </form>
-    </main>
-  );
+  // Path-based deployments (localhost, ngrok) have no subdomain to read. The
+  // platform form is the safe default there: it is the only one that can also
+  // redeem a plain access code.
+  return event === "quiz" ? <QuizEntry /> : <PlatformEntry />;
 }
