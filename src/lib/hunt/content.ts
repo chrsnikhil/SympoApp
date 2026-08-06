@@ -25,7 +25,7 @@ export type HuntSlug = (typeof HUNT_SLUGS)[number];
  * it cannot be imported here because it pulls in React components, and this
  * module is used by route handlers.
  */
-export const PLAYABLE_HUNT_SLUGS = ["hunt-grid"] as const satisfies readonly HuntSlug[];
+export const PLAYABLE_HUNT_SLUGS = ["hunt-grid", "hunt-room"] as const satisfies readonly HuntSlug[];
 
 export const CIPHER = {
   plaintext: "the spider waits where the last light falls code websling",

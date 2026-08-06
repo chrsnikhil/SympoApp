@@ -111,7 +111,7 @@ export default function SixtyFourGrid({ config, onAnswer }: PuzzleProps) {
   // during render: calling the parent's setState from a render body is a
   // React error.
   useEffect(() => {
-    onAnswer(normalizedGuess);
+    onAnswer?.(normalizedGuess);
   }, [normalizedGuess, onAnswer]);
 
   return (
