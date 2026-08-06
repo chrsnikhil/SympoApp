@@ -36,6 +36,16 @@ export interface Team {
   avatar?: AvatarId;
   /** The coin number that granted it, 1..60. Kept so a coin can be traced. */
   coin?: number;
+  /**
+   * The team's number for the universe hunt, when it has no coin.
+   *
+   * `coin` is the quiz's identity and only the coin login sets it, so a team
+   * that registered by name had no number at all and the universe hunt refused
+   * to serve it. This is assigned instead — on registration, or on first demand
+   * for teams that predate the field. `coin` still wins where both exist, so a
+   * coin-holding team keeps the number printed on the physical coin.
+   */
+  teamNumber?: number;
   createdAt: Date;
   banned?: boolean;
   bannedReason?: string;
@@ -80,6 +90,7 @@ export interface Challenge {
   points: number;
   opensAt: Date | null;
   closesAt: Date | null;
+  disabled?: boolean;
   config: {
     /** hunt + ctf: sha256 of the accepted answer/flag. */
     answerHash?: string;

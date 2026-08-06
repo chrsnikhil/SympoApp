@@ -79,7 +79,7 @@ export default function CanonProtocolPage() {
 
         <div className="flex items-center gap-3">
           <a
-            href="/ctf/medium-02"
+            href="/ctf/hard-01"
             className="px-4 py-2 bg-red-950/80 hover:bg-red-900 border border-red-500/40 rounded-xl text-red-300 hover:text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-md"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

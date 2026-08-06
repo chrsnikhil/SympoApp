@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
+import { ObjectId } from "mongodb";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/lib/auth/guard";
 import { collections } from "@/lib/db/client";
+import { buildServerDitheredFrames } from "@/lib/quiz/serverDither";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +66,44 @@ export async function GET(req: NextRequest) {
     console.log(
       `[reference-view] team=${session.teamId} session=${sessionId} at=${new Date().toISOString()}`
     );
+
+    /**
+     * With the dither on, the clean image NEVER leaves this function.
+     *
+     * The browser used to be sent the picture and asked to noise it locally,
+     * which protected a screenshot of the screen and nothing else: the Network
+     * tab still held a pristine copy, one right-click from being saved. A team
+     * never had to beat the flicker, only open the inspector.
+     *
+     * Now the frames are built here and only the frames are serialised. Each is
+     * individually unreadable and no request returns anything better. The
+     * per-team watermark is baked in BEFORE the frames are generated, so it
+     * cannot be peeled off the top of a capture either.
+     *
+     * With the dither off the old shape is returned unchanged: the flag is a
+     * deliberate accessibility trade, and switching it off has to leave a plain
+     * legible image behind rather than no image at all.
+     */
+    if (process.env.NEXT_PUBLIC_QUIZ_DITHER === "1") {
+      // Looked up rather than taken from the request: the watermark is the
+      // traceability story, so the name burned into it has to come from the
+      // session's team, not from anything the client could choose.
+      const teams = await collections.teams();
+      const team = await teams.findOne({ _id: new ObjectId(session.teamId) });
+      const stamp = new Date().toLocaleTimeString("en-GB");
+      const { frames, width, height } = await buildServerDitheredFrames(dataUrl, {
+        watermark: { teamName: team?.name ?? "TEAM", sessionId, stamp },
+      });
+      return NextResponse.json(
+        { frames, width, height, sessionId },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            Pragma: "no-cache",
+          },
+        }
+      );
+    }
 
     return NextResponse.json(
       { dataUrl, sessionId },

@@ -83,6 +83,7 @@ export default function ProtectedImage({
   sessionId,
   className,
   protectFocusLoss = false,
+  dither = false,
 }: {
   src: string;
   alt: string;
@@ -90,6 +91,18 @@ export default function ProtectedImage({
   sessionId?: string | null;
   className?: string;
   protectFocusLoss?: boolean;
+  /**
+   * Opt IN to the temporal dither. Off by default, and deliberately a per-call
+   * decision rather than something every ProtectedImage inherits from the
+   * feature flag.
+   *
+   * Only one surface in the app earns it: the Round 1 Image Replication
+   * reference, which teams are scored on recreating and therefore have a direct
+   * incentive to capture. A team's own uploaded recreation is theirs already,
+   * and the memory and Connections tiles are puzzle content teams are meant to
+   * study — flickering those spends the accessibility cost with nothing bought.
+   */
+  dither?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -135,7 +148,10 @@ export default function ProtectedImage({
   const [layoutSeed, setLayoutSeed] = useState(() => Math.floor(Math.random() * 1_000_000));
   const [obscured, setObscured] = useState(false);
   const [layoutEpoch, setLayoutEpoch] = useState(0);
+  // Both must agree: the coordinator's flag (and the viewer's opt-out, which
+  // `useDitherSetting` already folds in) AND this call site asking for it.
   const { ditherEnabled } = useDitherSetting();
+  const ditherThisImage = dither && ditherEnabled;
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -266,7 +282,7 @@ export default function ProtectedImage({
    */
   useDitherLoop({
     canvasRef,
-    enabled: ditherEnabled,
+    enabled: ditherThisImage,
     paintBase: () => draw(),
     deps: [ready, draw, layoutEpoch],
   });

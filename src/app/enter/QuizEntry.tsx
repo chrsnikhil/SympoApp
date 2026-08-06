@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { avatarForCoin, parseCoin } from "@/lib/quiz/avatars";
-import { eventHostFor } from "@/lib/config";
+import { eventFromHost, eventHostFor } from "@/lib/config";
+import { safeRedirectTarget } from "@/lib/auth/safeRedirect";
 import WebShooter from "@/app/quiz/WebShooter";
 import ComicHeader from "@/components/ui/ComicHeader";
 import ComicButton from "@/components/ui/ComicButton";
@@ -12,6 +13,22 @@ import TeamAvatar from "@/components/ui/TeamAvatar";
  * Entry page with Spider-Verse Symposium styling.
  * Preserves all POST /api/enter routing and verification logic.
  */
+/**
+ * Where to send a participant who logged in with no `?rt=` to follow.
+ *
+ * `/enter` is served on every event subdomain, so the fallback cannot be a
+ * fixed path. It used to be a hardcoded "/quiz": on hunt.<domain>/enter the
+ * proxy then rewrote /quiz into /hunt/quiz, which does not exist, and the
+ * participant landed on a 404 immediately after a successful login.
+ *
+ * When the host names an event, "/" is the answer — the proxy rewrites it into
+ * that event's route group. Only the neutral app/www/localhost hosts, where
+ * "/" is the platform landing page rather than an event, keep /quiz.
+ */
+function postLoginPath(): string {
+  return eventFromHost(window.location.hostname) ? "/" : "/quiz";
+}
+
 export default function QuizEntry() {
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,12 +41,18 @@ export default function QuizEntry() {
         if (res.ok) {
           const data = await res.json();
           const rt = new URLSearchParams(window.location.search).get("rt");
-          if (rt && !rt.endsWith("/") && !rt.includes("/enter") && !rt.endsWith("/enter")) {
-            window.location.href = rt;
+          // Same-origin only. The previous guard checked that `rt` did not end in
+          // "/" and did not contain "/enter" — it never checked the ORIGIN, so
+          // `?rt=https://evil.example/x` passed all three tests and navigated
+          // there. This effect runs for anyone arriving with a session cookie,
+          // so it did not even need a login to fire.
+          const target = safeRedirectTarget(rt, window.location.origin, "");
+          if (target) {
+            window.location.href = target;
           } else if (data.role === "admin") {
             window.location.href = "/admin/quiz";
           } else {
-            window.location.href = "/quiz";
+            window.location.href = postLoginPath();
           }
         }
       })
@@ -76,8 +99,9 @@ export default function QuizEntry() {
       }
 
       const rt = new URLSearchParams(window.location.search).get("rt");
-      if (rt && !rt.endsWith("/") && !rt.includes("/enter") && !rt.endsWith("/enter")) {
-        window.location.href = rt;
+      const target2 = safeRedirectTarget(rt, window.location.origin, "");
+      if (target2) {
+        window.location.href = target2;
         return;
       }
 
@@ -85,7 +109,7 @@ export default function QuizEntry() {
         if (data.role === "admin") {
           window.location.href = "/admin/quiz";
         } else {
-          window.location.href = "/quiz";
+          window.location.href = postLoginPath();
         }
       }, 150);
     } catch (err) {

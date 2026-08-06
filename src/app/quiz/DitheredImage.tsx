@@ -4,17 +4,27 @@ import { useEffect, useRef, useState } from "react";
 import { useDitherLoop } from "./useDitherLoop";
 
 /**
- * An `<img>` replacement that can render through the temporal dither.
+ * An `<img>` replacement that draws to a canvas, optionally through the
+ * temporal dither.
  *
- * Used for the raster surfaces worth screenshotting — Connections tiles, the
- * memory cards, MCQ question images. The Round 1 reference has its own
- * component (`ProtectedImage`) because it also carries a per-team watermark and
- * blanking; this is the plain case.
+ * Used for Connections tiles, memory cards and MCQ question images. In the app
+ * every one of those passes `dither` off, by decision: those are puzzle
+ * surfaces teams are meant to look at and reason about, and a memory card in
+ * particular is on screen for about a second. The flicker would cost
+ * legibility on the exact images the game asks people to read.
  *
- * With `dither` off it draws once to a canvas and stops, which is
- * indistinguishable from an `<img>` in cost and appearance. A canvas rather than
- * an `<img>` either way, so "save image as" and drag-to-desktop have nothing to
- * grab.
+ * The dither is reserved for the Round 1 Image Replication reference, which is
+ * the only image teams are scored on reproducing and so the only one they gain
+ * from capturing. That surface uses `ProtectedImage`, which also carries the
+ * per-team watermark and the capture blanking.
+ *
+ * The `dither` prop is kept because the preview route exercises it, and because
+ * "which images flicker" is a decision worth being able to change at a call
+ * site rather than by editing this file.
+ *
+ * With `dither` off it draws once and stops, which is indistinguishable from an
+ * `<img>` in cost and appearance. A canvas either way, so "save image as" and
+ * drag-to-desktop have nothing to grab.
  */
 export default function DitheredImage({
   src,

@@ -30,10 +30,30 @@ export async function gradeHunt(input: GradeInput): Promise<GradeResult> {
   const spent = hintCosts.slice(0, current.hintsUsed).reduce((a, b) => a + b, 0);
   const points = Math.max(0, challenge.points - spent);
 
-  await progress.updateOne(
-    { teamId, challengeSlug: challenge.slug },
+  // Claim the solve, don't just record it.
+  //
+  // The `current.solvedAt` check above is a read, and this is the matching
+  // write — two correct submissions from the same team that both read before
+  // either wrote would both pass that check and both reach appendScore, paying
+  // the team twice for one puzzle. That is not hypothetical at a live event: a
+  // team plays from more than one phone, and a double-tap on a slow network is
+  // two requests in flight at once.
+  //
+  // Filtering on `solvedAt: null` makes the update itself the arbiter — Mongo
+  // applies the two writes in some order and only the first matches, so exactly
+  // one caller sees modifiedCount === 1 and only that one scores. The earlier
+  // read stays because it answers the common case without a write and supplies
+  // hintsUsed for the award; correctness now rests on this filter.
+  //
+  // (`solvedAt: null` also matches a missing field, so a document seeded
+  // without the key still claims correctly.)
+  const claim = await progress.updateOne(
+    { teamId, challengeSlug: challenge.slug, solvedAt: null },
     { $set: { solvedAt: input.receivedAt } }
   );
+  if (claim.modifiedCount === 0) {
+    return { correct: false, points: 0, meta: { reason: "already-solved" } };
+  }
 
   // Unlock the next clue. upsert so a replayed request can't create duplicates.
   const next = challenge.config.nextSlug;

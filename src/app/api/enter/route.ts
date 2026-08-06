@@ -254,12 +254,10 @@ async function platformEntry(
       role: "participant",
     });
 
-    // Re-materialize CTF leaderboard so newly logged-in team appears immediately
-    try {
-      await materialize("ctf");
-    } catch (e) {
-      console.error("[enter] materialize error:", e);
-    }
+    // Re-materialize CTF leaderboard in background so newly logged-in team appears without blocking login latency
+    void materialize("ctf").catch((e) => {
+      console.error("[enter] background materialize error:", e);
+    });
 
     const res = NextResponse.json({ ok: true, teamId: team._id!.toString(), role: "participant" });
     res.cookies.set({ ...sessionCookieOptions(isSecure), value: token });

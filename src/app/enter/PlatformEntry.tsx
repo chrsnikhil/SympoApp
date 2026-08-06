@@ -2,6 +2,25 @@
 
 import { useState } from "react";
 import SpiderBackgroundFX from "@/components/SpiderBackgroundFX";
+import { eventFromHost } from "@/lib/config";
+import { safeRedirectTarget } from "@/lib/auth/safeRedirect";
+
+/**
+ * Where to send a participant who logged in with no usable `?rt=`.
+ *
+ * This form is served on every non-quiz host — ctf, hunt, code, and the
+ * path-based deployments — so the destination cannot be a fixed path. It used
+ * to be the literal "/ctf", which meant a hunt participant who logged in was
+ * sent to the CTF: on hunt.<domain> the proxy rewrote /ctf into /hunt/ctf,
+ * which does not exist, so a correct login ended on a 404.
+ *
+ * When the host names an event, "/" is the answer — the proxy rewrites it into
+ * that event's route group. Only the neutral app/www/localhost hosts, where "/"
+ * is the platform landing page rather than an event, keep /ctf.
+ */
+function postLoginPath(): string {
+  return eventFromHost(window.location.hostname) ? "/" : "/ctf";
+}
 
 export default function PlatformEntry() {
   const [teamName, setTeamName] = useState("");
@@ -42,13 +61,23 @@ export default function PlatformEntry() {
         console.error("Failed to clear local storage", e);
       }
 
+      // `rt` arrives as an ABSOLUTE url. proxy.ts builds it as
+      // `${origin}${pathname}${search}` so the bounce survives the subdomain
+      // the request came in on, e.g.
+      //   /enter?rt=https://hunt.example.com/universe
+      //
+      // The check here used to be `rawRt.startsWith("/")`, which an absolute
+      // url never satisfies — so every rt was silently discarded and every
+      // login went to the fallback, whichever page the participant had actually
+      // asked for. Combined with that fallback being "/ctf", a hunt
+      // participant who clicked a link to /universe was bounced to login and
+      // then landed on a 404 with no way back.
+      //
+      // safeRedirectTarget parses it properly and enforces what the hand-rolled
+      // check was reaching for: same-origin only, no /admin, and it returns
+      // pathname + search so the host cannot be swapped underneath us.
       const rawRt = new URLSearchParams(window.location.search).get("rt");
-      let targetRedirect = "/ctf";
-      if (rawRt && rawRt.startsWith("/") && !rawRt.startsWith("/admin")) {
-        targetRedirect = rawRt;
-      }
-
-      window.location.href = targetRedirect;
+      window.location.href = safeRedirectTarget(rawRt, window.location.origin, postLoginPath());
     } catch {
       setError("Network error — please check your connection.");
     } finally {

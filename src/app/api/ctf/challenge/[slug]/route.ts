@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ObjectId } from "mongodb";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
 import { collections, getDb } from "@/lib/db/client";
 import { readSnapshot } from "@/lib/leaderboard/materialize";
@@ -28,6 +29,10 @@ export async function GET(
 
     const cleanSlug = decodeURIComponent(rawSlug).trim();
 
+    if (!cleanSlug) {
+      return NextResponse.json({ error: "Missing challenge slug" }, { status: 400 });
+    }
+
     const db = await getDb();
     const setting = await db.collection("system_settings").findOne({ key: SETTING_KEY });
     const eventState = setting?.state ?? "waiting";
@@ -44,15 +49,39 @@ export async function GET(
     const subsCollection = await collections.submissions();
     const teamsCollection = await collections.teams();
 
+    // Generate slug variants (e.g. "medium-2" -> ["medium-2", "medium-02", "medium2", "medium02"])
+    const slugVariants = new Set<string>([
+      cleanSlug,
+      cleanSlug.toLowerCase(),
+      cleanSlug.replace(/_/g, "-"),
+    ]);
+
+    const numMatch = cleanSlug.match(/^([a-z]+)[-_]?0*(\d+)$/i);
+    if (numMatch) {
+      const prefix = numMatch[1].toLowerCase();
+      const numVal = parseInt(numMatch[2], 10);
+      const paddedNum = numVal.toString().padStart(2, "0");
+
+      slugVariants.add(`${prefix}-${paddedNum}`);     // e.g. medium-02
+      slugVariants.add(`${prefix}-${numVal}`);        // e.g. medium-2
+      slugVariants.add(`${prefix}${paddedNum}`);      // e.g. medium02
+      slugVariants.add(`${prefix}${numVal}`);         // e.g. medium2
+    }
+
+    const slugArray = Array.from(slugVariants);
+    const escapedSlug = cleanSlug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    // The title clause is anchored: an unanchored regex built from an empty or
+    // whitespace-only slug matches every challenge and returns an arbitrary one.
     const ch = await challengesCollection.findOne({
       $or: [
-        { slug: cleanSlug },
-        { slug: cleanSlug.toLowerCase() },
-        { slug: { $regex: new RegExp(`^${cleanSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } }
+        { slug: { $in: slugArray } },
+        { slug: { $regex: new RegExp(`^${escapedSlug}$`, "i") } },
+        { title: { $regex: new RegExp(`^${escapedSlug}$`, "i") } },
       ]
     });
 
-    if (!ch || ch.config?.disabled) {
+    if (!ch || ((ch.disabled || ch.config?.disabled) && session.role !== "admin")) {
       return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
     }
 
@@ -79,7 +108,7 @@ export async function GET(
     const nextSlug = currIndex >= 0 && currIndex < sortedCtfChallenges.length - 1 ? sortedCtfChallenges[currIndex + 1].slug : null;
 
     // Get current team name and current total score
-    const teamDoc = await teamsCollection.findOne({ _id: new (require("mongodb").ObjectId)(teamIdStr) });
+    const teamDoc = await teamsCollection.findOne({ _id: new ObjectId(teamIdStr) });
     if (session.role !== "admin" && !teamDoc) {
       return NextResponse.json({ error: "Session expired or team no longer exists" }, { status: 401 });
     }
@@ -101,7 +130,7 @@ export async function GET(
     const teamSub = await subsCollection.findOne({
       type: "ctf",
       challengeId: ch._id,
-      teamId: new (require("mongodb").ObjectId)(teamIdStr),
+      teamId: new ObjectId(teamIdStr),
       "verdict.correct": true,
     });
 

@@ -81,6 +81,9 @@ export async function GET(request: Request) {
         points: number;
         similarity: number | null;
         summary: string | null;
+        /** True when the integrity check zeroed this, not the rubric. */
+        rejected: boolean;
+        rejectedConfidence: string | null;
         dataUrl: string | null;
         judgedAt: string;
         /** Which judge produced this. Carries the mock warning when applicable. */
@@ -137,7 +140,29 @@ export async function GET(request: Request) {
           const dataUrl = imgId ? `/api/admin/quiz/image?id=${imgId}&t=${s.receivedAt.getTime()}` : null;
           const meta = s.verdict?.meta as Record<string, unknown> | undefined;
           const simNum = typeof meta?.similarity === "number" ? meta.similarity : undefined;
-          const sumStr = typeof meta?.summary === "string" ? meta.summary : undefined;
+          /**
+           * `reason`, not `summary`.
+           *
+           * `recordImageEvaluation` writes the judge's sentence to `meta.reason`
+           * (scoring.ts) and this read asked for `meta.summary`, so it was always
+           * undefined and every row fell back to the literal "Graded
+           * automatically". The one column meant to explain a score explained
+           * nothing — including for a team scored 0, where the explanation is the
+           * whole point. `summary` is still accepted so rows written by any older
+           * shape keep rendering.
+           */
+          const sumStr =
+            typeof meta?.reason === "string"
+              ? meta.reason
+              : typeof meta?.summary === "string"
+                ? meta.summary
+                : undefined;
+          // A 0 from the integrity check and a 0 from a genuinely poor
+          // recreation are different events and the coordinator has to be able
+          // to tell them apart — a rejected team will ask why.
+          const rejected = meta?.evalStatus === "rejected_watermark" || meta?.watermarkDetected === true;
+          const rejectedConfidence =
+            typeof meta?.watermarkConfidence === "string" ? meta.watermarkConfidence : null;
 
           judgedImages.push({
             teamId,
@@ -145,12 +170,18 @@ export async function GET(request: Request) {
             points: s.verdict?.points ?? 0,
             similarity: simNum !== undefined ? Math.round(simNum * 100) : null,
             summary: sumStr ?? null,
+            rejected,
+            rejectedConfidence,
             dataUrl,
             judgedAt: s.receivedAt.toISOString(),
             judgedBy: typeof meta?.modelUsed === "string" ? meta.modelUsed : null,
           });
         }
-        judgedImages.sort((a, b) => b.points - a.points);
+        // Points are rounded to 1dp now, so two teams can genuinely tie on the
+        // award where four decimals made that near-impossible. Fall through to
+        // similarity, which is still stored at 4dp — the finer number does the
+        // separating even though the coarser one is what teams are shown.
+        judgedImages.sort((a, b) => b.points - a.points || (b.similarity ?? 0) - (a.similarity ?? 0));
       }
 
       // Solved-count per puzzle, for the coordinator's reveal panel — how many
