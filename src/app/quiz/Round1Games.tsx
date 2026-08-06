@@ -8,7 +8,6 @@ import ProtectedImage from "./ProtectedImage";
 import ScreenshotGuard from "./ScreenshotGuard";
 import DitheredImage from "./DitheredImage";
 import FlickerNotice from "./FlickerNotice";
-import { useDitherSetting } from "./useDitherSetting";
 import SpiderTimer from "./SpiderTimer";
 import { useProctorStrikes } from "@/lib/quiz/useProctorStrikes";
 
@@ -697,6 +696,10 @@ function ImageReplication({
                   teamName={teamName}
                   className="border-2 border-paper-white/20 bg-ink-black/80"
                   protectFocusLoss
+                  // The one surface in the app that dithers. Teams are scored
+                  // on recreating this image, so it is the only one they have a
+                  // real incentive to capture and work from offline.
+                  dither
                 />
               ) : (
                 <div className="flex h-64 items-center justify-center border-2 border-paper-white/20 bg-ink-black/80">
@@ -878,7 +881,6 @@ function ImageReplication({
  * attempt, since the puzzle itself is the difficulty, not a one-shot penalty.
  */
 function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disabled: boolean; onSolved: () => void }) {
-  const { ditherEnabled } = useDitherSetting();
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1049,9 +1051,12 @@ function ConnectionsGame({ game, disabled, onSolved }: { game: Round1Game; disab
               {isRevealed && images[i] ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <DitheredImage
+                  // No dither here. A Connections tile is a puzzle teams are
+                  // meant to study and reason about, so flickering it costs
+                  // legibility and buys nothing — the answer is a word, not the
+                  // picture. Still drawn to a canvas, so it stays undraggable.
                   src={images[i]}
                   alt={`Tile ${i + 1}`}
-                  dither={ditherEnabled}
                   fit="contain"
                   className="h-full w-full p-1"
                 />
