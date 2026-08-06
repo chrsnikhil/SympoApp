@@ -27,13 +27,15 @@ jobs:
 
       - run: npm ci
 
-      - name: Rebuild & ensure Tailwind oxide native binding
+      - name: Rebuild native bindings (tailwind oxide + sharp)
         run: |
+          # tailwind oxide
           npm rebuild @tailwindcss/oxide --update-binary || true
           npm i @tailwindcss/oxide-linux-x64-gnu --no-save || true
 
-      - name: Ensure sharp native binding for Next.js image optimization
-        run: npm install --os=linux --cpu=x64 sharp --no-save
+          # sharp – required by Next.js image optimisation at build time
+          npm rebuild sharp --update-binary || true
+          npm i sharp-linux-x64-gnu --no-save || true
 
       - name: Check for UTF-8 BOMs
         # A BOM in globals.css breaks the Tailwind build with an error that
