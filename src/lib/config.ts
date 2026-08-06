@@ -120,6 +120,9 @@ export const LIMITS = {
   rateLimit: { windowMs: 10_000, max: 20 },
 };
 
+/** How long a team has on its Shiftverse word once the board is first served. */
+export const SHIFTVERSE_DURATION_MS = 15 * 60 * 1000;
+
 /**
  * Resolve a Host header to an event key.
  * Handles ports (`hunt.localhost:3000`) and falsy hosts.
