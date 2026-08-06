@@ -1,5 +1,5 @@
 import { collections } from "@/lib/db/client";
-import { EVENTS, type EventKey } from "@/lib/config";
+import { EVENTS, LEADERBOARD_REFRESH_MS, type EventKey } from "@/lib/config";
 import type { LeaderboardSnapshot, Challenge } from "@/lib/db/types";
 import { calculateChallengeValue } from "@/lib/ctf/scoring";
 
@@ -247,9 +247,60 @@ export async function materializeAll(): Promise<void> {
   await Promise.all([...EVENTS, "overall" as const].map((e) => materialize(e)));
 }
 
-/** Read the current snapshot; materialize on demand if it's missing. */
+/**
+ * A snapshot older than this is refreshed in the background on the next read.
+ *
+ * Three poll intervals, so a board that is being written to normally never
+ * reaches it — a submission re-materializes long before this — and only a
+ * genuinely idle board pays for a refresh.
+ */
+const STALE_AFTER_MS = LEADERBOARD_REFRESH_MS * 3;
+
+/**
+ * Per-event timestamp of the last refresh THIS process kicked off.
+ *
+ * The stampede guard. Without it, a stale board plus 500 clients polling every
+ * five seconds means 500 simultaneous aggregations — precisely the load the
+ * materialized snapshot exists to prevent, arriving in one spike instead of
+ * being spread out. With it, a replica starts at most one refresh per event per
+ * interval regardless of how many readers notice the staleness at once.
+ *
+ * In-process, so the ceiling is one refresh per replica rather than one
+ * globally. That is fine at this replica count and needs no coordination; if
+ * the app ever scales out far enough for that to matter, this wants to become a
+ * lease document instead.
+ */
+const refreshStartedAt = new Map<string, number>();
+
+/**
+ * Read the current snapshot, materializing on demand if it is missing and
+ * refreshing it in the background if it is stale.
+ *
+ * Nothing was refreshing these on a schedule. `materializeAll` exists but is
+ * called from nowhere, so a board only ever changed when something wrote to it
+ * — a submission, a login, an admin action. During play that is constant and
+ * invisible. In a lull it is not: after the CTF leaderboard fix shipped, the
+ * live board kept serving pre-fix rows for twenty minutes because no team had
+ * logged in since the deploy, which looks exactly like a broken deploy.
+ *
+ * The refresh is deliberately NOT awaited. The caller gets the snapshot it
+ * already has, at the same latency as before, and the fresh one lands for the
+ * next poll — five seconds later. Blocking here would make the unlucky reader
+ * that happens to notice the staleness pay for everyone else's refresh.
+ */
 export async function readSnapshot(event: EventKey | "overall"): Promise<LeaderboardSnapshot> {
   const boards = await collections.leaderboards();
   const existing = await boards.findOne({ event });
-  return existing ?? materialize(event);
+  if (!existing) return materialize(event);
+
+  const now = Date.now();
+  const age = now - new Date(existing.generatedAt).getTime();
+  if (age > STALE_AFTER_MS && now - (refreshStartedAt.get(event) ?? 0) > STALE_AFTER_MS) {
+    refreshStartedAt.set(event, now);
+    void materialize(event).catch((err) => {
+      console.error(`[leaderboard] background refresh failed for ${event}`, err);
+    });
+  }
+
+  return existing;
 }
