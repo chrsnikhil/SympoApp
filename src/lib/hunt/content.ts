@@ -9,24 +9,6 @@ import { CODES } from "./codes";
 export const HUNT_SLUGS = ["hunt-cipher", "hunt-grid", "hunt-circuit", "hunt-room"] as const;
 export type HuntSlug = (typeof HUNT_SLUGS)[number];
 
-/**
- * The puzzles a team can actually play today.
- *
- * `HUNT_SLUGS` is the full set the seed writes and the graders answer for.
- * Only some of them have a component built: the rest render PlaceholderPuzzle,
- * a "Coming Soon" card with nothing to interact with. They were still unlocked
- * and still worth 100 points each, so a team saw four tiles and could solve
- * one — which reads as three broken puzzles, not three unfinished ones.
- *
- * Listing them here rather than deleting them from the seed keeps the content
- * and the answer hashes in place, so shipping one is adding its slug back to
- * this line once its component exists. Keep it in sync with REGISTRY in
- * `src/app/hunt/registry.tsx`, which is the client-side half of the same fact —
- * it cannot be imported here because it pulls in React components, and this
- * module is used by route handlers.
- */
-export const PLAYABLE_HUNT_SLUGS = ["hunt-grid", "hunt-room"] as const satisfies readonly HuntSlug[];
-
 export const CIPHER = {
   plaintext: "the spider waits where the last light falls code websling",
   shiftBy: 7,

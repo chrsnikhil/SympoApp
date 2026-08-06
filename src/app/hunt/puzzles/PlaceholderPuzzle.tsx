@@ -6,11 +6,11 @@ import type { PuzzleProps } from "../registry";
  * Placeholder for puzzles not yet implemented.
  * Shows a Spider-Punk styled "coming soon" message.
  */
-export default function PlaceholderPuzzle({ config, onAnswer }: PuzzleProps) {
+export default function PlaceholderPuzzle({ config, onSolve }: PuzzleProps) {
   // Silence unused-var warnings — these props are part of the PuzzleProps
   // contract and will be wired once each puzzle is implemented.
   void config;
-  void onAnswer;
+  void onSolve;
 
   return (
     <div className="panel halftone relative p-8 text-center">

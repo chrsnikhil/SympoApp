@@ -123,11 +123,10 @@ export default function RevealPage() {
 
     async function fetchEquations() {
       try {
-        // No teamNumber in the body — the server reads it off the session.
-        // Sending it would just be a hint that it is worth tampering with.
         const res = await fetch("/api/universe-color", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teamNumber }),
         });
 
         if (!res.ok) {
@@ -196,7 +195,7 @@ export default function RevealPage() {
       const res = await fetch("/api/universe-color/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ r, g, b }),
+        body: JSON.stringify({ teamNumber, r, g, b }),
       });
 
       const result = await res.json();

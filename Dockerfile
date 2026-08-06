@@ -7,7 +7,7 @@
 # instead of the whole node_modules tree.
 
 # ---- deps: install once, cached on package-lock.json ----
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 # `npm ci` (not install) so the lockfile is authoritative and builds are
@@ -15,7 +15,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 # ---- build ----
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -50,7 +50,7 @@ ENV NEXT_PUBLIC_QUIZ_DITHER=$NEXT_PUBLIC_QUIZ_DITHER
 RUN npm run build
 
 # ---- runner ----
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

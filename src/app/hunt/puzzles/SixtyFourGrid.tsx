@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { GRID_COLOURS, isAnagram, lettersFor, type GridCell } from "@/lib/hunt/grid";
+import { CODES } from "@/lib/hunt/codes";
 import type { PuzzleProps } from "../registry";
 
 /**
@@ -72,21 +73,8 @@ const COLOUR_NAMES = [
  * config.gridCells arrives already shuffled. This component never sees the
  * eight source words, only the letter/colour pairs, so there is nothing here
  * for a curious team to read out of devtools.
- *
- * IT ALSO DOES NOT KNOW ITS OWN ANSWER, AND MUST NOT LEARN IT. This file used
- * to `import { CODES } from "@/lib/hunt/codes"` and compare the player's
- * typing against CODES.grid to decide when it was solved. Bundlers do not
- * tree-shake individual properties off an object that is accessed by member
- * expression, so importing CODES for one of its four fields put all four —
- * every reveal code in the hunt — into this route's client chunk, readable in
- * devtools without solving anything.
- *
- * So the component now reports what the player typed and stops there. The
- * shell submits it and the server hash-compares against
- * `challenge.config.answerHash`, which is the only place a right answer is
- * ever recognised. eslint.config.mjs enforces the import ban.
  */
-export default function SixtyFourGrid({ config, onAnswer }: PuzzleProps) {
+export default function SixtyFourGrid({ config, onSolve }: PuzzleProps) {
   const equations = Array.isArray(config.equations) ? (config.equations as string[]) : [];
   const cells = Array.isArray(config.gridCells) ? (config.gridCells as GridCell[]) : [];
 
@@ -95,24 +83,23 @@ export default function SixtyFourGrid({ config, onAnswer }: PuzzleProps) {
 
   const letters = picked === null ? [] : lettersFor(cells, picked);
 
+  // The only thing that may reach onSolve is the real reveal code — never
+  // whatever the player happened to type. isAnagram(guess, letters) only
+  // proves the guess uses the picked colour's eight letters; it says nothing
+  // about their order, so it must never gate onSolve on its own.
   const normalizedGuess = guess.toUpperCase().replace(/[^A-Z]/g, "");
+  const solved = normalizedGuess.length > 0 && normalizedGuess === CODES.grid;
 
-  // Feedback only, and safe to compute here: "you have the right cells, wrong
-  // order" is derived from the letters the grid already shows on screen, so it
-  // tells the player nothing they cannot see. It is NOT a solve check —
-  // isAnagram says nothing about ordering, and ordering is the puzzle.
+  // Kept as feedback only: "you have the right cells, wrong order" is useful
+  // mid-solve signal that doesn't leak the code.
   const rightLettersWrongOrder =
-    picked !== null &&
-    letters.length > 0 &&
-    normalizedGuess.length > 0 &&
-    isAnagram(guess, letters.join(""));
+    picked !== null && !solved && letters.length > 0 && isAnagram(guess, letters.join(""));
 
-  // Mirror the typed word into the shell's answer box. In an effect, not
-  // during render: calling the parent's setState from a render body is a
-  // React error.
+  // In an effect, not during render: calling the parent's setState from a
+  // render body is a React error, and it would fire on every keystroke.
   useEffect(() => {
-    onAnswer?.(normalizedGuess);
-  }, [normalizedGuess, onAnswer]);
+    if (solved) onSolve(CODES.grid);
+  }, [solved, onSolve]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
@@ -253,9 +240,15 @@ export default function SixtyFourGrid({ config, onAnswer }: PuzzleProps) {
               </p>
             )}
 
-            {normalizedGuess.length > 0 && (
-              <p className="mt-3 text-xs font-mono text-paper-white/50">
-                {"// Copied to the answer box — hit Submit to check it."}
+            {solved && (
+              <p className="anim-pop mt-3 flex items-center gap-2 text-sm font-bold">
+                <span
+                  className="inline-block h-2 w-2"
+                  style={{ background: "var(--glitch-cyan)" }}
+                />
+                <span style={{ color: "var(--glitch-cyan)" }}>
+                  SOLVED! The code has been filled in above.
+                </span>
               </p>
             )}
           </div>

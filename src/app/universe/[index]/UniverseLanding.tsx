@@ -114,25 +114,22 @@ function ThemedParticles({ color }: { color: string }) {
  *   3b. 8×8 letter grid puzzle the team must solve to clear the universe
  *
  * Backend contract:
- *   - Grid is pre-shuffled server-side via seeded PRNG and arrives as a prop
- *   - The answer word does NOT arrive as a prop and must never be added back.
- *     This component is "use client", so its props are serialised into the RSC
- *     flight payload — and because [index]/page.tsx has generateStaticParams()
- *     for 0–7, that payload is prerendered into static HTML at build time. An
- *     `answerWord` prop was therefore not a devtools-only leak: all eight
- *     answers were sitting in the served HTML.
- *   - Guesses go to /api/universe-word/verify, which answers with a bare
- *     boolean. That is the only judge.
+ *   - Never calls fetch — receives config as props
+ *   - onSolve(code) always passes the known-correct constant
+ *   - Grid is pre-shuffled server-side via seeded PRNG
  * ══════════════════════════════════════════════════════════════════════════ */
 
 interface UniverseLandingProps {
   index: string;
   gridCells: UniverseGridCell[];
+  /** The known-correct word for this universe — NEVER displayed to the user. */
+  answerWord: string;
 }
 
 export default function UniverseLanding({
   index,
   gridCells,
+  answerWord,
 }: UniverseLandingProps) {
   const idx = parseInt(index, 10);
   const universe: UniverseTheme | undefined = UNIVERSES[idx];
@@ -153,9 +150,6 @@ export default function UniverseLanding({
 
   const [guess, setGuess] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const [wrong, setWrong] = useState(false);
-  const [checkError, setCheckError] = useState("");
 
   // Portal emerge: capture the flag at mount time, clear after animation ends
   const [portalEmerging, setPortalEmerging] = useState(arrivingViaPortal);
@@ -180,52 +174,34 @@ export default function UniverseLanding({
   // Normalised guess
   const normalizedGuess = guess.toUpperCase().replace(/[^A-Z]/g, "");
 
-  // "Right letters, wrong order" is derived from the letters already painted
-  // on screen, so it tells the player nothing they cannot see. It is feedback,
-  // not a solve check — an anagram test says nothing about ordering, and
-  // ordering is the entire puzzle.
-  const isRightLettersWrongOrder =
-    myLetters.length > 0 && isUniverseAnagram(guess, myLetters.join(""));
+  // Check solve status
+  const isSolved =
+    normalizedGuess.length > 0 &&
+    normalizedGuess === answerWord.toUpperCase();
 
-  // Typing only updates the field. There is no local comparison to make: this
-  // component does not have the answer, on purpose.
+  // Check anagram (right letters, wrong order)
+  const isRightLettersWrongOrder =
+    !isSolved &&
+    myLetters.length > 0 &&
+    isUniverseAnagram(guess, myLetters.join(""));
+
+  // onSolve handler — calls with known constant, never typed text
+  const handleSolve = useCallback(() => {
+    if (!showSuccess) {
+      setShowSuccess(true);
+      setGridSolved(true);
+    }
+  }, [showSuccess, setGridSolved]);
+
+  // Fire solve on correct guess via onChange rather than effect
   const handleGuessChange = useCallback((value: string) => {
     setGuess(value);
-    setWrong(false);
-    setCheckError("");
-  }, []);
-
-  // The server decides. A bare { correct: boolean } comes back — no word, no
-  // near-miss detail, nothing that narrows the search.
-  const handleCheck = useCallback(async () => {
-    if (checking || showSuccess || normalizedGuess.length === 0) return;
-    setChecking(true);
-    setWrong(false);
-    setCheckError("");
-    try {
-      const res = await fetch("/api/universe-word/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ index: idx, guess: normalizedGuess }),
-      });
-      if (!res.ok) {
-        const err = (await res.json().catch(() => ({}))) as { error?: string };
-        setCheckError(err.error ?? "Couldn't check that — try again.");
-        return;
-      }
-      const { correct } = (await res.json()) as { correct: boolean };
-      if (correct) {
-        setShowSuccess(true);
-        setGridSolved(true);
-      } else {
-        setWrong(true);
-      }
-    } catch {
-      setCheckError("Network error — try again.");
-    } finally {
-      setChecking(false);
+    const normalized = value.toUpperCase().replace(/[^A-Z]/g, "");
+    if (normalized.length > 0 && normalized === answerWord.toUpperCase()) {
+      setShowSuccess(true);
+      setGridSolved(true);
     }
-  }, [checking, showSuccess, normalizedGuess, idx, setGridSolved]);
+  }, [answerWord, setGridSolved]);
 
   if (!universe || !mounted) return null;
 
@@ -423,7 +399,7 @@ export default function UniverseLanding({
               />
 
               {/* Right letters, wrong order feedback */}
-              {isRightLettersWrongOrder && !wrong && (
+              {isRightLettersWrongOrder && (
                 <div className="anim-pop flex items-center gap-2 justify-center">
                   <span
                     className="inline-block h-2 w-2"
@@ -438,35 +414,19 @@ export default function UniverseLanding({
                 </div>
               )}
 
-              {wrong && (
-                <div className="anim-pop flex items-center gap-2 justify-center">
-                  <span
-                    className="inline-block h-2 w-2"
-                    style={{ background: "var(--signal-wrong)" }}
-                  />
-                  <span className="text-sm font-mono" style={{ color: "var(--signal-wrong)" }}>
-                    Not it — try another arrangement.
-                  </span>
-                </div>
-              )}
-
-              {checkError && (
-                <p className="text-center text-sm font-mono" style={{ color: "var(--signal-wrong)" }}>
-                  {checkError}
-                </p>
-              )}
-
               <button
                 type="button"
-                onClick={() => void handleCheck()}
-                disabled={normalizedGuess.length === 0 || checking}
+                onClick={() => {
+                  if (isSolved) handleSolve();
+                }}
+                disabled={normalizedGuess.length === 0}
                 className="comic-btn w-full text-lg tracking-wider"
                 style={{
                   background: universe.primary,
                   color: (idx === 7 || universe.primary === "#E0E0E0") ? "#000000" : undefined,
                 }}
               >
-                {checking ? "Checking…" : "Lock In Code →"}
+                Lock In Code →
               </button>
             </div>
           ) : (

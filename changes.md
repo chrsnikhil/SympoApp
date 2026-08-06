@@ -1,0 +1,2 @@
+universe 7, universe 6, universe 2   .. in the universes given the rgb color code gives a color which doesnt match the color of the universe. alter the formulas such that they result in the rgb color of the universe. 
+ for universe 0 and universe 1 the formula is too straight forward making it very easy to calculate. make those formulas slightly difficult to calculate
