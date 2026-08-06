@@ -45,7 +45,7 @@ interface Overview {
     }>;
   };
   judgeQueue?: Array<{ teamId: string; teamName: string; submittedAt: string; imageId: string | null; dataUrl?: string | null }>;
-  judgedImages?: Array<{ teamId: string; teamName: string; points: number; similarity: number | null; summary: string | null; dataUrl: string | null; judgedAt: string; judgedBy?: string | null }>;
+  judgedImages?: Array<{ teamId: string; teamName: string; points: number; similarity: number | null; summary: string | null; rejected?: boolean; rejectedConfidence?: string | null; dataUrl: string | null; judgedAt: string; judgedBy?: string | null }>;
   connectionsPuzzles?: ConnectionsPuzzleInfo[];
   comeback?: Array<{ teamId: string; teamName: string; bottomStreak: number; ability: string | null; usableOnSlug: string | null; used: boolean }>;
   flags?: Array<{ teamId: string; teamName: string; tabSwitch: number; windowBlur: number; fullscreenExit: number; lastAt: string }>;
@@ -541,7 +541,21 @@ export default function AdminDashboard() {
                             </span>
                           </td>
                           <td className="text-xs text-paper-white/80 max-w-md">
-                            <div className="truncate">{j.summary ?? "Graded automatically"}</div>
+                            {/* A 0 from the integrity check reads identically to
+                                a 0 from a poor recreation unless it says so, and
+                                a rejected team will ask why. */}
+                            {j.rejected && (
+                              <div className="font-bold text-spider-red">
+                                REJECTED — copy/watermark detected
+                                {j.rejectedConfidence ? ` (${j.rejectedConfidence} confidence)` : ""}
+                              </div>
+                            )}
+                            {/* title= so the full sentence is readable on hover;
+                                the judge's reasoning is routinely longer than
+                                the column. */}
+                            <div className="truncate" title={j.summary ?? undefined}>
+                              {j.summary ?? "Graded automatically"}
+                            </div>
                             {/* WHICH judge produced this. A mock-produced score
                                 is fabricated and must be obvious on sight. */}
                             {j.judgedBy && (

@@ -132,6 +132,35 @@ export default function DitherPreview() {
             </button>
           ))}
         </div>
+
+        {/*
+          Load the REAL Round 1 Game 1 reference, to tune against the image that
+          actually matters rather than a sample.
+
+          Read from local disk rather than served: `set-reference.ts` keeps the
+          reference out of `public/` on purpose — a file there is downloadable by
+          anyone who guesses the path — and adding a route to serve it here would
+          rebuild that hole for the sake of a dev page. The picker produces a data
+          URL in memory; nothing is uploaded and no route exists to request it.
+        */}
+        <label className="block text-sm">
+          Load the real reference from disk
+          <span className="ml-2 text-xs text-paper-white/50">
+            (private/reference/image-1.png — stays in your browser, never uploaded)
+          </span>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = () => setSrc(String(reader.result));
+              reader.readAsDataURL(file);
+            }}
+            className="mt-1 block w-full text-xs file:mr-3 file:border-0 file:bg-comic-yellow file:px-3 file:py-1.5 file:text-ink-black"
+          />
+        </label>
       </div>
 
       <div className="panel p-4">
