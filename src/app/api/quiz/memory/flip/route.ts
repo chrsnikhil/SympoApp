@@ -4,6 +4,7 @@ import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
 import { collections } from "@/lib/db/client";
 import { flipCell } from "@/lib/quiz/memory";
 import { isQualified } from "@/lib/quiz/rounds";
+import { FROZEN_MESSAGE, isTeamFrozen } from "@/lib/quiz/proctorGuard";
 
 const REASONS: Record<string, { message: string; status: number }> = {
   "not-started": { message: "Start the game first", status: 404 },
@@ -19,6 +20,13 @@ export async function POST(request: Request) {
     const teamId = new ObjectId(session.teamId);
     if (!(await isQualified(teamId, 1))) {
       return NextResponse.json({ error: "Your team isn't in this round" }, { status: 403 });
+    }
+
+    // Enforced HERE, not only in the UI. This route bypasses the shared
+    // submission pipeline, so it needs its own check — without one the frozen
+    // overlay was cosmetic and a frozen team's flips still landed.
+    if (await isTeamFrozen(teamId, 1)) {
+      return NextResponse.json({ error: FROZEN_MESSAGE, frozen: true }, { status: 403 });
     }
 
     let body: { slug?: unknown; cellIndex?: unknown };
