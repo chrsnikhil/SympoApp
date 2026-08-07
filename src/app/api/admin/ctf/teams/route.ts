@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
 import { collections } from "@/lib/db/client";
 import { materialize } from "@/lib/leaderboard/materialize";
+import { arrivedTeamIds } from "@/lib/event/participation";
 
 export async function GET() {
   try {
@@ -16,10 +17,44 @@ export async function GET() {
     const subsColl = await collections.submissions();
     const scoresColl = await collections.scoreEvents();
 
-    const teams = await teamsColl.find({ name: { $ne: "Admin Team" } }).toArray();
     const participants = await partColl.find({ role: { $ne: "admin" } }).toArray();
     const scores = await scoresColl.find({ event: "ctf" }).toArray();
     const subs = await subsColl.find({ type: "ctf", "verdict.correct": true }).toArray();
+
+    /**
+     * Only teams that have turned up to the CTF belong in the CTF console.
+     *
+     * `teams` is one global collection with no event field — a Team is a name
+     * and a coin, shared by every event — so listing it unfiltered put all
+     * thirty teams in front of the CTF coordinator: the quiz's "Quiz Control"
+     * and "Test Team 1..6", and everyone who registered on the hunt. On a
+     * console whose buttons are penalty and ban, a row you cannot identify is a
+     * row you can act on by mistake, and the team it lands on has no CTF score
+     * for anyone to notice it against.
+     *
+     * Membership is ARRIVAL, not scoring. The obvious filter — teams with a CTF
+     * submission or score row — was measured against production first and cut
+     * the console from 30 teams to 1: twenty-nine had entered the CTF and not
+     * yet submitted. A coordinator who cannot see a team cannot help one, so
+     * that filter would have been worse than the noise it removed.
+     *
+     * `event_participation` records arrival instead, written when a team loads
+     * the CTF dashboard. Ledger activity is unioned in as a backstop so a team
+     * that scored before this existed — or during a restart that lost the
+     * in-process write guard — cannot vanish from the console.
+     */
+    const [arrived, ctfSubmitters, ctfScorers] = await Promise.all([
+      arrivedTeamIds("ctf"),
+      subsColl.distinct("teamId", { type: "ctf" }),
+      scoresColl.distinct("teamId", { event: "ctf" }),
+    ]);
+    const ctfTeamIds = [...arrived, ...ctfSubmitters, ...ctfScorers].map(
+      (id) => new ObjectId(String(id))
+    );
+
+    const teams = await teamsColl
+      .find({ _id: { $in: ctfTeamIds }, name: { $ne: "Admin Team" } })
+      .toArray();
 
     // Map participants to teams
     const teamParticipantsMap = new Map<string, string[]>();
