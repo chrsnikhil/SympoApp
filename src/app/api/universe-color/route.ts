@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
+import { ObjectId } from "mongodb";
+import { ensureHuntProgress } from "@/lib/hunt/unlock";
 import { teamNumberFromSession } from "@/lib/universe/teamNumber";
 import { getUniverseColor } from "@/app/universe/universeColor";
 
@@ -23,6 +25,11 @@ import { getUniverseColor } from "@/app/universe/universeColor";
 export async function POST() {
   try {
     const session = await requireSession();
+
+    // Same reason as /api/blueprint/sector: /universe is reachable without
+    // /hunt ever loading, and a missing progress row makes a correct answer
+    // indistinguishable from a wrong one.
+    await ensureHuntProgress(new ObjectId(session.teamId));
 
     const teamNumber = await teamNumberFromSession(session);
     if (teamNumber === null) {
