@@ -359,8 +359,9 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
- * DR. STRANGE PORTAL OVERLAY
- * Canvas-based particle portal — minimal CSS, all rendering is in JS
+ * PORTAL OVERLAY — Fullscreen video transition
+ * Plays portal-transition.mp4 as an immersive loading screen between
+ * the colour-reveal step and the universe grid page.
  * ══════════════════════════════════════════════════════════════════════════ */
 
 .strange-portal-overlay {
@@ -370,23 +371,27 @@
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.3s ease-in;
-  background: transparent;
+  background: #000;
 }
 
 .strange-portal-overlay.sp-visible {
   opacity: 1;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .strange-portal-overlay.sp-fade-out {
   opacity: 0;
   transition: opacity 0.5s ease-out;
+  pointer-events: none;
 }
 
-.sp-canvas {
+.sp-video {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  object-fit: cover;
   display: block;
 }
 
