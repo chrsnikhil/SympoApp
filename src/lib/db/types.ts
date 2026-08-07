@@ -574,3 +574,21 @@ export interface QuizState {
   round3StartedAt?: Date | null;
   [key: string]: unknown;
 }
+
+export interface ShiftverseTeam {
+  _id?: ObjectId;
+  /** Puzzle slot 1..40. Identifies the WORD, never the caller. */
+  teamNumber: number;
+  /**
+   * Which team owns this slot. Null until claimed. This — not a URL segment —
+   * is what ties a puzzle to a player, so one team cannot read or overwrite
+   * another's board.
+   */
+  teamId: ObjectId | null;
+  claimedAt: Date | null;
+  plaintextWord: string;
+  encryptedWord: string;
+  shiftKey: number;
+  perLetterGuesses: number[];
+  startTime: number;
+}

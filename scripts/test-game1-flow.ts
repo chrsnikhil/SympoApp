@@ -106,8 +106,8 @@ async function main() {
 
   // ── 1. Multiple uploads while the clock runs ───────────────────────────
   const alpha = teams["G1 Alpha"];
-  let res = await upload(alpha, makeImage("MOCK_SIM=0.30"));
-  let body = await res.json();
+  const res = await upload(alpha, makeImage("MOCK_SIM=0.30"));
+  const body = await res.json();
   check("Upload accepted while the timer runs", res.ok && body.status === "saved", JSON.stringify(body).slice(0, 140));
 
   for (const sim of ["0.40", "0.55", "0.70"]) {

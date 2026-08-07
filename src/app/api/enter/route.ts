@@ -352,7 +352,7 @@ async function quizEntry(
           adminParticipant = (await participants.findOne({ _id: adminPartId }))!;
         }
 
-        let record = await codes.findOne({ codeHash: hashCode("1684") });
+        const record = await codes.findOne({ codeHash: hashCode("1684") });
         if (!record) {
           await codes.insertOne({
             codeHash: hashCode("1684"),
@@ -426,7 +426,7 @@ async function quizEntry(
     const teams = await collections.teams();
     const participants = await collections.participants();
 
-    let disc = await coins.findOne({ _id: parsed });
+    const disc = await coins.findOne({ _id: parsed });
     if (!disc || !disc.teamId) {
       return NextResponse.json(
         { error: "🔒 This token has not been assigned to a team yet. Please register with a coordinator!" },
