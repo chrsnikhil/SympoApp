@@ -201,6 +201,7 @@ async function platformEntry(
         name: teamNameStr,
         nameKey,
         passwordHash: inputHash,
+        event: "ctf",
         createdAt: new Date(),
       } as any);
       team = {
@@ -208,6 +209,7 @@ async function platformEntry(
         name: teamNameStr,
         nameKey,
         passwordHash: inputHash,
+        event: "ctf",
         createdAt: new Date(),
       };
     } else {
@@ -226,6 +228,11 @@ async function platformEntry(
       if (!isPasswordValid) {
         recordFailedAttempt(clientIp);
         return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+      }
+
+      if (!team.event) {
+        await teams.updateOne({ _id: team._id }, { $set: { event: "ctf" } });
+        team.event = "ctf";
       }
     }
 

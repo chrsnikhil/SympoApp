@@ -45,6 +45,8 @@ export async function POST() {
     const scoresCollection = await collections.scoreEvents();
     const challengesCollection = await collections.challenges();
     const teamsCollection = await collections.teams();
+    const partsCollection = await collections.participants();
+    const codesCollection = await collections.accessCodes();
     const boardsCollection = await collections.leaderboards();
 
     // 1. Clear CTF submissions and CTF score events. Hunt progress is the
@@ -52,9 +54,22 @@ export async function POST() {
     await withThrottleRetry(() => subsCollection.deleteMany({ type: "ctf" }));
     await withThrottleRetry(() => scoresCollection.deleteMany({ event: "ctf" }));
 
-    // 2. Teams and participants survive — they are shared across events, and
-    //    the leaderboard is rebuilt from the ledger regardless. Clear only the
-    //    CTF-issued moderation state stamped on the team document.
+    // 2. Remove all non-admin participant teams, participants, and participant access codes
+    //    so the Teams & Moderation tab and CTF leaderboard are fully cleared upon reset.
+    await withThrottleRetry(() =>
+      teamsCollection.deleteMany({
+        name: { $nin: ["Admin Team", "Quiz Control"] },
+        coin: { $exists: false },
+      })
+    );
+    await withThrottleRetry(() =>
+      partsCollection.deleteMany({ role: { $ne: "admin" } })
+    );
+    await withThrottleRetry(() =>
+      codesCollection.deleteMany({ role: { $ne: "admin" } })
+    );
+
+    // Clear any leftover moderation state on surviving admin teams
     await withThrottleRetry(() =>
       teamsCollection.updateMany(
         {},
@@ -64,10 +79,6 @@ export async function POST() {
         }
       )
     );
-
-    // 3. Access codes keep their redemption. Teams are no longer deleted, so
-    //    un-redeeming every code platform-wide would only let a claimed coin be
-    //    taken a second time.
 
     // 4. Reset challenge hints unlock times to 5 min (300s) and 10 min (600s),
     //    matching what the participant challenge route serves.

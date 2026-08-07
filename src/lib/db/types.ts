@@ -52,6 +52,7 @@ export interface Team {
   bannedAt?: Date;
   penaltyPoints?: number;
   passwordHash?: string;
+  event?: EventKey;
 }
 
 export interface Participant {

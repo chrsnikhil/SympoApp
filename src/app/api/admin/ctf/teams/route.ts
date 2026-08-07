@@ -15,17 +15,50 @@ export async function GET() {
     const partColl = await collections.participants();
     const subsColl = await collections.submissions();
     const scoresColl = await collections.scoreEvents();
+    const huntColl = await collections.huntProgress();
 
-    const teams = await teamsColl.find({ name: { $ne: "Admin Team" } }).toArray();
-    const participants = await partColl.find({ role: { $ne: "admin" } }).toArray();
+    // 1. Fetch CTF scores and correct CTF submissions
     const scores = await scoresColl.find({ event: "ctf" }).toArray();
     const subs = await subsColl.find({ type: "ctf", "verdict.correct": true }).toArray();
 
-    // Map participants to teams
+    const ctfTeamIdSet = new Set<string>();
+    for (const s of scores) {
+      if (s.teamId) ctfTeamIdSet.add(String(s.teamId));
+    }
+    for (const s of subs) {
+      if (s.teamId) ctfTeamIdSet.add(String(s.teamId));
+    }
+
+    const huntDocs = await huntColl.find({}).toArray();
+    const huntTeamIdSet = new Set<string>();
+    for (const h of huntDocs) {
+      if (h.teamId) huntTeamIdSet.add(String(h.teamId));
+    }
+
+    // 2. Fetch candidates: exclude Admin Team, Quiz Control, and Quiz coin teams
+    const rawTeams = await teamsColl.find({
+      name: { $nin: ["Admin Team", "Quiz Control"] },
+      coin: { $exists: false },
+    }).toArray();
+
+    // Filter strictly CTF teams
+    const teams = rawTeams.filter((t) => {
+      const tId = String(t._id);
+      if (t.event) return t.event === "ctf";
+      if (ctfTeamIdSet.has(tId)) return true;
+      if (huntTeamIdSet.has(tId)) return false;
+      return true;
+    });
+
+    const ctfTeamIdMap = new Set(teams.map((t) => String(t._id)));
+
+    // 3. Map participants to CTF teams
+    const allParticipants = await partColl.find({ role: { $ne: "admin" } }).toArray();
     const teamParticipantsMap = new Map<string, string[]>();
-    for (const p of participants) {
+    for (const p of allParticipants) {
       if (!p.teamId) continue;
       const tId = String(p.teamId);
+      if (!ctfTeamIdMap.has(tId)) continue;
       if (!teamParticipantsMap.has(tId)) {
         teamParticipantsMap.set(tId, []);
       }
