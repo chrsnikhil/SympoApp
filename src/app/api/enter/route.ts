@@ -5,7 +5,7 @@ import { collections } from "@/lib/db/client";
 import { hashCode, normaliseCode, signSession, sessionCookieOptions } from "@/lib/auth/session";
 import { materialize } from "@/lib/leaderboard/materialize";
 import { ObjectId } from "mongodb";
-import { avatarById, avatarForCoin, formatCoin, parseCoin } from "@/lib/quiz/avatars";
+import { avatarById, avatarForCoin, formatCoin, parseCoin, MAX_COIN } from "@/lib/quiz/avatars";
 
 /**
  * The single entry endpoint for every event — but not a single login *model*.
@@ -85,6 +85,34 @@ async function platformEntry(
   request: Request,
   body: Record<string, unknown>,
 ): Promise<Response> {
+  /**
+   * Which set of team records this login belongs to.
+   *
+   * The CTF keeps its own teams, participants and access codes; the hunt and
+   * the code event share the originals. One form serves all three, so it has
+   * to know which host it is answering on — and it did not: every platform
+   * login wrote to the CTF's collections, whatever subdomain it came from.
+   *
+   * A hunt team therefore ended up in `teams_ctf` while every hunt route looks
+   * in `teams`, so the lookup missed and the 64 Grid and Blueprint Recovery
+   * answered "your login has no team number" to every entrant. The session was
+   * valid; the team it pointed at was in the wrong drawer.
+   *
+   * On a path-based deployment (localhost, ngrok) there is no subdomain to read
+   * and `event` is null. That falls to the shared collections, which is right
+   * for the hunt and the code event and wrong for local CTF testing — a CTF
+   * team created on localhost lands in `teams`. Production always has a host,
+   * so this only affects local runs, and getting it right there needs a signal
+   * the request does not carry.
+   */
+  const event = eventFromHost(request.headers.get("host"));
+  const isCtf = event === "ctf";
+  const teamsFor = () => (isCtf ? collections.teamsCtf() : collections.teams());
+  const participantsFor = () =>
+    isCtf ? collections.participantsCtf() : collections.participants();
+  const accessCodesFor = () =>
+    isCtf ? collections.accessCodesCtf() : collections.accessCodes();
+
   // Extract client IP address for rate limiting
   const forwarded = request.headers.get("x-forwarded-for");
   const clientIp = forwarded ? forwarded.split(",")[0].trim() : "127.0.0.1";
@@ -119,14 +147,15 @@ async function platformEntry(
 
     clearRateLimit(clientIp);
 
-    const teams = await collections.teams();
-    const participants = await collections.participants();
+    const teams = await teamsFor();
+    const participants = await participantsFor();
 
     let adminTeam = await teams.findOne({ name: "Admin Team" });
     if (!adminTeam) {
       const inserted = await teams.insertOne({
         name: "Admin Team",
         nameKey: "admin_team",
+        event: "ctf",
         createdAt: new Date(),
       } as any);
       adminTeam = { _id: inserted.insertedId, name: "Admin Team", createdAt: new Date() };
@@ -168,8 +197,8 @@ async function platformEntry(
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
-    const teams = await collections.teams();
-    const participants = await collections.participants();
+    const teams = await teamsFor();
+    const participants = await participantsFor();
     const nameKey = teamNameStr.toLowerCase().replace(/\s+/g, "_");
 
     // Match team by nameKey or exact case-insensitive name
@@ -201,6 +230,7 @@ async function platformEntry(
         name: teamNameStr,
         nameKey,
         passwordHash: inputHash,
+        event: "ctf",
         createdAt: new Date(),
       } as any);
       team = {
@@ -208,6 +238,7 @@ async function platformEntry(
         name: teamNameStr,
         nameKey,
         passwordHash: inputHash,
+        event: "ctf",
         createdAt: new Date(),
       };
     } else {
@@ -226,6 +257,11 @@ async function platformEntry(
       if (!isPasswordValid) {
         recordFailedAttempt(clientIp);
         return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+      }
+
+      if (!team.event) {
+        await teams.updateOne({ _id: team._id }, { $set: { event: "ctf" } });
+        team.event = "ctf";
       }
     }
 
@@ -273,8 +309,14 @@ async function platformEntry(
       return NextResponse.json({ error: "Access code invalid" }, { status: 400 });
     }
 
-    const codes = await collections.accessCodes();
-    const record = await codes.findOne({ codeHash: hashCode(codeStr) });
+    const codesCtf = await accessCodesFor();
+    const codesShared = await collections.accessCodes();
+    let record = await codesCtf.findOne({ codeHash: hashCode(codeStr) });
+    let codes = codesCtf;
+    if (!record) {
+      record = await codesShared.findOne({ codeHash: hashCode(codeStr) });
+      codes = codesShared;
+    }
 
     if (!record) {
       recordFailedAttempt(clientIp);
@@ -338,7 +380,7 @@ async function quizEntry(
           adminParticipant = (await participants.findOne({ _id: adminPartId }))!;
         }
 
-        let record = await codes.findOne({ codeHash: hashCode("1684") });
+        const record = await codes.findOne({ codeHash: hashCode("1684") });
         if (!record) {
           await codes.insertOne({
             codeHash: hashCode("1684"),
@@ -393,14 +435,17 @@ async function quizEntry(
       return res;
     }
 
-    // ── Coin path: team login (coins 01 to 60) ───────────────────────────────
+    // ── Coin path: team login (coins 01..MAX_COIN) ───────────────────────────
     if (body.coin === undefined || body.coin === null || body.coin === "") {
       return NextResponse.json({ error: "Enter the number on your coin" }, { status: 400 });
     }
 
     const parsed = parseCoin(String(body.coin));
     if (parsed === null) {
-      return NextResponse.json({ error: "Coins are numbered 01 to 60" }, { status: 400 });
+      return NextResponse.json(
+        { error: `Coins are numbered 01 to ${MAX_COIN}` },
+        { status: 400 }
+      );
     }
 
     const forCoin = avatarForCoin(parsed);
@@ -412,7 +457,7 @@ async function quizEntry(
     const teams = await collections.teams();
     const participants = await collections.participants();
 
-    let disc = await coins.findOne({ _id: parsed });
+    const disc = await coins.findOne({ _id: parsed });
     if (!disc || !disc.teamId) {
       return NextResponse.json(
         { error: "🔒 This token has not been assigned to a team yet. Please register with a coordinator!" },

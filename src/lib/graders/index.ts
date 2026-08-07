@@ -10,6 +10,11 @@ import { gradeCode } from "./code";
  * what — everything upstream (auth, rate limiting, timestamping, the score
  * ledger, the leaderboard) is shared and event-agnostic.
  */
+/**
+ * Shift-Verse is deliberately absent: it is a hunt round, so gradeHunt owns it
+ * and hands off on config.flow. Registering it here as well would give it two
+ * routes into scoring, and only one of them enforces the board deadline.
+ */
 const registry: GraderRegistry = {
   hunt: gradeCircuit,
   ctf: gradeCtf,

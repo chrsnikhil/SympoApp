@@ -46,7 +46,7 @@ export default function PuzzleBoard({
 
             <PuzzlePiece
               id={pieceId}
-              imageSrc={`/uploads/ctf/easy-03-qr-puzzle/${PIECE_FILES[pieceId]}`}
+              imageSrc={`/uploads/ctf/medium-03-qr-puzzle/${PIECE_FILES[pieceId]}`}
               draggable={false}
               onDragStart={() => {}}
             />

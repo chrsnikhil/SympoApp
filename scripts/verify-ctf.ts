@@ -19,7 +19,7 @@ if (existsSync(envPath)) {
   }
 }
 
-import { collections, ensureIndexes } from "../src/lib/db/client";
+import { collections, ensureIndexes, getDb } from "../src/lib/db/client";
 import { submit } from "../src/lib/submission/pipeline";
 import { materialize } from "../src/lib/leaderboard/materialize";
 import { calculateChallengeValue } from "../src/lib/ctf/scoring";
@@ -32,14 +32,22 @@ async function runVerification() {
 
   await ensureIndexes();
 
-  const teamsCollection = await collections.teams();
-  const subsCollection = await collections.submissions();
-  const scoresCollection = await collections.scoreEvents();
-  const challengesCollection = await collections.challenges();
+  const teamsCollection = await collections.teamsCtf();
+  const subsCollection = await collections.submissionsCtf();
+  const scoresCollection = await collections.scoreEventsCtf();
+  const challengesCollection = await collections.challengesCtf();
+
+  // Set event state to started for test execution
+  const db = await getDb();
+  await db.collection("system_settings").updateOne(
+    { key: "ctf_event_state" },
+    { $set: { key: "ctf_event_state", state: "started", startedAt: new Date(), durationMinutes: 105 } },
+    { upsert: true }
+  );
 
   // Reset test data for CTF
-  await subsCollection.deleteMany({ type: "ctf" });
-  await scoresCollection.deleteMany({ event: "ctf" });
+  await subsCollection.deleteMany({});
+  await scoresCollection.deleteMany({});
   await teamsCollection.deleteMany({ nameKey: { $in: ["verification_spider_alpha", "verification_spider_beta"] } });
 
   // Create two distinct test teams
@@ -131,7 +139,7 @@ async function runVerification() {
   await submit({
     event: "ctf",
     challengeSlug: "easy-03",
-    payload: "SPIDER{qr_brooklyn_dimension_rift_42}",
+    payload: "SPIDER{auditor_memory_never_lies}",
     session: sessionA,
   });
 

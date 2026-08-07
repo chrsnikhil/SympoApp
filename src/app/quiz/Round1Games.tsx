@@ -8,7 +8,6 @@ import ProtectedImage from "./ProtectedImage";
 import ServerDitheredImage from "./ServerDitheredImage";
 import ScreenshotGuard from "./ScreenshotGuard";
 import DitheredImage from "./DitheredImage";
-import FlickerNotice from "./FlickerNotice";
 import SpiderTimer from "./SpiderTimer";
 import { useProctorStrikes } from "@/lib/quiz/useProctorStrikes";
 
@@ -115,11 +114,44 @@ export default function Round1Games({ teamName }: { teamName: string }) {
       if (!cancelled) await load();
     }
     void run();
-    const pollInterval = data?.phase === "connections" ? 1000 : 2000;
-    const id = setInterval(load, pollInterval);
+
+    /**
+     * Poll cadence, with jitter.
+     *
+     * Connections polled every second because the coordinator reveals tiles
+     * live and a team should see one appear promptly. At 100 teams that is 100
+     * requests a second against a shared-throughput database from this endpoint
+     * alone, and each call reads several collections — the single largest
+     * source of load in the event. 2s costs at most an extra second before a
+     * revealed tile shows, which is indistinguishable from network latency.
+     *
+     * The jitter matters as much as the interval. Without it, every client that
+     * loaded together stays in lockstep for the whole round: the database sees
+     * 100 requests in one millisecond and nothing for the rest of the second.
+     * That burst-then-idle shape trips throttling even when the AVERAGE
+     * throughput is comfortable, because provisioning is per-second. Giving
+     * each client its own randomly offset window turns the same total into a
+     * smooth stream.
+     */
+    const base = data?.phase === "connections" ? 2000 : 3000;
+    const nextDelay = () => base + Math.random() * base * 0.3;
+
+    // setTimeout that reschedules itself, not setInterval: a fixed interval
+    // would take one jittered value and then march in lockstep from there.
+    // Re-drawing per tick keeps clients drifting apart rather than re-aligning.
+    let timer = 0;
+    const tick = () => {
+      timer = window.setTimeout(async () => {
+        if (cancelled) return;
+        await load();
+        if (!cancelled) tick();
+      }, nextDelay());
+    };
+    tick();
+
     return () => {
       cancelled = true;
-      clearInterval(id);
+      window.clearTimeout(timer);
       if (transitionTimer.current) window.clearTimeout(transitionTimer.current);
     };
   }, [load, data?.phase]);
@@ -139,10 +171,6 @@ export default function Round1Games({ teamName }: { teamName: string }) {
           <p className="comic-shout text-xl text-glitch-cyan">{transition}</p>
         </div>
       )}
-
-      {/* Before the games, not after — informed consent is only informed if it
-          arrives before the flicker does. Renders nothing when the flag is off. */}
-      <FlickerNotice />
 
       <PhaseTracker phase={data.phase} />
 
@@ -839,14 +867,6 @@ function ImageReplication({
                 />
                 Replace image
               </label>
-
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="text-xs text-signal-wrong hover:underline py-1"
-              >
-                {deleting ? "Deleting…" : "Delete & start over"}
-              </button>
             </div>
           )}
 

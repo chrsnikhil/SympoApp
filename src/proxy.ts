@@ -52,13 +52,15 @@ const PUBLIC_PREFIXES = ["/_next", "/api/health", "/favicon.ico", "/enter", "/ap
 const PROTECTED_PREFIXES = [
   "/ctf",
   SECRET_ADMIN_PATH,
-  "/hunt",
+  // "/hunt",
   // Sibling of /hunt, not a child of it. Renders the 64-grid puzzle with the
   // real seeded content and no auth at all unless it is named here.
   "/hunt-test",
   "/code",
   "/quiz",
   "/universe",
+  "/shiftverse",
+  "/blueprint",
 ];
 
 /**
@@ -84,6 +86,14 @@ const NO_REWRITE_PREFIXES = [
   "/canon-protocol",
   "/universe",
   "/hunt-test",
+  // An event AND a top-level tree, so it needs both lists for a reason the
+  // others do not. On shiftverse.<domain> the rewrite is already correct
+  // either way — "/" does not match this prefix, so it still becomes
+  // /shiftverse. What this adds is the cross-subdomain case: without it,
+  // ctf.<domain>/shiftverse rewrites to /ctf/shiftverse and 404s, which is
+  // exactly how /universe broke.
+  "/shiftverse",
+  "/blueprint",
 ];
 
 /** `pathname === p || pathname.startsWith(p + "/")` — segment-aware, so /hunt never covers /hunt-test. */

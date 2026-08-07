@@ -17,6 +17,8 @@ const nextConfig: NextConfig = {
    * production that endpoint 500s and Game 1 has no image — and it would only
    * surface when a team first opened the round.
    */
+  reactStrictMode: false,
+  devIndicators: false,
   serverExternalPackages: ["sharp"],
 };
 

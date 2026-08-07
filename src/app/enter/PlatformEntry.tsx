@@ -2,8 +2,64 @@
 
 import { useState } from "react";
 import SpiderBackgroundFX from "@/components/SpiderBackgroundFX";
+import { eventFromHost, type EventKey } from "@/lib/config";
+import { safeRedirectTarget } from "@/lib/auth/safeRedirect";
 
-export default function PlatformEntry() {
+/**
+ * Where to send a participant who logged in with no usable `?rt=`.
+ *
+ * This form is served on every non-quiz host — ctf, hunt, code, and the
+ * path-based deployments — so the destination cannot be a fixed path. It used
+ * to be the literal "/ctf", which meant a hunt participant who logged in was
+ * sent to the CTF: on hunt.<domain> the proxy rewrote /ctf into /hunt/ctf,
+ * which does not exist, so a correct login ended on a 404.
+ *
+ * When the host names an event, "/" is the answer — the proxy rewrites it into
+ * that event's route group. Only the neutral app/www/localhost hosts, where "/"
+ * is the platform landing page rather than an event, keep /ctf.
+ */
+function postLoginPath(): string {
+  return eventFromHost(window.location.hostname) ? "/" : "/ctf";
+}
+
+/**
+ * What this form calls itself, per event.
+ *
+ * One form serves the CTF, the hunt and the code event — they post the same
+ * body, so splitting the component would duplicate the logic to change two
+ * strings. But it was hardcoded to the CTF's, so a treasure hunt entrant who
+ * typed hunt.<domain> was told they had reached the "Cyber Security & CTF
+ * Arena" and asked for credentials "to access the CTF arena". Nothing was
+ * broken — the login worked and led to the hunt — but every participant's first
+ * impression was that they were in the wrong place, and reporting that as "the
+ * hunt shows the CTF page" is the correct read of what it says.
+ *
+ * The event comes from the server component, which already resolves it from the
+ * Host header. Deriving it here from window.location would render the wrong
+ * copy on the server and swap it after hydration.
+ */
+const EVENT_COPY: Record<string, { tagline: string; prompt: string }> = {
+  hunt: {
+    tagline: "Treasure Hunt Arena",
+    prompt: "Enter your team credentials to start the hunt",
+  },
+  ctf: {
+    tagline: "Cyber Security & CTF Arena",
+    prompt: "Enter your team credentials to access the CTF arena",
+  },
+  code: {
+    tagline: "Code Arena",
+    prompt: "Enter your team credentials to enter the code arena",
+  },
+  // Path-based deployments (localhost, ngrok) have no subdomain to read, so the
+  // form cannot know which event the participant is here for.
+  default: {
+    tagline: "Symposium Arena",
+    prompt: "Enter your team credentials to continue",
+  },
+};
+
+export default function PlatformEntry({ event }: { event: EventKey | null }) {
   const [teamName, setTeamName] = useState("");
   const [partPassword, setPartPassword] = useState("");
   const [showPartPassword, setShowPartPassword] = useState(false);
@@ -42,13 +98,23 @@ export default function PlatformEntry() {
         console.error("Failed to clear local storage", e);
       }
 
+      // `rt` arrives as an ABSOLUTE url. proxy.ts builds it as
+      // `${origin}${pathname}${search}` so the bounce survives the subdomain
+      // the request came in on, e.g.
+      //   /enter?rt=https://hunt.example.com/universe
+      //
+      // The check here used to be `rawRt.startsWith("/")`, which an absolute
+      // url never satisfies — so every rt was silently discarded and every
+      // login went to the fallback, whichever page the participant had actually
+      // asked for. Combined with that fallback being "/ctf", a hunt
+      // participant who clicked a link to /universe was bounced to login and
+      // then landed on a 404 with no way back.
+      //
+      // safeRedirectTarget parses it properly and enforces what the hand-rolled
+      // check was reaching for: same-origin only, no /admin, and it returns
+      // pathname + search so the host cannot be swapped underneath us.
       const rawRt = new URLSearchParams(window.location.search).get("rt");
-      let targetRedirect = "/ctf";
-      if (rawRt && rawRt.startsWith("/") && !rawRt.startsWith("/admin")) {
-        targetRedirect = rawRt;
-      }
-
-      window.location.href = targetRedirect;
+      window.location.href = safeRedirectTarget(rawRt, window.location.origin, postLoginPath());
     } catch {
       setError("Network error — please check your connection.");
     } finally {
@@ -73,7 +139,7 @@ export default function PlatformEntry() {
           <span className="text-red-600">MULTIVERSE BREACH</span>
         </h1>
         <p className="text-gray-400 text-xs md:text-sm mt-2 font-medium tracking-wide">
-          Cyber Security & CTF Arena
+          {EVENT_COPY[event ?? "default"].tagline}
         </p>
       </div>
 
@@ -84,7 +150,7 @@ export default function PlatformEntry() {
             Participant Portal
           </h2>
           <p className="text-xs text-gray-400 mt-1 font-medium">
-            Enter your team credentials to access the CTF arena
+            {EVENT_COPY[event ?? "default"].prompt}
           </p>
         </div>
 

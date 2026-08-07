@@ -331,13 +331,19 @@ export const RETRY_BASE_MS = 800;
 export const RETRY_MAX_MS = 8_000;
 
 /**
- * Free-tier limits are per-minute, so the way to lose a round is to fire every
- * team's image at once and have the back half rejected together. A modest
- * ceiling keeps a 60-team batch inside the quota for a few seconds of extra
- * wall clock that nobody is watching — judging already runs behind a "pending"
- * state.
+ * Rate limits are per-minute, so the way to lose a round is to fire every
+ * team's image at once and have the back half rejected together.
+ *
+ * 8, raised from 3 once the account moved off the free tier. Three was sized
+ * for free-tier quotas; on a paid key the limit is high enough that the binding
+ * constraint becomes wall clock instead. Round 1 runs at 100 teams and every
+ * image is judged in one burst when the deadline passes: at 3 concurrent and
+ * ~2s a call that is over a minute of judging before the last team has a score,
+ * at 8 it is under half that. The retry-with-backoff below is what makes
+ * raising this safe — a burst that does hit a limit waits and succeeds rather
+ * than dropping a team's score.
  */
-const JUDGE_CONCURRENCY = 3;
+const JUDGE_CONCURRENCY = 8;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

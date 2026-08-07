@@ -35,9 +35,9 @@ export async function POST(request: Request) {
     writeFileSync(savePath, buffer);
 
     // Attach filename to challenge document in DB
-    const challengesCollection = await collections.challenges();
+    const challengesCollection = await collections.challengesCtf();
     await challengesCollection.updateOne(
-      { type: "ctf", slug: challengeSlug },
+      { slug: challengeSlug },
       { $addToSet: { "config.attachments": fileName } }
     );
 

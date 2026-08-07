@@ -16,7 +16,7 @@ export async function GET() {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 
-    const challengesCollection = await collections.challenges();
+    const challengesCollection = await collections.challengesCtf();
     const ctfChallenges = await challengesCollection.find({ type: "ctf" }).toArray();
 
     return NextResponse.json({ challenges: ctfChallenges });
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required challenge fields (slug, title, flag)" }, { status: 400 });
     }
 
-    const challengesCollection = await collections.challenges();
+    const challengesCollection = await collections.challengesCtf();
     const existing = await challengesCollection.findOne({ type: "ctf", slug });
     if (existing) {
       return NextResponse.json({ error: "Challenge slug already exists" }, { status: 400 });
@@ -117,7 +117,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Missing challenge ID or slug" }, { status: 400 });
     }
 
-    const challengesCollection = await collections.challenges();
+    const challengesCollection = await collections.challengesCtf();
     const filter: Filter<Challenge> = id ? { _id: new ObjectId(id) } : { type: "ctf" as const, slug };
 
     const existing = await challengesCollection.findOne(filter);
