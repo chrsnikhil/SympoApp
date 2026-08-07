@@ -152,10 +152,14 @@ async function platformEntry(
 
     let adminTeam = await teams.findOne({ name: "Admin Team" });
     if (!adminTeam) {
+      // Same correction as the participant branch below: the event this admin
+      // signed in for. Harmless today because every console excludes "Admin
+      // Team" by name, which is the only reason a hardcoded "ctf" here never
+      // showed up as a bug — not a property worth depending on.
       const inserted = await teams.insertOne({
         name: "Admin Team",
         nameKey: "admin_team",
-        event: "ctf",
+        ...(event ? { event } : {}),
         createdAt: new Date(),
       } as any);
       adminTeam = { _id: inserted.insertedId, name: "Admin Team", createdAt: new Date() };
@@ -226,11 +230,29 @@ async function platformEntry(
         return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
       }
 
+      /**
+       * The event this team is actually entering, not the literal "ctf".
+       *
+       * This branch serves every platform event — the same form is behind
+       * hunt.<domain>, ctf.<domain> and code.<domain> — and it used to stamp
+       * event:"ctf" on all of them. #49 fixed the sibling half of this bug (the
+       * COLLECTION was hardcoded, so hunt teams were written to teams_ctf and
+       * every hunt route then failed to find them) and left the label alone, so
+       * the symptom came back wearing a different cause: the CTF console
+       * selects `teams` on event:"ctf", and a hunt team carrying that stamp is
+       * indistinguishable there from a team that actually turned up to the CTF.
+       *
+       * Omitted rather than guessed when the host tells us nothing — on
+       * localhost and ngrok there is no subdomain, and an absent field is
+       * honest where "ctf" would be a fabrication that later reads as fact.
+       */
+      const eventStamp = event ? { event } : {};
+
       const insertedTeam = await teams.insertOne({
         name: teamNameStr,
         nameKey,
         passwordHash: inputHash,
-        event: "ctf",
+        ...eventStamp,
         createdAt: new Date(),
       } as any);
       team = {
@@ -238,7 +260,7 @@ async function platformEntry(
         name: teamNameStr,
         nameKey,
         passwordHash: inputHash,
-        event: "ctf",
+        ...eventStamp,
         createdAt: new Date(),
       };
     } else {
@@ -259,9 +281,13 @@ async function platformEntry(
         return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
       }
 
-      if (!team.event) {
-        await teams.updateOne({ _id: team._id }, { $set: { event: "ctf" } });
-        team.event = "ctf";
+      // Backfill the event for rows that predate the field — again with the
+      // event this login is actually for. Stamping "ctf" here was the more
+      // damaging half: it relabelled EXISTING hunt teams on every login, so the
+      // CTF console kept refilling with hunt teams after each clean-up.
+      if (!team.event && event) {
+        await teams.updateOne({ _id: team._id }, { $set: { event } });
+        team.event = event;
       }
     }
 
