@@ -182,8 +182,25 @@ export const AVATARS: readonly Avatar[] = [
   },
 ] as const;
 
-/** Highest coin that exists. Coins run 01..60. */
-export const MAX_COIN = 60;
+/**
+ * Highest coin that exists. Coins run 01..100.
+ *
+ * This is the hard cap on how many teams can play, not a cosmetic limit:
+ * `parseCoin` refuses anything above it and the entry page and `/api/enter`
+ * both go through that, so a team holding coin 61 could not log in at all while
+ * this read 60. Raised for Round 1 running at 100 teams (the field is cut to 60
+ * for Rounds 2 and 3, which needs no change — fewer teams is always fine).
+ *
+ * The seed sizes the `coins` collection from this constant, so raising it and
+ * re-seeding is what actually creates the extra tokens.
+ *
+ * Twelve characters now cover 100 coins rather than 60, so roughly eight teams
+ * share each hero instead of five. `avatarForCoin`'s `(coin * 7) % 12` still
+ * gives consecutive coins different characters — 7 and 12 are coprime — which
+ * is the property that mattered; verified across 1..100 with zero consecutive
+ * collisions.
+ */
+export const MAX_COIN = 100;
 
 const BY_ID = new Map(AVATARS.map((a) => [a.id, a]));
 

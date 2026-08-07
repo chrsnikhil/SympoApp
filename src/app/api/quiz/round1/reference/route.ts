@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/lib/auth/guard";
 import { collections } from "@/lib/db/client";
 import { buildServerDitheredFrames } from "@/lib/quiz/serverDither";
+import { getCachedFrames, setCachedFrames } from "@/lib/quiz/frameCache";
 
 export const dynamic = "force-dynamic";
 
@@ -85,17 +86,42 @@ export async function GET(req: NextRequest) {
      * legible image behind rather than no image at all.
      */
     if (process.env.NEXT_PUBLIC_QUIZ_DITHER === "1") {
+      /**
+       * Cached per team, because generating is ~1.4s of CPU and ~2.6MB of PNG.
+       * Round 1 runs at 100 teams and teams reload — without this, a team
+       * refreshing three times paid for three identical generations, and the
+       * whole field arriving together is minutes of encoding and a quarter of a
+       * gigabyte over venue wifi.
+       *
+       * A hit reuses that team's original session id, so the watermark stays
+       * consistent for the team across the round rather than changing per view.
+       */
+      const cached = getCachedFrames(session.teamId);
+      if (cached) {
+        return NextResponse.json(
+          { ...cached.result, sessionId: cached.sessionId },
+          {
+            headers: {
+              "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+              Pragma: "no-cache",
+            },
+          }
+        );
+      }
+
       // Looked up rather than taken from the request: the watermark is the
       // traceability story, so the name burned into it has to come from the
       // session's team, not from anything the client could choose.
       const teams = await collections.teams();
       const team = await teams.findOne({ _id: new ObjectId(session.teamId) });
       const stamp = new Date().toLocaleTimeString("en-GB");
-      const { frames, width, height } = await buildServerDitheredFrames(dataUrl, {
+      const result = await buildServerDitheredFrames(dataUrl, {
         watermark: { teamName: team?.name ?? "TEAM", sessionId, stamp },
       });
+      setCachedFrames(session.teamId, result, sessionId);
+
       return NextResponse.json(
-        { frames, width, height, sessionId },
+        { ...result, sessionId },
         {
           headers: {
             "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",

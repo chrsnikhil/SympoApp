@@ -61,6 +61,8 @@ async function main() {
     }
   }
 
+  const challengesCtf = await collections.challengesCtf();
+
   console.log("Seeding CTF and event challenges…");
   const ctfSlugs = [
     "easy-01",
@@ -74,6 +76,7 @@ async function main() {
   ];
 
   await challenges.deleteMany({ slug: { $in: ["clue-1", "clue-2", "warmup", "q1", "sum-two", ...ctfSlugs, "hard-03"] } });
+  await challengesCtf.deleteMany({});
 
   await challenges.insertMany([
     // ── Hunt / Code challenges ────────────────────────────────────────────
@@ -155,25 +158,25 @@ async function main() {
       },
     },
 
-    // ── EASY 3: Original Easy 3 (SPIDER-MAN 2099 QR) ──────────────────────
+    // ── EASY 3: The Auditor's Ledger ─────────────────────────────────────
     {
       type: "ctf",
       slug: "easy-03",
-      title: "SPIDER-MAN 2099",
+      title: "The Auditor's Ledger",
       points: 100,
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{go_home_machine_2099}"),
+        answerHash: sha256("SPIDER{auditor_memory_never_lies}"),
         difficulty: "Easy",
-        category: "QR Code Analysis",
-        description: "Miguel O'Hara has locked down the Spider-Society transit hub to prevent any unauthorized dimensional travel.",
+        category: "Reverse Engineering / Memory Forensics",
+        description: "A rogue financial auditor has been quietly moving encrypted evidence across dimensions. The recovered executable — 'ledger.exe' — only ever prints 'Verification Failed.' No matter what username you feed it. The real flag never lives in the binary as plaintext, but a matching memory dump (ledger.dmp) was captured mid-execution.\n\nProvided files:\n  - ledger.exe   (Windows x64, MSVC)\n  - ledger.dmp   (MiniDumpWriteDump snapshot)\n  - README.md\n\nRecover the flag. Flag format: SPIDER{...}",
         hints: [
-          { id: 1, text: "QR codes have three square finder patterns — one in each corner except bottom-right.", unlockSeconds: 300 },
-          { id: 2, text: "If the QR is split into tiles, reassemble it in an image editor using timing strips.", unlockSeconds: 600 },
+          { id: 1, text: "The executable is a decoy. The flag was decrypted in memory before the crash.", unlockSeconds: 300 },
+          { id: 2, text: "Use strings or a hex editor on the .dmp file to find SPIDER{...}. Beware of fake flags.", unlockSeconds: 600 },
         ],
         status: "open",
-        attachments: ["easy-03-qr-puzzle.png"],
+        attachments: ["easy-03.zip"],
       },
     },
 
@@ -221,25 +224,25 @@ async function main() {
       },
     },
 
-    // ── MEDIUM 3: The Auditor's Ledger ─────────────
+    // ── MEDIUM 3: SPIDER-MAN 2099 ─────────────
     {
       type: "ctf",
       slug: "medium-03",
-      title: "The Auditor's Ledger",
+      title: "SPIDER-MAN 2099",
       points: 150,
       opensAt: null,
       closesAt: null,
       config: {
-        answerHash: sha256("SPIDER{auditor_memory_never_lies}"),
+        answerHash: sha256("SPIDER{go_home_machine_2099}"),
         difficulty: "Medium",
-        category: "Reverse Engineering / Memory Forensics",
-        description: "A rogue financial auditor has been quietly moving encrypted evidence across dimensions. The recovered executable — 'ledger.exe' — only ever prints 'Verification Failed.' No matter what username you feed it. The real flag never lives in the binary as plaintext, but a matching memory dump (ledger.dmp) was captured mid-execution.\n\nProvided files:\n  - ledger.exe   (Windows x64, MSVC)\n  - ledger.dmp   (MiniDumpWriteDump snapshot)\n  - README.md\n\nRecover the flag. Flag format: SPIDER{...}",
+        category: "QR Code Analysis",
+        description: "Miguel O'Hara has locked down the Spider-Society transit hub to prevent any unauthorized dimensional travel.",
         hints: [
-          { id: 1, text: "The executable is a decoy. The flag was decrypted in memory before the crash.", unlockSeconds: 300 },
-          { id: 2, text: "Use strings or a hex editor on the .dmp file to find SPIDER{...}. Beware of fake flags.", unlockSeconds: 600 },
+          { id: 1, text: "QR codes have three square finder patterns — one in each corner except bottom-right.", unlockSeconds: 300 },
+          { id: 2, text: "If the QR is split into tiles, reassemble it in an image editor using timing strips.", unlockSeconds: 600 },
         ],
         status: "open",
-        attachments: ["medium-03.zip"],
+        attachments: ["medium-03-qr-puzzle.png"],
       },
     },
 
@@ -281,6 +284,11 @@ async function main() {
       },
     },
   ]);
+
+  const allCtf = await challenges.find({ type: "ctf" }).toArray();
+  if (allCtf.length > 0) {
+    await challengesCtf.insertMany(allCtf);
+  }
 
   console.log("\n── SEEDED ALL CHALLENGES & ADMIN TEAM ─────────────────────────────");
   console.log("  CTF Easy:   easy-01, easy-02, easy-03");

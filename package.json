@@ -10,7 +10,10 @@
     "check:bom": "node scripts/check-bom.mjs",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "seed:quiz": "tsx --env-file=.env.local scripts/seed-quiz.ts",
-    "db:local": "tsx scripts/dev-db.ts"
+    "seed:shiftverse": "tsx --env-file=.env.local scripts/seed-shiftverse.ts",
+    "db:local": "tsx scripts/dev-db.ts",
+    "check:client-secrets": "node scripts/check-client-secrets.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "@react-three/drei": "^10.0.6",
@@ -42,5 +45,12 @@
   },
   "allowScripts": {
     "mongodb-memory-server@11.2.0": true
+  },
+  "optionalDependencies": {
+    "@next/swc-linux-x64-gnu": "16.2.11",
+    "@rollup/rollup-linux-x64-gnu": "^4.0.0",
+    "@tailwindcss/oxide-linux-x64-gnu": "4.3.3",
+    "lightningcss-linux-x64-gnu": "1.32.0",
+    "sharp": "^0.34.5"
   }
 }

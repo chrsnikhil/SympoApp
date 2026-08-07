@@ -10,14 +10,23 @@ export async function GET() {
     const db = await getDb();
     const setting = await db.collection("system_settings").findOne({ key: SETTING_KEY });
 
-    const state = setting?.state ?? "waiting";
+    const rawState = setting?.state ?? "waiting";
     const startedAt = setting?.startedAt ? new Date(setting.startedAt).toISOString() : null;
 
     let remainingSeconds = DURATION_MINUTES * 60;
-    if (state === "started" && setting?.startedAt) {
+    let state = rawState;
+
+    if (rawState === "started" && setting?.startedAt) {
       const startTime = new Date(setting.startedAt).getTime();
       const endTime = startTime + DURATION_MINUTES * 60 * 1000;
       remainingSeconds = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+      if (remainingSeconds === 0) {
+        state = "ended";
+        await db.collection("system_settings").updateOne(
+          { key: SETTING_KEY },
+          { $set: { state: "ended", updatedAt: new Date() } }
+        );
+      }
     }
 
     return NextResponse.json({
@@ -66,6 +75,24 @@ export async function POST(request: Request) {
         startedAt: startedAt.toISOString(),
         durationMinutes: DURATION_MINUTES,
         remainingSeconds: DURATION_MINUTES * 60,
+      });
+    } else if (action === "end") {
+      await db.collection("system_settings").updateOne(
+        { key: SETTING_KEY },
+        {
+          $set: {
+            key: SETTING_KEY,
+            state: "ended",
+            updatedAt: new Date(),
+          },
+        },
+        { upsert: true }
+      );
+
+      return NextResponse.json({
+        ok: true,
+        state: "ended",
+        remainingSeconds: 0,
       });
     } else if (action === "reset") {
       await db.collection("system_settings").updateOne(

@@ -152,7 +152,7 @@ export default function QrPuzzle() {
                 >
                   <PuzzlePiece
                     id={id}
-                    imageSrc={`/uploads/ctf/easy-03-qr-puzzle/${PIECE_FILES[id]}`}
+                    imageSrc={`/uploads/ctf/medium-03-qr-puzzle/${PIECE_FILES[id]}`}
                     draggable={!checking}
                     onDragStart={handleDragStart}
                   />
@@ -185,7 +185,7 @@ export default function QrPuzzle() {
             <div className="aspect-square rounded-xl overflow-hidden border-4 border-emerald-500">
 
               <img
-                src="/uploads/ctf/easy-03-qr-puzzle/complete.png"
+                src="/uploads/ctf/medium-03-qr-puzzle/complete.png"
                 alt="QR"
                 className="w-full h-full object-cover"
               />

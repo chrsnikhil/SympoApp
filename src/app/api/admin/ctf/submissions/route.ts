@@ -9,13 +9,13 @@ export async function GET() {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 
-    const subsCollection = await collections.submissions();
-    const teamsCollection = await collections.teams();
-    const challengesCollection = await collections.challenges();
+    const subsCollection = await collections.submissionsCtf();
+    const teamsCollection = await collections.teamsCtf();
+    const challengesCollection = await collections.challengesCtf();
 
-    const subs = await subsCollection.find({ type: "ctf" }).sort({ receivedAt: -1 }).toArray();
+    const subs = await subsCollection.find({}).sort({ receivedAt: -1 }).toArray();
     const teams = await teamsCollection.find({}).toArray();
-    const challenges = await challengesCollection.find({ type: "ctf" }).toArray();
+    const challenges = await challengesCollection.find({}).toArray();
 
     const teamMap = new Map(teams.map((t) => [t._id!.toString(), t.name]));
     const challengeMap = new Map(challenges.map((c) => [c._id!.toString(), c.title]));

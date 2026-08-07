@@ -25,5 +25,10 @@ export default async function EnterPage() {
   // Path-based deployments (localhost, ngrok) have no subdomain to read. The
   // platform form is the safe default there: it is the only one that can also
   // redeem a plain access code.
-  return event === "quiz" ? <QuizEntry /> : <PlatformEntry />;
+  //
+  // `event` goes down with it so the form can name the event the participant is
+  // actually on. It called itself the CTF arena on every host, which is what
+  // "the hunt shows the CTF page" was reporting — the login worked and led to
+  // the hunt, but said otherwise on the way in.
+  return event === "quiz" ? <QuizEntry /> : <PlatformEntry event={event} />;
 }

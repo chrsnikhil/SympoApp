@@ -6,6 +6,16 @@
  * `app/(hunt)/clue/3`. Adding an event = adding a row here plus a route group.
  */
 
+/**
+ * The events with their own subdomain.
+ *
+ * Shift-Verse was briefly a fifth entry here, which meant it needed
+ * shiftverse.<domain> bound with a certificate to have a front door at all —
+ * and that host was never created, so the round existed with no way in. It is a
+ * hunt round now: it lives at /shiftverse, is listed on the hunt, and scores
+ * into the hunt's leaderboard. `/shiftverse` stays in the proxy's protected and
+ * no-rewrite lists so the path keeps working on every host.
+ */
 export const EVENTS = ["hunt", "ctf", "code", "quiz"] as const;
 export type EventKey = (typeof EVENTS)[number];
 
@@ -119,6 +129,9 @@ export const LIMITS = {
   /** Per-team submissions allowed per rolling window. */
   rateLimit: { windowMs: 10_000, max: 20 },
 };
+
+/** How long a team has on its Shiftverse word once the board is first served. */
+export const SHIFTVERSE_DURATION_MS = 15 * 60 * 1000;
 
 /**
  * Resolve a Host header to an event key.

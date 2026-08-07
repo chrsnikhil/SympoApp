@@ -13,6 +13,14 @@ import TeamAvatar from "@/components/ui/TeamAvatar";
  * Entry page with Spider-Verse Symposium styling.
  * Preserves all POST /api/enter routing and verification logic.
  */
+
+// Sentinel passed as `fallback` to distinguish "rt was accepted" from "rt was
+// rejected, use the role-based default" below — the two call sites each have
+// their own role-dependent default rather than one fixed fallback string, so
+// safeRedirectTarget can't be handed that default directly. Chosen to be a
+// value no real path or query string will ever equal.
+const RT_REJECTED = "__rt_rejected__";
+
 /**
  * Where to send a participant who logged in with no `?rt=` to follow.
  *
@@ -41,13 +49,8 @@ export default function QuizEntry() {
         if (res.ok) {
           const data = await res.json();
           const rt = new URLSearchParams(window.location.search).get("rt");
-          // Same-origin only. The previous guard checked that `rt` did not end in
-          // "/" and did not contain "/enter" — it never checked the ORIGIN, so
-          // `?rt=https://evil.example/x` passed all three tests and navigated
-          // there. This effect runs for anyone arriving with a session cookie,
-          // so it did not even need a login to fire.
-          const target = safeRedirectTarget(rt, window.location.origin, "");
-          if (target) {
+          const target = safeRedirectTarget(rt, window.location.origin, RT_REJECTED);
+          if (target !== RT_REJECTED) {
             window.location.href = target;
           } else if (data.role === "admin") {
             window.location.href = "/admin/quiz";
@@ -99,9 +102,9 @@ export default function QuizEntry() {
       }
 
       const rt = new URLSearchParams(window.location.search).get("rt");
-      const target2 = safeRedirectTarget(rt, window.location.origin, "");
-      if (target2) {
-        window.location.href = target2;
+      const target = safeRedirectTarget(rt, window.location.origin, RT_REJECTED);
+      if (target !== RT_REJECTED) {
+        window.location.href = target;
         return;
       }
 

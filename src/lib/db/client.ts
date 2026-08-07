@@ -12,6 +12,7 @@ import type {
   ComebackState,
   Coin,
   HuntProgress,
+  EventParticipation,
   LeaderboardSnapshot,
   LylaProgress,
   MemoryGameState,
@@ -133,18 +134,31 @@ export async function getDb(): Promise<Db> {
 /** Typed collection accessors — one place that knows the collection names. */
 export const collections = {
   teams: async (): Promise<Collection<Team>> => (await getDb()).collection<Team>("teams"),
+  teamsCtf: async (): Promise<Collection<Team>> => (await getDb()).collection<Team>("teams_ctf"),
   participants: async (): Promise<Collection<Participant>> =>
     (await getDb()).collection<Participant>("participants"),
+  participantsCtf: async (): Promise<Collection<Participant>> =>
+    (await getDb()).collection<Participant>("participants_ctf"),
   accessCodes: async (): Promise<Collection<AccessCode>> =>
     (await getDb()).collection<AccessCode>("access_codes"),
+  accessCodesCtf: async (): Promise<Collection<AccessCode>> =>
+    (await getDb()).collection<AccessCode>("access_codes_ctf"),
   challenges: async (): Promise<Collection<Challenge>> =>
     (await getDb()).collection<Challenge>("challenges"),
+  challengesCtf: async (): Promise<Collection<Challenge>> =>
+    (await getDb()).collection<Challenge>("challenges_ctf"),
   submissions: async (): Promise<Collection<Submission>> =>
     (await getDb()).collection<Submission>("submissions"),
+  submissionsCtf: async (): Promise<Collection<Submission>> =>
+    (await getDb()).collection<Submission>("submissions_ctf"),
   scoreEvents: async (): Promise<Collection<ScoreEvent>> =>
     (await getDb()).collection<ScoreEvent>("score_events"),
+  scoreEventsCtf: async (): Promise<Collection<ScoreEvent>> =>
+    (await getDb()).collection<ScoreEvent>("score_events_ctf"),
   huntProgress: async (): Promise<Collection<HuntProgress>> =>
     (await getDb()).collection<HuntProgress>("hunt_progress"),
+  eventParticipation: async (): Promise<Collection<EventParticipation>> =>
+    (await getDb()).collection<EventParticipation>("event_participation"),
   leaderboards: async (): Promise<Collection<LeaderboardSnapshot>> =>
     (await getDb()).collection<LeaderboardSnapshot>("leaderboard_snapshots"),
   lylaProgress: async (): Promise<Collection<LylaProgress>> =>
@@ -170,6 +184,8 @@ export const collections = {
     (await getDb()).collection<RankCounter>("rank_counters"),
   quizState: async (): Promise<Collection<QuizState>> =>
     (await getDb()).collection<QuizState>("quiz_state"),
+  shiftverseTeams: async (): Promise<Collection<import("./types").ShiftverseTeam>> =>
+    (await getDb()).collection<import("./types").ShiftverseTeam>("shiftverse_teams"),
 };
 
 /**
@@ -185,13 +201,14 @@ export const collections = {
  * not fatal.
  */
 export async function ensureIndexes(): Promise<void> {
-  const [codes, challenges, subs, scores, hunt, boards, lyla, images, memory, serves, quals, comebacks, flags, freezes] =
+  const [codes, challenges, subs, scores, hunt, parts, boards, lyla, images, memory, serves, quals, comebacks, flags, freezes, codesCtf, challengesCtf, subsCtf, scoresCtf, shiftverse] =
     await Promise.all([
       collections.accessCodes(),
       collections.challenges(),
       collections.submissions(),
       collections.scoreEvents(),
       collections.huntProgress(),
+      collections.eventParticipation(),
       collections.leaderboards(),
       collections.lylaProgress(),
       // No index needed for `coins` — it's keyed by `_id`, unique for free.
@@ -202,20 +219,40 @@ export async function ensureIndexes(): Promise<void> {
       collections.comebackStates(),
       collections.proctorFlags(),
       collections.proctorFreezes(),
+      collections.accessCodesCtf(),
+      collections.challengesCtf(),
+      collections.submissionsCtf(),
+      collections.scoreEventsCtf(),
+      collections.shiftverseTeams(),
     ]);
 
   const wanted: Array<[string, Promise<unknown>]> = [
     ["access_codes.codeHash", codes.createIndex({ codeHash: 1 }, { unique: true })],
+    ["access_codes_ctf.codeHash", codesCtf.createIndex({ codeHash: 1 }, { unique: true })],
     ["challenges.type_slug", challenges.createIndex({ type: 1, slug: 1 }, { unique: true })],
+    ["challenges_ctf.type_slug", challengesCtf.createIndex({ type: 1, slug: 1 }, { unique: true })],
     ["submissions.team_time", subs.createIndex({ teamId: 1, receivedAt: -1 })],
+    ["submissions_ctf.team_time", subsCtf.createIndex({ teamId: 1, receivedAt: -1 })],
     ["submissions.status", subs.createIndex({ status: 1 })],
+    ["submissions_ctf.status", subsCtf.createIndex({ status: 1 })],
     ["submissions.challenge_team", subs.createIndex({ challengeId: 1, teamId: 1, receivedAt: 1 })],
+    ["submissions_ctf.challenge_team", subsCtf.createIndex({ challengeId: 1, teamId: 1, receivedAt: 1 })],
     // CTF solve counts and the dynamic leaderboard scan by correctness.
     ["submissions.challenge_correct", subs.createIndex({ challengeId: 1, "verdict.correct": 1 })],
+    ["submissions_ctf.challenge_correct", subsCtf.createIndex({ challengeId: 1, "verdict.correct": 1 })],
     ["submissions.challenge_correct_time", subs.createIndex({ challengeId: 1, "verdict.correct": 1, receivedAt: 1 })],
+    ["submissions_ctf.challenge_correct_time", subsCtf.createIndex({ challengeId: 1, "verdict.correct": 1, receivedAt: 1 })],
     ["score_events.team", scores.createIndex({ teamId: 1 })],
+    ["score_events_ctf.team", scoresCtf.createIndex({ teamId: 1 })],
     ["score_events.event_at", scores.createIndex({ event: 1, at: -1 })],
+    ["score_events_ctf.event_at", scoresCtf.createIndex({ event: 1, at: -1 })],
     ["hunt_progress.team_slug", hunt.createIndex({ teamId: 1, challengeSlug: 1 }, { unique: true })],
+    // Unique so a 3s dashboard poll cannot insert a second arrival row for the
+    // same team. Cosmos only builds a unique index on an EMPTY collection, and
+    // event_participation is new — if this ever warns, the collection already
+    // has rows and the index has to be built by recreating it.
+    ["event_participation.team_event", parts.createIndex({ teamId: 1, event: 1 }, { unique: true })],
+    ["event_participation.event", parts.createIndex({ event: 1 })],
     ["leaderboards.event", boards.createIndex({ event: 1 }, { unique: true })],
     ["lyla_progress.team", lyla.createIndex({ teamId: 1 }, { unique: true })],
     ["prompt_images.team_slug", images.createIndex({ teamId: 1, challengeSlug: 1 }, { unique: true })],
@@ -227,6 +264,15 @@ export async function ensureIndexes(): Promise<void> {
     ["comeback_states.team_round", comebacks.createIndex({ teamId: 1, round: 1 }, { unique: true })],
     ["proctor_flags.team_round", flags.createIndex({ teamId: 1, round: 1, at: -1 })],
     ["proctor_freezes.team_round", freezes.createIndex({ teamId: 1, round: 1 }, { unique: true })],
+    // Unique because two rows sharing a teamNumber means two teams handed the
+    // same board. The seed checks for duplicates too, but the constraint is
+    // what makes it impossible rather than merely unlikely.
+    ["shiftverse_teams.number", shiftverse.createIndex({ teamNumber: 1 }, { unique: true })],
+    // claimSlot() looks a slot up by teamId on every guess and every state
+    // poll, and orders that lookup by teamNumber. Cosmos refuses to sort on a
+    // path its index policy does not cover — the failure that took quiz Round 3
+    // down — so these are load-bearing, not merely performance.
+    ["shiftverse_teams.team", shiftverse.createIndex({ teamId: 1 })],
   ];
 
   const results = await Promise.allSettled(wanted.map(([, p]) => p));

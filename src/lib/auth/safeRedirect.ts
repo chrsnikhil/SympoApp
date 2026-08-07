@@ -41,7 +41,45 @@ function isAdminPath(pathname: string): boolean {
   } catch {
     return true;
   }
+  // Deliberately a bare prefix, not a segment match: `/admin-console` should
+  // stay refused too. Widening this to segment-only matching would loosen a
+  // security guard as a side effect of tidying, which is not a trade worth
+  // making for a redirect target nobody legitimately needs.
   return decoded.toLowerCase().startsWith("/admin");
+}
+
+/**
+ * The login page itself is never a valid destination for the login page.
+ *
+ * The hand-written checks this helper replaced excluded `/enter`, and dropping
+ * that was a regression rather than a simplification: `?rt=/enter%3Frt%3D/enter`
+ * decodes to a target that carries its own `rt`, so the entry page assigns
+ * `location.href` to a URL that re-runs the same branch and assigns it again.
+ * Nothing terminates it — the HTTP redirect-loop breaker never sees this,
+ * because every hop is a client-side navigation.
+ *
+ * `proxy.ts` cannot produce such an `rt` (it only sets one when redirecting a
+ * protected path to `/enter`, and `/enter` is public), so this is reachable
+ * only via a hand-built link. That still makes it a link someone can be sent,
+ * and refusing it costs a comparison.
+ */
+function isEntryPath(pathname: string): boolean {
+  return decodedPathStartsWith(pathname, "/enter");
+}
+
+/**
+ * Segment-aware, unlike the admin check above: `/enter` is refused because it
+ * is the login page, and that reasoning does not extend to a route that merely
+ * begins with those letters. `/entertainment` is a legitimate destination.
+ */
+function decodedPathStartsWith(pathname: string, prefix: string): boolean {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname).toLowerCase();
+  } catch {
+    return true;
+  }
+  return decoded === prefix || decoded.startsWith(`${prefix}/`);
 }
 
 export function safeRedirectTarget(rawRt: string | null, origin: string, fallback: string): string {
@@ -51,7 +89,7 @@ export function safeRedirectTarget(rawRt: string | null, origin: string, fallbac
 
   try {
     const url = new URL(rawRt, origin);
-    if (url.origin === origin && !isAdminPath(url.pathname)) {
+    if (url.origin === origin && !isAdminPath(url.pathname) && !isEntryPath(url.pathname)) {
       return url.pathname + url.search;
     }
   } catch {

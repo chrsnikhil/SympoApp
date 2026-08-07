@@ -39,12 +39,12 @@ async function checkSectionBonus(
   receivedAt: Date,
   event: EventKey
 ) {
-  const challenges = await collections.challenges();
-  const submissions = await collections.submissions();
-  const scoreEvents = await collections.scoreEvents();
-
   // Bonus only for CTF
   if (event !== "ctf") return;
+
+  const challenges = await collections.challengesCtf();
+  const submissions = await collections.submissionsCtf();
+  const scoreEvents = await collections.scoreEventsCtf();
 
   // Already received any section bonus?
   const alreadyBonus = await scoreEvents.findOne({
@@ -127,14 +127,39 @@ export async function submit(args: SubmitArgs): Promise<SubmitOutcome> {
   const teamId = new ObjectId(session.teamId);
   const participantId = new ObjectId(session.sub);
 
+  // Check event state for CTF
+  if (event === "ctf" && session.role !== "admin") {
+    const db = await getDb();
+    const setting = await db.collection("system_settings").findOne({ key: "ctf_event_state" });
+    const state = setting?.state ?? "waiting";
+    let isEnded = state === "ended";
+    if (state === "started" && setting?.startedAt) {
+      const startTime = new Date(setting.startedAt).getTime();
+      const duration = (setting.durationMinutes ?? 105) * 60 * 1000;
+      if (receivedAt.getTime() >= startTime + duration) {
+        isEnded = true;
+        await db.collection("system_settings").updateOne(
+          { key: "ctf_event_state" },
+          { $set: { state: "ended", updatedAt: new Date() } }
+        );
+      }
+    }
+    if (state === "waiting") {
+      return { ok: false, status: 403, error: "The CTF competition has not started yet." };
+    }
+    if (isEnded) {
+      return { ok: false, status: 403, error: "The CTF competition has ended. Answer submissions are closed." };
+    }
+  }
+
   // Check if team is banned
-  const teamsColl = await collections.teams();
+  const teamsColl = event === "ctf" ? await collections.teamsCtf() : await collections.teams();
   const teamDoc = await teamsColl.findOne({ _id: teamId });
   if (teamDoc?.banned) {
     return { ok: false, status: 403, error: `Your team has been banned: ${teamDoc.bannedReason || "Rule violation"}` };
   }
 
-  const subs = await collections.submissions();
+  const subs = event === "ctf" ? await collections.submissionsCtf() : await collections.submissions();
 
   const windowStart = new Date(receivedAt.getTime() - LIMITS.rateLimit.windowMs);
   const recent = await withThrottleRetry(() => subs.countDocuments({ teamId, receivedAt: { $gte: windowStart } }));
@@ -143,7 +168,7 @@ export async function submit(args: SubmitArgs): Promise<SubmitOutcome> {
   }
 
   // 3 ── Resolve the challenge and check its window.
-  const challenges = await collections.challenges();
+  const challenges = event === "ctf" ? await collections.challengesCtf() : await collections.challenges();
   const challenge = await withThrottleRetry(() => challenges.findOne({ type: event, slug: challengeSlug }));
 
   /**

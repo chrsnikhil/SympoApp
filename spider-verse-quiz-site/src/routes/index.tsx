@@ -58,7 +58,7 @@ function Index() {
     const configure = () => {
       const w = window as unknown as { tailwind?: { config?: unknown } };
       if (!w.tailwind) return;
-      // eslint-disable-next-line no-new-func
+       
       new Function("tailwind", tailwindConfigSource)(w.tailwind);
     };
 
