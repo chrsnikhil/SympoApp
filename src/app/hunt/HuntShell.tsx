@@ -113,8 +113,22 @@ export default function HuntShell() {
             Treasure Hunt
           </h1>
           <p className="mt-3 text-sm text-paper-white/60">
-            Four puzzles, any order. Solve one to reveal its code.
+            {/*
+              Counted, not written down. This said "Four puzzles" while five
+              were playable, because the rounds grew and the sentence did not.
+              Anything that has to be re-edited every time a round is added will
+              eventually be wrong during an event.
+            */}
+            {puzzles.length > 0 ? `${puzzles.length} puzzles` : "Puzzles"}, any order. Solve one to
+            reveal its code.
           </p>
+
+          <a
+            href="/hunt/leaderboard"
+            className="mt-4 inline-block border-2 border-glitch-cyan px-4 py-2 font-mono text-[0.7rem] uppercase tracking-[0.25em] text-glitch-cyan transition-colors hover:bg-glitch-cyan hover:text-ink-black"
+          >
+            View standings
+          </a>
 
           <div className="punk-divider mt-6" />
 
