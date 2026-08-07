@@ -150,13 +150,14 @@ export async function getComebackView(teamId: ObjectId, round: QuizRound = 3): P
   const inRound = idx !== -1;
 
   const s = await loadState(teamId, round);
-  // Bottom TWO of the live Round 3 table, per the coordinator's call — it used
-  // to be everyone except rank #1. The meter exists to give a trailing team a
-  // route back, and handing it to nearly the whole field made it ordinary
-  // rather than a comeback. Read off `standings`, so it moves as the round
-  // does: a team that climbs out of the bottom two stops being eligible, and
-  // `frozen` below preserves whatever it had banked rather than clearing it.
-  const COMEBACK_ELIGIBLE_FROM_BOTTOM = 2;
+  // Bottom N of the live Round 3 table. N is set by the admin via
+  // comebackBottomN in quiz_state (default 2). Read off standings so
+  // it moves live as the round progresses.
+  const stateColView = await collections.quizState();
+  const quizStateView = await stateColView.findOne({ _id: "quiz" });
+  const COMEBACK_ELIGIBLE_FROM_BOTTOM = typeof quizStateView?.comebackBottomN === "number" && quizStateView.comebackBottomN > 0
+    ? quizStateView.comebackBottomN
+    : 2;
   const eligible = inRound && idx >= table.length - COMEBACK_ELIGIBLE_FROM_BOTTOM;
   const holdsProgress = s.bottomStreak > 0 || s.ability !== null;
 
@@ -306,10 +307,15 @@ export async function settleQuestion(
     return;
   }
 
-  // 5 ── Only the bottom 2 ranked teams are eligible for meter progression.
-  //      Teams ranked above the bottom 2 are not eligible; flush any patch
+  // 5 ── Only the bottom N ranked teams are eligible for meter progression.
+  //      N is set by the admin via comebackBottomN in quiz_state (default 2).
+  //      Teams ranked above the bottom N are not eligible; flush any patch
   //      (e.g. freeze-restore) but do not touch their streak or grant powers.
-  const COMEBACK_ELIGIBLE_FROM_BOTTOM = 2;
+  const stateCol = await collections.quizState();
+  const quizState = await stateCol.findOne({ _id: "quiz" });
+  const COMEBACK_ELIGIBLE_FROM_BOTTOM = typeof quizState?.comebackBottomN === "number" && quizState.comebackBottomN > 0
+    ? quizState.comebackBottomN
+    : 2;
   if (rank < table.length - COMEBACK_ELIGIBLE_FROM_BOTTOM) {
     if (Object.keys(patch).length > 0) await states.updateOne({ teamId, round }, { $set: patch });
     return;

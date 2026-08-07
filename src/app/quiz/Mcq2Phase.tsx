@@ -229,6 +229,10 @@ export default function Mcq2Phase({
   const selectSecondsLeft = Math.max(0, Math.ceil((answerableUntilMs - syncedNow) / 1000));
   const urgent = phase === "select" && selectSecondsLeft <= 3;
   const letters = ["A", "B", "C", "D"];
+  // Strip leading letter-prefix (e.g. "A) ", "B) ", "c) ") baked into seeded data.
+  function stripOptionPrefix(text: string): string {
+    return text.replace(/^[A-Da-d]\)\s*/, "");
+  }
   const tilts = ["comic-tilt-left", "", "comic-tilt-right", "-rotate-1"];
 
   return (
@@ -447,7 +451,7 @@ export default function Mcq2Phase({
                             <span className={`font-headline-lg text-headline-lg-mobile transition-all ${
                               picked ? "text-primary font-black text-lg sm:text-xl drop-shadow" : "text-on-surface"
                             }`}>
-                              {opt}
+                              {stripOptionPrefix(opt)}
                             </span>
                           </div>
                         </button>

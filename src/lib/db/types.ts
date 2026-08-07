@@ -536,5 +536,7 @@ export interface QuizState {
   round1StartedAt?: Date | null;
   round2StartedAt?: Date | null;
   round3StartedAt?: Date | null;
+  /** How many bottom-ranked teams are eligible for the comeback meter in Round 3. Defaults to 2. */
+  comebackBottomN?: number;
   [key: string]: unknown;
 }

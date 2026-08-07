@@ -12,8 +12,7 @@ envText.split("\n").forEach((l) => {
 });
 
 async function testEnter() {
-  console.log("Testing POST /api/enter with code 1684 and coin 01...");
-  try {
+   try {
     const res1 = await fetch("http://localhost:3000/api/enter", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

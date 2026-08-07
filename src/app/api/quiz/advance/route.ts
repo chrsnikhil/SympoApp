@@ -46,6 +46,7 @@ async function handlePOST(request: Request) {
       minutes?: number;
       coin?: string | number;
       teamName?: string;
+      n?: number;
     };
     try {
       body = await request.json();
@@ -464,11 +465,21 @@ async function handlePOST(request: Request) {
         return NextResponse.json({ ok: true, ended: false });
       }
 
+      case "set-comeback-bottom-n": {
+        const n = Number(body.n);
+        if (!Number.isInteger(n) || n < 1) {
+          return NextResponse.json({ error: "n must be a positive integer" }, { status: 400 });
+        }
+        const stateCol2 = await collections.quizState();
+        await stateCol2.updateOne({ _id: "quiz" }, { $set: { comebackBottomN: n } }, { upsert: true });
+        return NextResponse.json({ ok: true, note: `Comeback meter threshold set to bottom ${n} team(s).` });
+      }
+
       default:
         return NextResponse.json(
           {
             error:
-              "action must be advance, resolve-estimate, resolve-image, judge-image, open, reset, reveal-next-image, close-puzzle, assign-coin, revoke-coin, unfreeze-team, end-quiz or resume-quiz",
+              "action must be advance, resolve-estimate, resolve-image, judge-image, open, reset, reveal-next-image, close-puzzle, assign-coin, revoke-coin, unfreeze-team, end-quiz, resume-quiz or set-comeback-bottom-n",
           },
           { status: 400 }
         );

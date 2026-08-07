@@ -318,6 +318,9 @@ export async function GET(request: Request) {
     const quizState = await (await collections.quizState()).findOne({ _id: "quiz" });
     payload.ended = quizState?.ended ?? false;
     payload.started = quizState?.started ?? false;
+    if (round === 3) {
+      payload.comebackBottomN = typeof quizState?.comebackBottomN === "number" ? quizState.comebackBottomN : 2;
+    }
 
     // Coin claim state — small enough to always include; the coordinator's
     // desk view of "which discs are out and with whom."
