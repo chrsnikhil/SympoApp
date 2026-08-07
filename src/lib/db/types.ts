@@ -99,6 +99,12 @@ export interface Challenge {
     nextSlug?: string;
     /** hunt: point cost of each hint, in order. */
     hintCosts?: number[];
+    /**
+     * hunt (octavius circuit): which of the server-side LEVELS this challenge
+     * is. Held here rather than taken from the submission so a team cannot
+     * solve level 1's circuit and be paid for level 5.
+     */
+    levelId?: number;
     /** quiz mcq: option index that scores. */
     correctIndex?: number;
     /** quiz mcq: seconds allowed from serve to answer (round 1 legacy path, unused by rounds 2/3). */
