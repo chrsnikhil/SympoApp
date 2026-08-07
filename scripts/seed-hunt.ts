@@ -53,6 +53,21 @@ async function main() {
     hintCosts: [15, 25],
   };
 
+  /**
+   * The universe round carries NO answerHash, deliberately.
+   *
+   * It has eight answers — a team is routed to one of eight universes by its
+   * team number, and each has its own word — so there is no single hash this
+   * document could hold. `gradeHunt` resolves the team's universe from the team
+   * record and compares against that word server-side.
+   *
+   * Seeding a hash here would be worse than useless: it would be one universe's
+   * word sitting in the database for the other seven teams to fail against.
+   */
+  const universeConfig = {
+    hintCosts: [15, 25],
+  };
+
   await challenges.insertMany([
     {
       type: "hunt", slug: "hunt-cipher", title: "Caesar Cipher", points: 100,
@@ -73,6 +88,11 @@ async function main() {
       type: "hunt", slug: "hunt-room", title: "Mystery Room", points: 100,
       opensAt: null, closesAt: null,
       config: roomConfig,
+    },
+    {
+      type: "hunt", slug: "hunt-universe", title: "64 Grid", points: 100,
+      opensAt: null, closesAt: null,
+      config: universeConfig,
     },
   ]);
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { REGISTRY } from "./registry";
+import { PUZZLE_HREFS } from "@/lib/hunt/content";
 
 interface PuzzleState {
   slug: string;
@@ -125,6 +126,15 @@ export default function HuntShell() {
                 <li key={p.slug}>
                   <button
                     onClick={() => {
+                      // Some rounds are a multi-page flow at their own route
+                      // rather than a component that fits in this shell — the
+                      // universe walks a team through four pages before it has
+                      // an answer to give. Those navigate; the rest open here.
+                      const href = PUZZLE_HREFS[p.slug as keyof typeof PUZZLE_HREFS];
+                      if (href) {
+                        window.location.href = href;
+                        return;
+                      }
                       setActive(p.slug);
                       setHint(null);
                       setMessage(null);
@@ -182,6 +192,20 @@ export default function HuntShell() {
   /* ────────────────────────────────────────────────────────────────────────
    * ACTIVE PUZZLE VIEW
    * ──────────────────────────────────────────────────────────────────────── */
+  /**
+   * A route-based round has no component to render here.
+   *
+   * Its tile navigates away rather than opening this view, so arriving here
+   * means `active` was set some other way. Bounce instead of reading
+   * `.Component` off an entry that does not exist — the alternative is a blank
+   * page from a TypeError, on the one screen a team is trying to play.
+   */
+  const activeHref = PUZZLE_HREFS[current!.slug as keyof typeof PUZZLE_HREFS];
+  if (activeHref) {
+    if (typeof window !== "undefined") window.location.href = activeHref;
+    return null;
+  }
+
   const entry = REGISTRY[current!.slug];
   const Puzzle = entry.Component;
 

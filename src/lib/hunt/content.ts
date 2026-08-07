@@ -6,7 +6,7 @@ import { CODES } from "./codes";
  * except through the seed and the shell — the reveal CODES must not reach the
  * browser inside a challenge document.
  */
-export const HUNT_SLUGS = ["hunt-cipher", "hunt-grid", "hunt-circuit", "hunt-room"] as const;
+export const HUNT_SLUGS = ["hunt-cipher", "hunt-grid", "hunt-circuit", "hunt-room", "hunt-universe"] as const;
 export type HuntSlug = (typeof HUNT_SLUGS)[number];
 
 /**
@@ -25,7 +25,20 @@ export type HuntSlug = (typeof HUNT_SLUGS)[number];
  * it cannot be imported here because it pulls in React components, and this
  * module is used by route handlers.
  */
-export const PLAYABLE_HUNT_SLUGS = ["hunt-grid", "hunt-room"] as const satisfies readonly HuntSlug[];
+export const PLAYABLE_HUNT_SLUGS = ["hunt-universe", "hunt-room"] as const satisfies readonly HuntSlug[];
+
+/**
+ * Puzzles that live at their own route instead of rendering inside HuntShell.
+ *
+ * The universe is a multi-step flow across four pages — pick your number, work
+ * the colour equations, reveal your universe, unscramble its word — not a
+ * component that fits in a card next to an answer box. The hunt lists it and
+ * links to it; the flow submits through /api/submit like every other puzzle, so
+ * scoring, hint costs and the leaderboard are unchanged.
+ */
+export const PUZZLE_HREFS: Partial<Record<HuntSlug, string>> = {
+  "hunt-universe": "/universe",
+};
 
 export const CIPHER = {
   plaintext: "the spider waits where the last light falls code websling",
@@ -70,6 +83,10 @@ export const ROOM = {
 };
 
 export const HINTS: Record<HuntSlug, [string, string]> = {
+  "hunt-universe": [
+    "Substitute your own universe index for n — the number the reveal page shows you — and take each channel mod 256.",
+    "The highlighted cells are the right letters in the wrong order. It is an anagram, not a straight read.",
+  ],
   "hunt-cipher": [
     "Every letter moved the same distance down the alphabet.",
     "The shift is a single digit, and it is odd.",
