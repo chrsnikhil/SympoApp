@@ -4,6 +4,7 @@ import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
 import { collections } from "@/lib/db/client";
 import { sectorNumberFor } from "@/lib/blueprint/variants";
 import { sectorInfo } from "@/lib/blueprint/sectors";
+import { ensureHuntProgress } from "@/lib/hunt/unlock";
 
 /**
  * Which sector is this team searching?
@@ -36,6 +37,11 @@ export async function GET() {
         { status: 403 }
       );
     }
+
+    // Arriving here IS entering the round — a team linked straight to
+    // /blueprint never loads /hunt, so without this their progress row never
+    // exists and gradeBlueprint refuses a correct code as "not-unlocked".
+    await ensureHuntProgress(new ObjectId(session.teamId));
 
     const sectorNumber = sectorNumberFor(number);
     const sector = sectorInfo(sectorNumber);
