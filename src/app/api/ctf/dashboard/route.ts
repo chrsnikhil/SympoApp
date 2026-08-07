@@ -29,9 +29,9 @@ export async function GET() {
       remainingSeconds = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
     }
 
-    const teams = await collections.teams();
-    const subsCollection = await collections.submissions();
-    const challengesCollection = await collections.challenges();
+    const teams = await collections.teamsCtf();
+    const subsCollection = await collections.submissionsCtf();
+    const challengesCollection = await collections.challengesCtf();
 
     const team = await teams.findOne({ _id: new (require("mongodb").ObjectId)(teamIdStr) });
     if (session.role !== "admin" && !team) {
@@ -47,12 +47,12 @@ export async function GET() {
 
     // Get all CTF challenges
     const allCtfChallenges = await challengesCollection
-      .find({ type: "ctf" })
+      .find({})
       .toArray();
 
     // Get all correct solves across all teams
     const allCorrectSubs = await subsCollection
-      .find({ type: "ctf", "verdict.correct": true })
+      .find({ "verdict.correct": true })
       .toArray();
 
     const solveCountMap = new Map<string, number>();
@@ -63,7 +63,7 @@ export async function GET() {
 
     // Get team's own submissions
     const teamSubs = await subsCollection
-      .find({ type: "ctf", teamId: new (require("mongodb").ObjectId)(teamIdStr) })
+      .find({ teamId: new (require("mongodb").ObjectId)(teamIdStr) })
       .sort({ receivedAt: -1 })
       .toArray();
 

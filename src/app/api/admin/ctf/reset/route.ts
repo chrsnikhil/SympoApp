@@ -41,26 +41,21 @@ export async function POST() {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 
-    const subsCollection = await collections.submissions();
-    const scoresCollection = await collections.scoreEvents();
-    const challengesCollection = await collections.challenges();
-    const teamsCollection = await collections.teams();
-    const partsCollection = await collections.participants();
-    const codesCollection = await collections.accessCodes();
+    const subsCollection = await collections.submissionsCtf();
+    const scoresCollection = await collections.scoreEventsCtf();
+    const challengesCollection = await collections.challengesCtf();
+    const teamsCollection = await collections.teamsCtf();
+    const partsCollection = await collections.participantsCtf();
+    const codesCollection = await collections.accessCodesCtf();
     const boardsCollection = await collections.leaderboards();
 
-    // 1. Clear CTF submissions and CTF score events. Hunt progress is the
-    //    hunt's data and is deliberately untouched.
-    await withThrottleRetry(() => subsCollection.deleteMany({ type: "ctf" }));
-    await withThrottleRetry(() => scoresCollection.deleteMany({ event: "ctf" }));
+    // 1. Clear CTF submissions and CTF score events.
+    await withThrottleRetry(() => subsCollection.deleteMany({}));
+    await withThrottleRetry(() => scoresCollection.deleteMany({}));
 
-    // 2. Remove all non-admin participant teams, participants, and participant access codes
-    //    so the Teams & Moderation tab and CTF leaderboard are fully cleared upon reset.
+    // 2. Remove CTF participant teams, participants, and participant access codes
     await withThrottleRetry(() =>
-      teamsCollection.deleteMany({
-        name: { $nin: ["Admin Team", "Quiz Control"] },
-        coin: { $exists: false },
-      })
+      teamsCollection.deleteMany({ name: { $ne: "Admin Team" } })
     );
     await withThrottleRetry(() =>
       partsCollection.deleteMany({ role: { $ne: "admin" } })
@@ -80,9 +75,8 @@ export async function POST() {
       )
     );
 
-    // 4. Reset challenge hints unlock times to 5 min (300s) and 10 min (600s),
-    //    matching what the participant challenge route serves.
-    const ctfChalls = await challengesCollection.find({ type: "ctf" }).toArray();
+    // 4. Reset challenge hints unlock times to 5 min (300s) and 10 min (600s)
+    const ctfChalls = await challengesCollection.find({}).toArray();
     for (const ch of ctfChalls) {
       if (ch.config?.hints && ch.config.hints.length > 0) {
         const updatedHints = ch.config.hints.map((h, idx) => ({

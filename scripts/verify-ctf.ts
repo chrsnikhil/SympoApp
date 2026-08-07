@@ -32,14 +32,14 @@ async function runVerification() {
 
   await ensureIndexes();
 
-  const teamsCollection = await collections.teams();
-  const subsCollection = await collections.submissions();
-  const scoresCollection = await collections.scoreEvents();
-  const challengesCollection = await collections.challenges();
+  const teamsCollection = await collections.teamsCtf();
+  const subsCollection = await collections.submissionsCtf();
+  const scoresCollection = await collections.scoreEventsCtf();
+  const challengesCollection = await collections.challengesCtf();
 
   // Reset test data for CTF
-  await subsCollection.deleteMany({ type: "ctf" });
-  await scoresCollection.deleteMany({ event: "ctf" });
+  await subsCollection.deleteMany({});
+  await scoresCollection.deleteMany({});
   await teamsCollection.deleteMany({ nameKey: { $in: ["verification_spider_alpha", "verification_spider_beta"] } });
 
   // Create two distinct test teams

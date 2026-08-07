@@ -39,12 +39,12 @@ async function checkSectionBonus(
   receivedAt: Date,
   event: EventKey
 ) {
-  const challenges = await collections.challenges();
-  const submissions = await collections.submissions();
-  const scoreEvents = await collections.scoreEvents();
-
   // Bonus only for CTF
   if (event !== "ctf") return;
+
+  const challenges = await collections.challengesCtf();
+  const submissions = await collections.submissionsCtf();
+  const scoreEvents = await collections.scoreEventsCtf();
 
   // Already received any section bonus?
   const alreadyBonus = await scoreEvents.findOne({
@@ -128,13 +128,13 @@ export async function submit(args: SubmitArgs): Promise<SubmitOutcome> {
   const participantId = new ObjectId(session.sub);
 
   // Check if team is banned
-  const teamsColl = await collections.teams();
+  const teamsColl = event === "ctf" ? await collections.teamsCtf() : await collections.teams();
   const teamDoc = await teamsColl.findOne({ _id: teamId });
   if (teamDoc?.banned) {
     return { ok: false, status: 403, error: `Your team has been banned: ${teamDoc.bannedReason || "Rule violation"}` };
   }
 
-  const subs = await collections.submissions();
+  const subs = event === "ctf" ? await collections.submissionsCtf() : await collections.submissions();
 
   const windowStart = new Date(receivedAt.getTime() - LIMITS.rateLimit.windowMs);
   const recent = await withThrottleRetry(() => subs.countDocuments({ teamId, receivedAt: { $gte: windowStart } }));
@@ -143,7 +143,7 @@ export async function submit(args: SubmitArgs): Promise<SubmitOutcome> {
   }
 
   // 3 ── Resolve the challenge and check its window.
-  const challenges = await collections.challenges();
+  const challenges = event === "ctf" ? await collections.challengesCtf() : await collections.challenges();
   const challenge = await withThrottleRetry(() => challenges.findOne({ type: event, slug: challengeSlug }));
 
   /**

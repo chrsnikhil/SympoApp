@@ -45,9 +45,9 @@ export async function GET(
       remainingSeconds = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
     }
 
-    const challengesCollection = await collections.challenges();
-    const subsCollection = await collections.submissions();
-    const teamsCollection = await collections.teams();
+    const challengesCollection = await collections.challengesCtf();
+    const subsCollection = await collections.submissionsCtf();
+    const teamsCollection = await collections.teamsCtf();
 
     // Generate slug variants (e.g. "medium-2" -> ["medium-2", "medium-02", "medium2", "medium02"])
     const slugVariants = new Set<string>([

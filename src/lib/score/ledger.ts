@@ -21,7 +21,7 @@ export async function appendScore(entry: {
   submissionId?: ObjectId;
   at: Date;
 }): Promise<void> {
-  const scores = await collections.scoreEvents();
+  const scores = entry.event === "ctf" ? await collections.scoreEventsCtf() : await collections.scoreEvents();
   // Retried on Cosmos throttling: dropping a ledger row loses points a team
   // actually earned, at exactly the moment throughput is tightest — everyone
   // scoring at once.

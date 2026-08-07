@@ -11,58 +11,42 @@ export async function GET() {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 
-    const teamsColl = await collections.teams();
-    const partColl = await collections.participants();
-    const subsColl = await collections.submissions();
-    const scoresColl = await collections.scoreEvents();
-    const huntColl = await collections.huntProgress();
+    const teamsColl = await collections.teamsCtf();
+    const legacyTeamsColl = await collections.teams();
+    const partColl = await collections.participantsCtf();
+    const legacyPartColl = await collections.participants();
+    const subsColl = await collections.submissionsCtf();
+    const scoresColl = await collections.scoreEventsCtf();
 
     // 1. Fetch CTF scores and correct CTF submissions
-    const scores = await scoresColl.find({ event: "ctf" }).toArray();
-    const subs = await subsColl.find({ type: "ctf", "verdict.correct": true }).toArray();
+    const scores = await scoresColl.find({}).toArray();
+    const subs = await subsColl.find({ "verdict.correct": true }).toArray();
 
-    const ctfTeamIdSet = new Set<string>();
-    for (const s of scores) {
-      if (s.teamId) ctfTeamIdSet.add(String(s.teamId));
+    // 2. Fetch CTF teams from teams_ctf (and any legacy ctf-tagged teams)
+    const teamsCtfList = await teamsColl.find({ name: { $ne: "Admin Team" } }).toArray();
+    const legacyCtfTeams = await legacyTeamsColl.find({ event: "ctf", name: { $nin: ["Admin Team", "Quiz Control"] } }).toArray();
+
+    const teamMap = new Map<string, typeof teamsCtfList[0]>();
+    for (const t of [...teamsCtfList, ...legacyCtfTeams]) {
+      teamMap.set(String(t._id), t);
     }
-    for (const s of subs) {
-      if (s.teamId) ctfTeamIdSet.add(String(s.teamId));
-    }
-
-    const huntDocs = await huntColl.find({}).toArray();
-    const huntTeamIdSet = new Set<string>();
-    for (const h of huntDocs) {
-      if (h.teamId) huntTeamIdSet.add(String(h.teamId));
-    }
-
-    // 2. Fetch candidates: exclude Admin Team, Quiz Control, and Quiz coin teams
-    const rawTeams = await teamsColl.find({
-      name: { $nin: ["Admin Team", "Quiz Control"] },
-      coin: { $exists: false },
-    }).toArray();
-
-    // Filter strictly CTF teams
-    const teams = rawTeams.filter((t) => {
-      const tId = String(t._id);
-      if (t.event) return t.event === "ctf";
-      if (ctfTeamIdSet.has(tId)) return true;
-      if (huntTeamIdSet.has(tId)) return false;
-      return true;
-    });
-
-    const ctfTeamIdMap = new Set(teams.map((t) => String(t._id)));
+    const teams = Array.from(teamMap.values());
 
     // 3. Map participants to CTF teams
-    const allParticipants = await partColl.find({ role: { $ne: "admin" } }).toArray();
+    const allParticipants = [
+      ...(await partColl.find({ role: { $ne: "admin" } }).toArray()),
+      ...(await legacyPartColl.find({ role: { $ne: "admin" } }).toArray()),
+    ];
     const teamParticipantsMap = new Map<string, string[]>();
     for (const p of allParticipants) {
       if (!p.teamId) continue;
       const tId = String(p.teamId);
-      if (!ctfTeamIdMap.has(tId)) continue;
       if (!teamParticipantsMap.has(tId)) {
         teamParticipantsMap.set(tId, []);
       }
-      teamParticipantsMap.get(tId)!.push(p.name);
+      if (!teamParticipantsMap.get(tId)!.includes(p.name)) {
+        teamParticipantsMap.get(tId)!.push(p.name);
+      }
     }
 
     // Calculate total score and penalty points per team
@@ -110,8 +94,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid or missing team ID" }, { status: 400 });
     }
 
-    const teamsColl = await collections.teams();
-    const scoresColl = await collections.scoreEvents();
+    const teamsColl = await collections.teamsCtf();
+    const scoresColl = await collections.scoreEventsCtf();
     const teamObjId = new ObjectId(teamId);
 
     const team = await teamsColl.findOne({ _id: teamObjId });

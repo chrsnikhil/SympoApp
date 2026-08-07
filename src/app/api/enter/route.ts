@@ -119,14 +119,15 @@ async function platformEntry(
 
     clearRateLimit(clientIp);
 
-    const teams = await collections.teams();
-    const participants = await collections.participants();
+    const teams = await collections.teamsCtf();
+    const participants = await collections.participantsCtf();
 
     let adminTeam = await teams.findOne({ name: "Admin Team" });
     if (!adminTeam) {
       const inserted = await teams.insertOne({
         name: "Admin Team",
         nameKey: "admin_team",
+        event: "ctf",
         createdAt: new Date(),
       } as any);
       adminTeam = { _id: inserted.insertedId, name: "Admin Team", createdAt: new Date() };
@@ -168,8 +169,8 @@ async function platformEntry(
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
-    const teams = await collections.teams();
-    const participants = await collections.participants();
+    const teams = await collections.teamsCtf();
+    const participants = await collections.participantsCtf();
     const nameKey = teamNameStr.toLowerCase().replace(/\s+/g, "_");
 
     // Match team by nameKey or exact case-insensitive name
@@ -280,8 +281,14 @@ async function platformEntry(
       return NextResponse.json({ error: "Access code invalid" }, { status: 400 });
     }
 
-    const codes = await collections.accessCodes();
-    const record = await codes.findOne({ codeHash: hashCode(codeStr) });
+    const codesCtf = await collections.accessCodesCtf();
+    const codesShared = await collections.accessCodes();
+    let record = await codesCtf.findOne({ codeHash: hashCode(codeStr) });
+    let codes = codesCtf;
+    if (!record) {
+      record = await codesShared.findOne({ codeHash: hashCode(codeStr) });
+      codes = codesShared;
+    }
 
     if (!record) {
       recordFailedAttempt(clientIp);
