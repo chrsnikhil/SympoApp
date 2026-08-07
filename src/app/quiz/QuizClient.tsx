@@ -309,6 +309,28 @@ function RoundTransition({
     }
   }, [secondsLeft]);
 
+  // Attempt to force fullscreen on every team screen when the round transition fires.
+  const [fsBlocking, setFsBlocking] = useState(false);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (document.fullscreenElement) return; // already fullscreen
+    document.documentElement.requestFullscreen().catch(() => {
+      // Browser blocked programmatic fullscreen (no prior user gesture).
+      // Show a blocking prompt the team must click to enter fullscreen.
+      setFsBlocking(true);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function enterFullscreen() {
+    try {
+      await document.documentElement.requestFullscreen();
+      setFsBlocking(false);
+    } catch {
+      setFsBlocking(false); // allow proceed even if denied
+    }
+  }
+
   const roundRules: Record<QuizRound, { title: string; desc: string; points: string[] }> = {
     1: {
       title: "Round 1 — Final Universe (3 Mini-Games)",
@@ -344,6 +366,28 @@ function RoundTransition({
   return (
     <main className="relative grid min-h-dvh place-items-center overflow-hidden px-6 py-12 bg-transparent">
       <WebShooter colour="#a41616" webColour="#41617e" gloveColour="#1b1b1c" shape="classic" />
+
+      {/* FULLSCREEN GATE — blocks the transition screen until the team enters fullscreen */}
+      {fsBlocking && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-ink-black/95 text-center px-6">
+          <p className="font-display-xl text-3xl uppercase italic text-comic-yellow tracking-tight">
+            Full Screen Required
+          </p>
+          <p className="font-body-md text-on-surface-variant text-sm max-w-sm leading-relaxed">
+            Round {round} must be played in full screen. Tap below to continue.
+          </p>
+          <button
+            type="button"
+            onClick={enterFullscreen}
+            className="relative bg-primary px-8 py-4 comic-border inline-flex transition-all duration-100 hover:opacity-90 shadow-[6px_6px_0px_0px_rgba(27,27,28,1)] active:scale-95"
+          >
+            <span className="font-display-xl text-headline-lg-mobile text-on-primary uppercase tracking-widest">
+              Enter Full Screen
+            </span>
+          </button>
+        </div>
+      )}
+
       <div className="comic-border bg-on-background p-8 md:p-12 comic-tilt-left relative overflow-hidden text-center z-10 max-w-2xl w-full">
         <div className="absolute inset-0 ben-day-light opacity-10 pointer-events-none" />
         <Celebration />

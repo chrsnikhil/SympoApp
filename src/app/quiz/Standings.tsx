@@ -145,7 +145,7 @@ export default function Standings({
                     </span>
                   </div>
                   <div className="font-display-xl text-sm text-primary shrink-0">
-                    {row.points} <span className="font-label-sm text-[10px] text-on-surface-variant">PTS</span>
+                    {Number(row.points).toFixed(2)} <span className="font-label-sm text-[10px] text-on-surface-variant">PTS</span>
                   </div>
                 </div>
               );

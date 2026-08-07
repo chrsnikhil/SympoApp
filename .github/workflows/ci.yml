@@ -31,6 +31,14 @@ jobs:
         # points at neither the file nor the cause. Catch it here instead.
         run: npm run check:bom
 
+      - name: Check no answers reach the client
+        # The eslint rule that bans this existed already, and a client component
+        # imported the reveal codes and shipped anyway — because CI never ran
+        # lint, and `npm run lint` still reports 79 pre-existing errors, so it
+        # cannot be made a gate without a cleanup nobody should attempt this
+        # week. This checks the one thing that must never regress.
+        run: npm run check:client-secrets
+
       - name: Typecheck
         run: npx tsc --noEmit
 

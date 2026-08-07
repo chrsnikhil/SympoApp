@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
 import { collections } from "@/lib/db/client";
 import { materialize } from "@/lib/leaderboard/materialize";
+import { arrivedTeamIds } from "@/lib/event/participation";
 
 export async function GET() {
   try {

@@ -7,10 +7,29 @@
  *
  * These are hashed by the seed into answerHash; the plaintext never enters a
  * challenge document, so this file is the only copy that ships.
+ *
+ * ONE CODE PER PUZZLE, NOT THE OBJECT. Each code is exported as its own
+ * binding, and a puzzle imports only its own.
+ *
+ * That is the difference between shipping one answer and shipping four. A
+ * bundler cannot drop unused properties of an object that is read by member
+ * expression, so `import { CODES }` for `CODES.room` put WEBSLING, DAYBUGLE and
+ * ARCLIGHT into the chunk alongside it — three answers to puzzles the team has
+ * not reached, one devtools search away. Separate `const` bindings are dropped
+ * when unused, so the room's chunk now carries ARCHIVES88 and nothing else.
+ *
+ * `CODES` is kept for server-side callers (the seed hashes all four), and the
+ * eslint rule in eslint.config.mjs bans it from `src/app/hunt/puzzles/**` so a
+ * client component cannot reach for it again.
  */
+export const CIPHER_CODE = "WEBSLING";
+export const GRID_CODE = "DAYBUGLE";
+export const CIRCUIT_CODE = "ARCLIGHT";
+export const ROOM_CODE = "ARCHIVES88";
+
 export const CODES = {
-  cipher: "WEBSLING",
-  grid: "DAYBUGLE",
-  circuit: "ARCLIGHT",
-  room: "ARCHIVES88",
+  cipher: CIPHER_CODE,
+  grid: GRID_CODE,
+  circuit: CIRCUIT_CODE,
+  room: ROOM_CODE,
 } as const;

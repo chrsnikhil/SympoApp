@@ -8,7 +8,6 @@ import ProtectedImage from "./ProtectedImage";
 import ServerDitheredImage from "./ServerDitheredImage";
 import ScreenshotGuard from "./ScreenshotGuard";
 import DitheredImage from "./DitheredImage";
-import FlickerNotice from "./FlickerNotice";
 import SpiderTimer from "./SpiderTimer";
 import { useProctorStrikes } from "@/lib/quiz/useProctorStrikes";
 
@@ -139,10 +138,6 @@ export default function Round1Games({ teamName }: { teamName: string }) {
           <p className="comic-shout text-xl text-glitch-cyan">{transition}</p>
         </div>
       )}
-
-      {/* Before the games, not after — informed consent is only informed if it
-          arrives before the flicker does. Renders nothing when the flag is off. */}
-      <FlickerNotice />
 
       <PhaseTracker phase={data.phase} />
 
@@ -839,14 +834,6 @@ function ImageReplication({
                 />
                 Replace image
               </label>
-
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="text-xs text-signal-wrong hover:underline py-1"
-              >
-                {deleting ? "Deleting…" : "Delete & start over"}
-              </button>
             </div>
           )}
 

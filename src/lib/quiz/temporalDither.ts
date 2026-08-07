@@ -46,11 +46,12 @@
  * Strength, 0-127. 127 pushes every pixel as far as it can go while still
  * averaging back to the original.
  *
- * Defaults to maximum because anything less is measurably useless: at 48 a
- * captured frame of a comic panel was still fully readable. Partial strengths
- * exist for the preview page's slider, not for production.
+ * Reduced from 127 to 70: the maximum was visually jarring (harsh flicker)
+ * and made the reference image difficult to study. At 70 the dither still
+ * defeats a naive single-frame capture while keeping the image legible.
+ * Partial strengths exist for the preview page's slider, not for production.
  */
-export const DEFAULT_DITHER_AMPLITUDE = 127;
+export const DEFAULT_DITHER_AMPLITUDE = 70;
 
 /**
  * How often to draw fresh random offsets, in milliseconds.

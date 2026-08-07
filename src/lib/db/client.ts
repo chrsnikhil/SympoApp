@@ -12,6 +12,7 @@ import type {
   ComebackState,
   Coin,
   HuntProgress,
+  EventParticipation,
   LeaderboardSnapshot,
   LylaProgress,
   MemoryGameState,
@@ -156,6 +157,8 @@ export const collections = {
     (await getDb()).collection<ScoreEvent>("score_events_ctf"),
   huntProgress: async (): Promise<Collection<HuntProgress>> =>
     (await getDb()).collection<HuntProgress>("hunt_progress"),
+  eventParticipation: async (): Promise<Collection<EventParticipation>> =>
+    (await getDb()).collection<EventParticipation>("event_participation"),
   leaderboards: async (): Promise<Collection<LeaderboardSnapshot>> =>
     (await getDb()).collection<LeaderboardSnapshot>("leaderboard_snapshots"),
   lylaProgress: async (): Promise<Collection<LylaProgress>> =>
@@ -197,12 +200,14 @@ export const collections = {
  */
 export async function ensureIndexes(): Promise<void> {
   const [codes, challenges, subs, scores, hunt, boards, lyla, images, memory, serves, quals, comebacks, flags, freezes, codesCtf, challengesCtf, subsCtf, scoresCtf] =
+
     await Promise.all([
       collections.accessCodes(),
       collections.challenges(),
       collections.submissions(),
       collections.scoreEvents(),
       collections.huntProgress(),
+      collections.eventParticipation(),
       collections.leaderboards(),
       collections.lylaProgress(),
       // No index needed for `coins` — it's keyed by `_id`, unique for free.
@@ -240,6 +245,12 @@ export async function ensureIndexes(): Promise<void> {
     ["score_events.event_at", scores.createIndex({ event: 1, at: -1 })],
     ["score_events_ctf.event_at", scoresCtf.createIndex({ event: 1, at: -1 })],
     ["hunt_progress.team_slug", hunt.createIndex({ teamId: 1, challengeSlug: 1 }, { unique: true })],
+    // Unique so a 3s dashboard poll cannot insert a second arrival row for the
+    // same team. Cosmos only builds a unique index on an EMPTY collection, and
+    // event_participation is new — if this ever warns, the collection already
+    // has rows and the index has to be built by recreating it.
+    ["event_participation.team_event", parts.createIndex({ teamId: 1, event: 1 }, { unique: true })],
+    ["event_participation.event", parts.createIndex({ event: 1 })],
     ["leaderboards.event", boards.createIndex({ event: 1 }, { unique: true })],
     ["lyla_progress.team", lyla.createIndex({ teamId: 1 }, { unique: true })],
     ["prompt_images.team_slug", images.createIndex({ teamId: 1, challengeSlug: 1 }, { unique: true })],

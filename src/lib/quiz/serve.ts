@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import type { ObjectId } from "mongodb";
 import { collections } from "@/lib/db/client";
 import type { Challenge, QuizRound, QuizServe } from "@/lib/db/types";
@@ -88,17 +89,38 @@ export type ServeResult =
   | { ok: true; done: true }
   | { ok: false; reason: "no-questions" };
 
+/** Fisher-Yates shuffle returning a permutation array where result[displayIndex] = originalIndex. */
+function shuffleIndices(n: number): number[] {
+  const order = Array.from({ length: n }, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
+}
+
 function toPublic(challenge: Challenge, serve: QuizServe | import("mongodb").WithId<QuizServe>, index: number, total: number): ServedQuestion {
   const cfg = challenge.config;
+  const rawOptions = cfg.options ?? [];
+  // Reorder options by the stored permutation so the correct answer's position
+  // is randomized per-serve. Falls back to original order for serves without it.
+  const order = serve.optionOrder && serve.optionOrder.length === rawOptions.length
+    ? serve.optionOrder
+    : rawOptions.map((_, i) => i);
+  const options = order.map((origIdx) => rawOptions[origIdx]);
+  // Convert eliminated from canonical (DB) indexes to display indexes so the
+  // client can check eliminated.includes(displayIndex) directly. order[display] = canonical,
+  // so the inverse is order.indexOf(canonical).
+  const eliminated = (serve.eliminated ?? []).map((canonical) => order.indexOf(canonical)).filter((d) => d !== -1);
   return {
     slug: challenge.slug,
     title: challenge.title,
     round: cfg.round ?? 2,
     points: challenge.points,
-    options: cfg.options ?? [],
+    options,
     readUntil: serve.readUntil.toISOString(),
     answerableUntil: serve.answerableUntil.toISOString(),
-    eliminated: serve.eliminated ?? [],
+    eliminated,
     hint: null,
     index,
     total,
@@ -178,6 +200,8 @@ export async function serveNext(teamId: ObjectId, round: QuizRound): Promise<Ser
   const answerableUntil = new Date(questionServedAt.getTime() + (currentReadSeconds + currentSelectSeconds) * 1000);
 
   if (!serve) {
+    const optionCount = (q.config.options ?? []).length;
+    const optionOrder = optionCount > 0 ? shuffleIndices(optionCount) : [];
     const fresh: QuizServe = {
       teamId,
       challengeSlug: q.slug,
@@ -187,6 +211,7 @@ export async function serveNext(teamId: ObjectId, round: QuizRound): Promise<Ser
       answerableUntil,
       answeredAt: null,
       abilitiesUsed: [],
+      optionOrder,
     };
     try {
       await serves.insertOne(fresh);

@@ -50,3 +50,21 @@ export function isUniverseWord(index: number, guess: string): boolean {
   if (typeof word !== "string") return false;
   return normalise(guess) === normalise(word);
 }
+
+/**
+ * Which universe a team number lands in.
+ *
+ * Derived from the word list's own length rather than a literal 8, so adding a
+ * ninth universe is one edit rather than a hunt for every `% 8` in the tree.
+ * `((n % len) + len) % len` because a negative team number would otherwise
+ * produce a negative index and silently fail every comparison.
+ *
+ * Server-side only, like the rest of this module. It is what the grader uses to
+ * decide which word a team's answer is checked against, and deriving that from
+ * the team record rather than the request is what stops a team grading itself
+ * against a universe it was not given.
+ */
+export function universeIndexFor(teamNumber: number): number {
+  const len = UNIVERSE_WORDS.length;
+  return ((Math.trunc(teamNumber) % len) + len) % len;
+}

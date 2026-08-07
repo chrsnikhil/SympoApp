@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSession, UnauthorizedError } from "@/lib/auth/guard";
+import { recordArrival } from "@/lib/event/participation";
 import { collections, getDb } from "@/lib/db/client";
 import { readSnapshot } from "@/lib/leaderboard/materialize";
 
@@ -16,6 +17,13 @@ export async function GET() {
   try {
     const session = await requireSession();
     const teamIdStr = session.teamId;
+
+    // Note the team as present in the CTF. Not awaited: this is bookkeeping
+    // for the admin console, and the dashboard a team is waiting on must not
+    // get slower — or fail — because a participation row did not write.
+    // recordArrival swallows its own errors and skips the write entirely
+    // after the first call for this team, so the 3s poll costs nothing.
+    void recordArrival("ctf", teamIdStr);
 
     const db = await getDb();
     const setting = await db.collection("system_settings").findOne({ key: SETTING_KEY });
