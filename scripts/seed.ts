@@ -61,6 +61,8 @@ async function main() {
     }
   }
 
+  const challengesCtf = await collections.challengesCtf();
+
   console.log("Seeding CTF and event challenges…");
   const ctfSlugs = [
     "easy-01",
@@ -74,6 +76,7 @@ async function main() {
   ];
 
   await challenges.deleteMany({ slug: { $in: ["clue-1", "clue-2", "warmup", "q1", "sum-two", ...ctfSlugs, "hard-03"] } });
+  await challengesCtf.deleteMany({});
 
   await challenges.insertMany([
     // ── Hunt / Code challenges ────────────────────────────────────────────
@@ -281,6 +284,11 @@ async function main() {
       },
     },
   ]);
+
+  const allCtf = await challenges.find({ type: "ctf" }).toArray();
+  if (allCtf.length > 0) {
+    await challengesCtf.insertMany(allCtf);
+  }
 
   console.log("\n── SEEDED ALL CHALLENGES & ADMIN TEAM ─────────────────────────────");
   console.log("  CTF Easy:   easy-01, easy-02, easy-03");

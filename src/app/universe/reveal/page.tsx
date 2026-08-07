@@ -100,9 +100,27 @@ export default function RevealPage() {
   const [submitting, setSubmitting] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Universe theme
-  const universe =
-    universeIndex !== null ? UNIVERSES[universeIndex] : undefined;
+  /**
+   * The universe on screen is the one the SERVER says this team is in.
+   *
+   * There are two indexes in play and they can disagree. The context one comes
+   * from the team number a player types on step 1, and step 2 only checks that
+   * typed `n` matches that typed team number — so the client flow is
+   * self-consistent no matter what is entered. The equations come from
+   * /api/universe-color, which reads the team off the session and ignores the
+   * request entirely.
+   *
+   * Taking the heading from one and the formula from the other rendered a page
+   * that contradicted itself: type 6 and you were shown SMASH / Earth-1610 with
+   * ELECTRIC's equations underneath, and no way to tell which half was wrong.
+   * Reported, correctly, as "the formula for universe 4 is appearing on 6".
+   *
+   * The server's index wins because it is the one that grades: gradeHunt
+   * resolves the team's universe from the team record, so a page built on
+   * anything else is describing a puzzle the team cannot submit against.
+   */
+  const resolvedIndex = eqData?.universeIndex ?? universeIndex;
+  const universe = resolvedIndex !== null ? UNIVERSES[resolvedIndex] : undefined;
 
   // ── Guard: redirect if no team number ─────────────────────────────────
   useEffect(() => {

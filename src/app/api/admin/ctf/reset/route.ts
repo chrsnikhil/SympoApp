@@ -41,20 +41,30 @@ export async function POST() {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 
-    const subsCollection = await collections.submissions();
-    const scoresCollection = await collections.scoreEvents();
-    const challengesCollection = await collections.challenges();
-    const teamsCollection = await collections.teams();
+    const subsCollection = await collections.submissionsCtf();
+    const scoresCollection = await collections.scoreEventsCtf();
+    const challengesCollection = await collections.challengesCtf();
+    const teamsCollection = await collections.teamsCtf();
+    const partsCollection = await collections.participantsCtf();
+    const codesCollection = await collections.accessCodesCtf();
     const boardsCollection = await collections.leaderboards();
 
-    // 1. Clear CTF submissions and CTF score events. Hunt progress is the
-    //    hunt's data and is deliberately untouched.
-    await withThrottleRetry(() => subsCollection.deleteMany({ type: "ctf" }));
-    await withThrottleRetry(() => scoresCollection.deleteMany({ event: "ctf" }));
+    // 1. Clear CTF submissions and CTF score events.
+    await withThrottleRetry(() => subsCollection.deleteMany({}));
+    await withThrottleRetry(() => scoresCollection.deleteMany({}));
 
-    // 2. Teams and participants survive — they are shared across events, and
-    //    the leaderboard is rebuilt from the ledger regardless. Clear only the
-    //    CTF-issued moderation state stamped on the team document.
+    // 2. Remove CTF participant teams, participants, and participant access codes
+    await withThrottleRetry(() =>
+      teamsCollection.deleteMany({ name: { $ne: "Admin Team" } })
+    );
+    await withThrottleRetry(() =>
+      partsCollection.deleteMany({ role: { $ne: "admin" } })
+    );
+    await withThrottleRetry(() =>
+      codesCollection.deleteMany({ role: { $ne: "admin" } })
+    );
+
+    // Clear any leftover moderation state on surviving admin teams
     await withThrottleRetry(() =>
       teamsCollection.updateMany(
         {},
@@ -65,13 +75,8 @@ export async function POST() {
       )
     );
 
-    // 3. Access codes keep their redemption. Teams are no longer deleted, so
-    //    un-redeeming every code platform-wide would only let a claimed coin be
-    //    taken a second time.
-
-    // 4. Reset challenge hints unlock times to 5 min (300s) and 10 min (600s),
-    //    matching what the participant challenge route serves.
-    const ctfChalls = await challengesCollection.find({ type: "ctf" }).toArray();
+    // 4. Reset challenge hints unlock times to 5 min (300s) and 10 min (600s)
+    const ctfChalls = await challengesCollection.find({}).toArray();
     for (const ch of ctfChalls) {
       if (ch.config?.hints && ch.config.hints.length > 0) {
         const updatedHints = ch.config.hints.map((h, idx) => ({

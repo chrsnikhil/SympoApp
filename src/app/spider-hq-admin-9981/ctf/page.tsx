@@ -156,7 +156,7 @@ export default function SecretAdminCtfPage() {
     return `${mins}m ${rem}s`;
   }
 
-  async function handleToggleEvent(action: "start" | "reset") {
+  async function handleToggleEvent(action: "start" | "reset" | "end") {
     setIsTogglingEvent(true);
     setMsg(null);
     try {
@@ -170,7 +170,12 @@ export default function SecretAdminCtfPage() {
         setEventState(json.state);
         setMsg({
           ok: true,
-          text: action === "start" ? "Event started! Participants can now view their dashboard." : "Event status reset to Waiting Room.",
+          text:
+            action === "start"
+              ? "Event started! Participants can now view their dashboard."
+              : action === "end"
+              ? "Event concluded! Submissions are closed and participants now see only the final leaderboard."
+              : "Event status reset to Waiting Room.",
         });
       } else {
         setMsg({ ok: false, text: json.error ?? "Failed to update event status" });
@@ -561,18 +566,29 @@ export default function SecretAdminCtfPage() {
           <div>
             <h2 className="text-xl font-black uppercase text-white flex items-center gap-3">
               EVENT STATUS:{" "}
-              <span className={eventState === "started" ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
-                {eventState === "started" ? "EVENT LIVE" : "WAITING ROOM ACTIVE"}
+              <span className={eventState === "started" ? "text-emerald-400 font-bold" : eventState === "ended" ? "text-red-400 font-bold" : "text-amber-400 font-bold"}>
+                {eventState === "started" ? "EVENT LIVE" : eventState === "ended" ? "EVENT CONCLUDED" : "WAITING ROOM ACTIVE"}
               </span>
             </h2>
             <p className="text-xs text-gray-400 font-medium mt-1">
               {eventState === "started"
                 ? "Participants can access the dashboard and question pages."
+                : eventState === "ended"
+                ? "Event has ended. Submissions are locked and participants see only the final leaderboard."
                 : "Participants are kept in the waiting room until you click 'Start Event'."}
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {eventState !== "started" ? (
+            {eventState === "started" && (
+              <button
+                onClick={() => handleToggleEvent("end")}
+                disabled={isTogglingEvent}
+                className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-md disabled:opacity-50"
+              >
+                {isTogglingEvent ? "Ending..." : "END EVENT"}
+              </button>
+            )}
+            {eventState !== "started" && (
               <button
                 onClick={() => handleToggleEvent("start")}
                 disabled={isTogglingEvent}
@@ -580,15 +596,14 @@ export default function SecretAdminCtfPage() {
               >
                 {isTogglingEvent ? "Starting..." : "START EVENT"}
               </button>
-            ) : (
-              <button
-                onClick={() => handleToggleEvent("reset")}
-                disabled={isTogglingEvent}
-                className="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-md disabled:opacity-50"
-              >
-                {isTogglingEvent ? "Resetting..." : "RESET TO WAITING ROOM"}
-              </button>
             )}
+            <button
+              onClick={() => handleToggleEvent("reset")}
+              disabled={isTogglingEvent}
+              className="px-4 py-3 bg-amber-600/30 border border-amber-500/50 hover:bg-amber-600/60 text-amber-200 font-bold text-xs uppercase tracking-wider rounded-xl transition-all disabled:opacity-50"
+            >
+              RESET TO WAITING ROOM
+            </button>
           </div>
         </div>
 

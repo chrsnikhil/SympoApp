@@ -23,8 +23,11 @@ export async function getSession(): Promise<SessionClaims | null> {
 
   try {
     const hasTeam = await getCached(`team-exists:${session.teamId}`, 30000, async () => {
-      const teams = await collections.teams();
-      const team = await teams.findOne({ _id: new ObjectId(session.teamId) });
+      const teamsCtfCol = await collections.teamsCtf();
+      const teamCtf = await teamsCtfCol.findOne({ _id: new ObjectId(session.teamId) });
+      if (teamCtf !== null) return true;
+      const teamsCol = await collections.teams();
+      const team = await teamsCol.findOne({ _id: new ObjectId(session.teamId) });
       return team !== null;
     });
     if (!hasTeam) return null;

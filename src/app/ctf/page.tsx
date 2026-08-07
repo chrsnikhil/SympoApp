@@ -93,10 +93,16 @@ export default function CtfDashboardPage() {
   useEffect(() => {
     if (remainingSecs === null || remainingSecs <= 0) return;
     const timer = setInterval(() => {
-      setRemainingSecs((prev) => (prev && prev > 0 ? prev - 1 : 0));
+      setRemainingSecs((prev) => {
+        if (!prev || prev <= 1) {
+          fetchDashboard();
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
     return () => clearInterval(timer);
-  }, [remainingSecs]);
+  }, [remainingSecs, fetchDashboard]);
 
   async function handleFlagSubmit(slug: string) {
     const flag = flagInputs[slug]?.trim();
@@ -170,7 +176,7 @@ export default function CtfDashboardPage() {
   }
 
   // WAITING ROOM SCREEN
-  if (data?.eventState && data.eventState !== "started") {
+  if (data?.eventState === "waiting") {
     return (
       <main className="min-h-screen bg-[#0a0510] text-gray-100 font-sans flex flex-col items-center justify-center p-6 relative overflow-hidden">
         <SpiderBackgroundFX />
@@ -203,6 +209,114 @@ export default function CtfDashboardPage() {
           >
             Logout
           </button>
+        </div>
+      </main>
+    );
+  }
+
+  // EVENT ENDED SCREEN — SHOW ONLY FINAL LEADERBOARD
+  const isEnded = data?.eventState === "ended" || (remainingSecs !== null && remainingSecs <= 0);
+
+  if (isEnded) {
+    return (
+      <main className="min-h-screen bg-[#0a0510] text-gray-100 font-sans flex flex-col items-center justify-start p-6 md:p-10 relative overflow-hidden">
+        <SpiderBackgroundFX />
+        <div className="fixed inset-0 pointer-events-none -z-10 bg-[#0a0510]" />
+
+        <div className="max-w-4xl w-full space-y-8 z-10 my-auto">
+          <div className="text-center space-y-3">
+            <h1 className="text-3xl md:text-5xl font-black italic tracking-tighter text-white">
+              XPLORE 26 <span className="text-red-600 font-black not-italic ml-2">MULTIVERSE BREACH</span>
+            </h1>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-950 border border-red-500/50 text-red-300 font-mono text-xs font-bold uppercase tracking-widest">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+              STATUS: EVENT CONCLUDED — SUBMISSIONS CLOSED
+            </div>
+            <p className="text-sm md:text-base text-gray-300 max-w-xl mx-auto font-medium">
+              The CTF competition has officially ended. Answer submissions are closed. Below is the final official leaderboard ranking.
+            </p>
+          </div>
+
+          {/* Active Team Card */}
+          {data?.team && (
+            <div className="border border-red-500/40 bg-[#12050a] rounded-2xl p-5 shadow-xl flex items-center justify-between">
+              <div>
+                <div className="text-xs text-gray-400 font-bold uppercase tracking-widest">Your Team</div>
+                <div className="text-white font-black text-xl tracking-tight">{data.team.name}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-gray-400 font-bold uppercase tracking-widest">Final Rank / Score</div>
+                <div className="text-red-500 font-black text-xl">
+                  #{data.rank} <span className="text-white text-base">({data.score} pts)</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Final Leaderboard */}
+          <div className="border border-red-500/30 bg-[#0d0716] rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-red-900/40 pb-4">
+              <h2 className="text-xl md:text-2xl font-black uppercase text-red-500 tracking-wider flex items-center gap-2">
+                🏆 FINAL OFFICIAL LEADERBOARD
+              </h2>
+              <button
+                onClick={async () => {
+                  try { await fetch("/api/logout", { method: "POST" }); } catch {}
+                  window.location.href = "/enter";
+                }}
+                className="px-4 py-2 bg-red-950 border border-red-500/40 text-red-400 hover:text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+              >
+                Logout
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {(data?.leaderboard ?? []).filter((row) => row.teamName.toLowerCase() !== "admin team").map((row, idx) => {
+                const isMyTeam = data?.team?.id === row.teamId;
+                return (
+                  <div
+                    key={row.teamId}
+                    className={`flex items-center gap-4 p-4 rounded-2xl transition-all ${
+                      isMyTeam
+                        ? "bg-red-950/90 border-2 border-red-500 shadow-lg shadow-red-950/50"
+                        : idx === 0
+                        ? "bg-amber-950/60 border border-amber-500/50"
+                        : idx === 1
+                        ? "bg-slate-900/60 border border-slate-400/40"
+                        : idx === 2
+                        ? "bg-amber-900/30 border border-amber-700/40"
+                        : "bg-[#140b21] border border-white/5"
+                    }`}
+                  >
+                    <div className="w-10 text-center font-black text-lg">
+                      {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : <span className="text-gray-400 text-sm">#{idx + 1}</span>}
+                    </div>
+
+                    <div className="flex-1">
+                      <div className="text-white font-bold text-base flex items-center gap-2">
+                        <span>{row.teamName}</span>
+                        {isMyTeam && (
+                          <span className="px-2 py-0.5 bg-red-600 text-[10px] font-black uppercase text-white rounded tracking-wider">
+                            YOU
+                          </span>
+                        )}
+                      </div>
+                      {row.solvedCount !== undefined && (
+                        <div className="text-gray-400 text-xs mt-0.5">{row.solvedCount} Solves</div>
+                      )}
+                    </div>
+
+                    <div className="text-right font-black text-lg text-amber-400">
+                      {row.points} <span className="text-xs text-gray-400 font-normal">pts</span>
+                    </div>
+                  </div>
+                );
+              })}
+              {(!data?.leaderboard || data.leaderboard.length === 0) && (
+                <div className="text-center text-gray-500 text-sm py-10">No scores recorded.</div>
+              )}
+            </div>
+          </div>
         </div>
       </main>
     );

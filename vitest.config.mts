@@ -3,17 +3,15 @@ import { fileURLToPath } from "node:url";
 
 /**
  * The rules that can be tested without a server or a database — the hunt's
- * framework-free modules under src/lib/hunt/, the shiftverse slot claim, the
- * proxy's routing decisions — run here, in milliseconds. Anything needing a
- * live server is scripts/verify-hunt.ts's job.
+ * framework-free modules under src/lib/hunt/, the circuit solver, the
+ * shiftverse slot claim, the proxy's routing decisions — run here, in
+ * milliseconds. Anything needing a live server is scripts/verify-hunt.ts's job.
  *
  * WHY .mts AND NOT .ts. This package is CommonJS (no "type": "module"), so
  * vitest `require()`s a .ts config and Vite is ESM-only — the run dies with
- * ERR_REQUIRE_ESM before a single test is collected. The explicit .mts
- * extension forces ESM and the config loads.
- *
- * There were briefly two of these, a .ts and a .mts, one from each side of a
- * merge. Vitest picked the .ts and every test failed to start. One config only.
+ * ERR_REQUIRE_ESM before a single test is collected. The .mts extension forces
+ * ESM and the config loads. It was a .ts for a while and nothing noticed,
+ * because nothing ran it: there was no test script and CI had no test step.
  */
 export default defineConfig({
   test: {
@@ -23,8 +21,8 @@ export default defineConfig({
   resolve: {
     alias: {
       // The same "@" -> src mapping tsconfig declares. Done explicitly rather
-      // than with vite-tsconfig-paths so the test run needs no extra
-      // dependency to resolve an import the compiler already understands.
+      // than with vite-tsconfig-paths so the test run needs no extra dependency
+      // to resolve an import the compiler already understands.
       "@": fileURLToPath(new URL("./src", import.meta.url)),
       // `server-only` throws on import outside a Server Component build, which
       // is exactly what it is for — but it makes anything importing the

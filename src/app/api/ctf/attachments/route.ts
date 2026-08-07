@@ -22,8 +22,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Missing challenge slug or filename" }, { status: 400 });
     }
 
-    const challenges = await collections.challenges();
-    const challenge = await challenges.findOne({ type: "ctf", slug });
+    const challenges = await collections.challengesCtf();
+    const challenge = await challenges.findOne({ slug });
     if (!challenge) {
       return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
     }

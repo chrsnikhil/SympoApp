@@ -6,7 +6,21 @@ import { CODES } from "./codes";
  * except through the seed and the shell — the reveal CODES must not reach the
  * browser inside a challenge document.
  */
-export const HUNT_SLUGS = ["hunt-cipher", "hunt-grid", "hunt-circuit", "hunt-room", "hunt-universe"] as const;
+export const HUNT_SLUGS = [
+  "hunt-cipher",
+  "hunt-grid",
+  "hunt-circuit",
+  "hunt-room",
+  "hunt-universe",
+  // The Octavius Circuit ships as five levels, each its own challenge so a team
+  // is paid per level and hunt_progress can gate them in order. "hunt-circuit"
+  // above is the old single-slug placeholder and stays seeded but unplayable.
+  "circuit-1",
+  "circuit-2",
+  "circuit-3",
+  "circuit-4",
+  "circuit-5",
+] as const;
 export type HuntSlug = (typeof HUNT_SLUGS)[number];
 
 /**
@@ -25,7 +39,7 @@ export type HuntSlug = (typeof HUNT_SLUGS)[number];
  * it cannot be imported here because it pulls in React components, and this
  * module is used by route handlers.
  */
-export const PLAYABLE_HUNT_SLUGS = ["hunt-universe", "hunt-room"] as const satisfies readonly HuntSlug[];
+export const PLAYABLE_HUNT_SLUGS = ["hunt-universe", "hunt-room", "circuit-1"] as const satisfies readonly HuntSlug[];
 
 /**
  * Puzzles that live at their own route instead of rendering inside HuntShell.
@@ -98,6 +112,26 @@ export const HINTS: Record<HuntSlug, [string, string]> = {
   "hunt-circuit": [
     "Work backwards from the sink, not forwards from the source.",
     "One tile in the middle column only ever needs a half turn.",
+  ],
+  "circuit-1": [
+    "Work backwards from the end node, not forwards from the source — only one route into it fits.",
+    "The inventory contains decoys. Count what the modifiers do to the source voltage before placing any of them.",
+  ],
+  "circuit-2": [
+    "The relay splits: a T-junction is doing work a corner cannot.",
+    "Add up every modifier on your route before you commit — overshooting the target is the usual mistake.",
+  ],
+  "circuit-3": [
+    "The x-blocks force one corridor. Find it first, then worry about voltage.",
+    "A decoy modifier that gets you to the target by the wrong route still fails — the end node has to be lit.",
+  ],
+  "circuit-4": [
+    "Containment means the circuit has to arrive at exactly the target, not below it.",
+    "If you are one off, you have used a decoy: check the sign on every modifier you placed.",
+  ],
+  "circuit-5": [
+    "Two modifiers cancel. Finding which pair saves you most of the board.",
+    "The core needs the full path lit — a circuit that hits the number but stops short of the end node scores nothing.",
   ],
   "hunt-room": [
     "All five objects are somewhere in front of you — drag to look left and right, and check up on the walls as well as down near the floor.",
