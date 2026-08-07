@@ -105,6 +105,18 @@ export interface Challenge {
      * solve level 1's circuit and be paid for level 5.
      */
     levelId?: number;
+    /**
+     * hunt: which sub-grader owns this round, for rounds that are not a hashed
+     * word answer.
+     *
+     * The hunt has grown rounds that grade in their own way — a circuit is
+     * rebuilt, a shiftverse slot is compared against the team's own word — but
+     * they are all hunt challenges and all go through gradeHunt. Naming the
+     * grader here rather than matching on the slug means renaming a round
+     * cannot silently route it back to the word check and mark every correct
+     * answer wrong.
+     */
+    flow?: "shiftverse";
     /** quiz mcq: option index that scores. */
     correctIndex?: number;
     /** quiz mcq: seconds allowed from serve to answer (round 1 legacy path, unused by rounds 2/3). */

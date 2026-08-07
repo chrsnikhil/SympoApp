@@ -4,6 +4,7 @@ import { collections } from "@/lib/db/client";
 import { isUniverseWord, universeIndexFor } from "@/lib/universe/words";
 import type { Challenge } from "@/lib/db/types";
 import { gradeCircuit } from "./circuit";
+import { gradeShiftverse } from "./shiftverse";
 import type { GradeInput, GradeResult } from "./types";
 
 /** The universe round grades against the team's own universe, not a fixed hash. */
@@ -59,6 +60,12 @@ export async function gradeHunt(input: GradeInput): Promise<GradeResult> {
   // renaming a level's slug cannot silently route it back to the word check.
   if (typeof challenge.config.levelId === "number") {
     return gradeCircuit(input);
+  }
+
+  // Shiftverse grades a guess against the team's own puzzle slot rather than a
+  // shared hash, and enforces its own fifteen-minute board deadline.
+  if (challenge.config.flow === "shiftverse") {
+    return gradeShiftverse(input);
   }
   const progress = await collections.huntProgress();
 
