@@ -222,6 +222,35 @@ export interface ScoreEvent {
   at: Date;
 }
 
+/**
+ * "This team turned up to this event."
+ *
+ * `Team` has no event field — a team is a name and a coin, shared by every
+ * event on the deployment — so there was no way to ask which event a team
+ * belongs to. The admin consoles asked anyway, by listing `teams` unfiltered,
+ * and put all thirty teams in front of every coordinator: the quiz's control
+ * rows and test teams in the CTF console, hunt registrations in the quiz panel.
+ * On a console whose buttons are penalty and ban, a row you cannot identify is
+ * a row you can act on by mistake.
+ *
+ * Two events could already answer it by luck. The quiz has `teams.coin`, which
+ * only its own login sets. The hunt has `hunt_progress`, whose rows are created
+ * when a team first opens the page — so it records *arriving*, not solving. The
+ * CTF had neither: filtering it on submissions cut a live console from 30 teams
+ * to 1, because 29 had entered and not yet submitted, and a coordinator who
+ * cannot see a team cannot help one.
+ *
+ * So arrival is recorded explicitly. Written the first time a team loads an
+ * event's dashboard, `$setOnInsert` so the first-seen time survives, and unique
+ * on (teamId, event) so a poll cannot duplicate it.
+ */
+export interface EventParticipation {
+  _id?: ObjectId;
+  teamId: ObjectId;
+  event: EventKey;
+  firstSeenAt: Date;
+}
+
 /** Server-side gate for the hunt's clue chain — clients can't skip ahead. */
 export interface HuntProgress {
   _id?: ObjectId;

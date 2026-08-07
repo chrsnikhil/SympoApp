@@ -195,7 +195,27 @@ export async function GET(request: Request) {
       }
 
       const now = new Date();
-      const nonControlTeams = teamDocs.filter((t) => t.name !== "Quiz Control");
+      /**
+       * Quiz teams are the ones holding a coin.
+       *
+       * `teams` is one global collection with no event field, so this was every
+       * team on the platform minus the control row — the per-team panel below
+       * listed everyone who had registered on the hunt or the CTF, each shown
+       * with no submissions and no progress, indistinguishable from a quiz team
+       * sitting idle.
+       *
+       * A coin is the quiz's registration: `/api/enter`'s coin path is the only
+       * thing that sets `teams.coin`, and a team cannot be in the quiz without
+       * claiming one. The other events register by name and password and never
+       * touch it.
+       *
+       * `teamById` above stays unfiltered on purpose — it is a name lookup for
+       * rows that come from `standings(round)`, which is already quiz-scoped.
+       * Narrowing it would only turn names into "Unknown".
+       */
+      const nonControlTeams = teamDocs.filter(
+        (t) => t.name !== "Quiz Control" && typeof t.coin === "number"
+      );
 
       const openedPuzzles = puzzles.filter((p) => p.opensAt && new Date(p.opensAt) <= now);
       const latestOpened = openedPuzzles.length > 0 ? openedPuzzles[openedPuzzles.length - 1] : puzzles[0] ?? null;
