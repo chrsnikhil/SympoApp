@@ -5,7 +5,7 @@ import { collections } from "@/lib/db/client";
 import { hashCode, normaliseCode, signSession, sessionCookieOptions } from "@/lib/auth/session";
 import { materialize } from "@/lib/leaderboard/materialize";
 import { ObjectId } from "mongodb";
-import { avatarById, avatarForCoin, formatCoin, parseCoin } from "@/lib/quiz/avatars";
+import { avatarById, avatarForCoin, formatCoin, parseCoin, MAX_COIN } from "@/lib/quiz/avatars";
 
 /**
  * The single entry endpoint for every event — but not a single login *model*.
@@ -407,14 +407,17 @@ async function quizEntry(
       return res;
     }
 
-    // ── Coin path: team login (coins 01 to 60) ───────────────────────────────
+    // ── Coin path: team login (coins 01..MAX_COIN) ───────────────────────────
     if (body.coin === undefined || body.coin === null || body.coin === "") {
       return NextResponse.json({ error: "Enter the number on your coin" }, { status: 400 });
     }
 
     const parsed = parseCoin(String(body.coin));
     if (parsed === null) {
-      return NextResponse.json({ error: "Coins are numbered 01 to 60" }, { status: 400 });
+      return NextResponse.json(
+        { error: `Coins are numbered 01 to ${MAX_COIN}` },
+        { status: 400 }
+      );
     }
 
     const forCoin = avatarForCoin(parsed);
