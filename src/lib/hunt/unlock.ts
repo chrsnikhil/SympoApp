@@ -1,5 +1,6 @@
 import type { ObjectId } from "mongodb";
 import { collections } from "@/lib/db/client";
+import { recordArrival } from "@/lib/event/participation";
 import { PLAYABLE_HUNT_SLUGS } from "./content";
 
 /**
@@ -28,6 +29,23 @@ import { PLAYABLE_HUNT_SLUGS } from "./content";
  * and let appendScore pay a second time.
  */
 export async function ensureHuntProgress(teamId: ObjectId): Promise<void> {
+  /**
+   * Arrival is recorded HERE rather than at each call site, for the same reason
+   * the progress rows are: this is the one chokepoint every entrance to the
+   * hunt already goes through, and the next round to grow its own route will
+   * get it for free instead of being the one that forgot.
+   *
+   * "Arrived at the hunt" and "has progress rows for the hunt" are the same
+   * event, so there is nothing to keep in sync. The CTF console proved the cost
+   * of getting this wrong from the other direction — filtering on submissions
+   * showed 1 team of 30, because 29 had turned up and not yet scored, and a
+   * coordinator who cannot see a team cannot help one.
+   *
+   * Not awaited, and it swallows its own errors: this is bookkeeping for a
+   * console, and a team's ability to play must never wait on it or fail with it.
+   */
+  void recordArrival("hunt", String(teamId));
+
   const progress = await collections.huntProgress();
   await Promise.all(
     PLAYABLE_HUNT_SLUGS.map((challengeSlug) =>
