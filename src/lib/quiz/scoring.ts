@@ -21,10 +21,15 @@ import type { GradeResult } from "@/lib/graders/types";
  * or after the select phase ends) scores zero — "no exceptions" per the rules.
  */
 export function scoreMcq(challenge: Challenge, payload: string, serve: QuizServe, receivedAt: Date): GradeResult {
-  const choice = Number.parseInt(payload, 10);
-  if (Number.isNaN(choice)) {
+  const displayChoice = Number.parseInt(payload, 10);
+  if (Number.isNaN(displayChoice)) {
     return { correct: false, points: 0, meta: { reason: "bad-choice" } };
   }
+  // Map the display-index back to the canonical (DB) index via the serve's option permutation.
+  const choice =
+    serve.optionOrder && serve.optionOrder.length > displayChoice
+      ? serve.optionOrder[displayChoice]
+      : displayChoice;
   if (serve.skipped) {
     return { correct: false, points: 0, meta: { reason: "skipped" } };
   }
@@ -45,6 +50,7 @@ export function scoreMcq(challenge: Challenge, payload: string, serve: QuizServe
   }
 
   // A fifty-fifty removes options; picking one anyway means a stale/tampered client.
+  // The eliminated array stores canonical (original) indexes, so compare against canonical choice.
   if ((serve.eliminated ?? []).includes(choice)) {
     return { correct: false, points: 0, meta: { reason: "eliminated-option" } };
   }
