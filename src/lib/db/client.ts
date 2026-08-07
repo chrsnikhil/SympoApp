@@ -199,7 +199,7 @@ export const collections = {
  * not fatal.
  */
 export async function ensureIndexes(): Promise<void> {
-  const [codes, challenges, subs, scores, hunt, boards, lyla, images, memory, serves, quals, comebacks, flags, freezes, codesCtf, challengesCtf, subsCtf, scoresCtf] =
+  const [codes, challenges, subs, scores, hunt, parts, boards, lyla, images, memory, serves, quals, comebacks, flags, freezes, codesCtf, challengesCtf, subsCtf, scoresCtf] =
 
     await Promise.all([
       collections.accessCodes(),
