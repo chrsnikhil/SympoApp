@@ -50,14 +50,7 @@
 
   --glass-bg:        rgba(6, 22, 36, 0.6);
   --glass-bg-hover:  rgba(0, 229, 255, 0.08);
-  /*
-   * Reduced from blur(24px) saturate(180%). backdrop-filter makes the
-   * compositor blur everything behind the element, and eight elements use this
-   * — on a mid-range phone that alone dropped the board below 30fps. 10px still
-   * reads as frosted; the saturate is dropped because it doubled the cost for
-   * an effect nobody could name.
-   */
-  --glass-blur:      blur(10px);
+  --glass-blur:      blur(24px) saturate(180%);
   --glass-border:    1px solid rgba(0, 229, 255, 0.16);
   --glass-border-lit:1px solid rgba(0, 229, 255, 0.35);
 }
@@ -108,23 +101,12 @@ html, body {
     rgba(0,0,0,0.08) 3px,
     rgba(0,0,0,0.08) 4px
   );
-  /* Taller than the viewport so it can be translated without exposing an edge. */
-  height: calc(100% + 120px);
-  will-change: transform;
   animation: scanMove 8s linear infinite;
 }
 
-/*
- * Animating transform, not background-position.
- *
- * background-position repaints a full-screen layer every frame — on a phone
- * that is a whole frame budget spent on a decorative CRT line. transform is
- * handled by the compositor and costs effectively nothing, and the effect is
- * identical because the gradient repeats every 4px.
- */
 @keyframes scanMove {
-  0%   { transform: translateY(0); }
-  100% { transform: translateY(-100px); }
+  0%   { background-position: 0 0; }
+  100% { background-position: 0 100px; }
 }
 
 #vignette-overlay {
@@ -1007,20 +989,4 @@ html, body {
 @keyframes rippleEffect {
   0% { width: 0px; height: 0px; opacity: 1; box-shadow: 0 0 8px var(--neon-cyan); }
   100% { width: 180px; height: 180px; opacity: 0; box-shadow: 0 0 18px var(--neon-cyan); }
-}
-
-
-/*
- * Motion here is decoration: scanlines, glitch pulses, a blinking overload bar.
- * A player who has asked their system for less of it gets a still board, and
- * the cheapest frame the game can draw.
- */
-@media (prefers-reduced-motion: reduce) {
-  #scanline-overlay,
-  #logo-container,
-  .voltage-seg,
-  .status-error,
-  .need-end {
-    animation: none !important;
-  }
 }

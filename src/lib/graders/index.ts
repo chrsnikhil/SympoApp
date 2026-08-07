@@ -1,6 +1,6 @@
 import type { EventKey } from "@/lib/config";
 import type { Grader, GraderRegistry } from "./types";
-import { gradeHunt } from "./hunt";
+import { gradeCircuit } from "./circuit";
 import { gradeCtf } from "./ctf";
 import { gradeQuiz } from "./quiz";
 import { gradeCode } from "./code";
@@ -16,7 +16,7 @@ import { gradeCode } from "./code";
  * routes into scoring, and only one of them enforces the board deadline.
  */
 const registry: GraderRegistry = {
-  hunt: gradeHunt,
+  hunt: gradeCircuit,
   ctf: gradeCtf,
   quiz: gradeQuiz,
   code: gradeCode,

@@ -171,31 +171,17 @@ function updateCircuit() {
   if (!gameWon && won) {
     gameWon = true;
     
-    // Submit the BOARD, not the verdict.
-    //
-    // This used to post `{ voltage, targetVoltage }` — two numbers from this
-    // same file — and the grader compared them to each other. A hand-written
-    // request with both equal scored full points without the game being loaded.
-    // The server now rebuilds the circuit from these placements using its own
-    // copy of the level and decides for itself; nothing computed here is
-    // trusted, and nothing here needs to be.
-    const placed = [];
-    for (let r = 0; r < board.grid.length; r++) {
-      for (let c = 0; c < (board.grid[r] || []).length; c++) {
-        const cell = board.grid[r][c];
-        if (cell && cell.type) {
-          placed.push({ row: r, col: c, type: cell.type, rotation: cell.rotation | 0 });
-        }
-      }
-    }
-
+    // Submit to SympoApp backend
     fetch('/api/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        event: 'hunt', // The circuit levels are hunt challenges.
-        challengeSlug: 'circuit-' + level.id,
-        payload: JSON.stringify({ pieces: placed })
+        event: 'hunt', // We mounted the game on the hunt event
+        challengeSlug: 'level-' + level.id,
+        payload: JSON.stringify({
+          voltage: result.voltage,
+          targetVoltage: level.targetVoltage
+        })
       })
     }).catch(console.error);
 

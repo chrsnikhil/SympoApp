@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Octavius Circuit — Spider-Verse Puzzle</title>
+  <meta name="description" content="A Spider-Man Spider-Verse circuit puzzle game. Place and rotate circuit tiles to match the target voltage." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/game_src/style.css" />
+  <link rel="stylesheet" href="/game_src/landing.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- PRE-GAME: Landing Page                      -->
+  <!-- ═══════════════════════════════════════════ -->
+  <div id="landing-page">
+    <video class="landing-bg" src="/animation.mp4" autoplay loop muted playsinline crossorigin="anonymous"></video>
+    <div id="landing-overlay"></div>
+    <div class="landing-content">
+      <img src="/event1.png" alt="Event Logo" class="landing-logo" />
+      <button id="landing-play-btn" class="landing-play-btn">PLAY</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- GAME APP WRAPPER                            -->
+  <!-- ═══════════════════════════════════════════ -->
+  <div id="app-container" style="display: none; opacity: 0; transition: opacity 0.5s ease;">
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- LAYER 0: Spider-Man WebGL 3D Background     -->
+    <!-- ═══════════════════════════════════════════ -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- Hidden video source -->
+    <video id="bg-video" src="/background.mp4" autoplay loop muted playsinline crossorigin="anonymous" style="display:none"></video>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- LAYER 1: Atmos Scanlines & vignette         -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="scanline-overlay"></div>
+    <div id="vignette-overlay"></div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- LAYER 2: Inverted Chromatic Glitch Logo      -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="logo-container">
+      <video id="logo-video" src="/logo.mp4" autoplay loop muted playsinline></video>
+      <div id="logo-glow-ring"></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- LAYER 3: Interactive Hacking Game UI         -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="game-wrapper">
+
+      <!-- ── TOP HUD BAR ── -->
+      <header id="hud-bar">
+        <div id="hud-puzzle-name">
+          <span class="hud-label-small">PUZZLE</span>
+          <div id="level-display-text" class="level-title-text">Level 1: Overload Prevention</div>
+        </div>
+
+        <div id="hud-voltage-section">
+          <div id="hud-actual">
+            <span class="hud-label">ACTUAL VOLTAGE</span>
+            <span id="actual-voltage-value" class="voltage-number">0</span>
+          </div>
+
+          <div id="hud-bar-center">
+            <div id="voltage-bar-track">
+              <div id="voltage-bar-seg-1" class="voltage-seg"></div>
+              <div id="voltage-bar-seg-2" class="voltage-seg"></div>
+              <div id="voltage-bar-seg-3" class="voltage-seg"></div>
+            </div>
+            <div id="voltage-status" class="status-hidden">
+              <span id="voltage-status-text"></span>
+            </div>
+            <div id="modifier-tracker"></div>
+          </div>
+
+          <div id="hud-target">
+            <span id="target-voltage-value" class="voltage-number">2</span>
+            <span class="hud-label">TARGET VOLTAGE</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- ── MAIN GAME AREA ── -->
+      <main id="game-area">
+
+        <!-- Left Inventory -->
+        <aside id="inventory-left" class="inventory-panel">
+          <div class="inventory-title">INVENTORY</div>
+          <div id="inv-left-items" class="inventory-items"></div>
+        </aside>
+
+        <!-- Board Canvas -->
+        <div id="board-container">
+          <canvas id="board-canvas"></canvas>
+          <div id="board-hit-layer"></div>
+        </div>
+
+      </main>
+
+      <!-- ── BOTTOM ACTION BAR ── -->
+      <footer id="action-bar">
+        <button class="action-btn" id="btn-rotate" data-action="rotate">
+          <span class="btn-icon">↻</span>
+          <span class="btn-label">ROTATE</span>
+        </button>
+        <button class="action-btn" id="btn-reset" data-action="reset">
+          <span class="btn-icon">⟳</span>
+          <span class="btn-label">RESET CIRCUIT</span>
+        </button>
+        <button class="action-btn action-btn--select" id="btn-select" data-action="select">
+          <span class="btn-icon">●</span>
+          <span class="btn-label">SELECT</span>
+        </button>
+        <button class="action-btn action-btn--remove" id="btn-remove" data-action="remove">
+          <span class="btn-icon">✕</span>
+          <span class="btn-label">REMOVE</span>
+        </button>
+      </footer>
+
+    </div><!-- /#game-wrapper -->
+
+    <!-- ── WIN SCREEN OVERLAY ── -->
+    <div id="win-overlay" class="hidden">
+      <div id="win-card">
+        <div id="win-particles"></div>
+        <div class="win-spider-icon">🕷️</div>
+        <h1 class="win-title">CIRCUIT COMPLETE!</h1>
+        <p class="win-subtitle">Voltage Matched — <span id="win-voltage"></span></p>
+        <button id="btn-play-again" class="win-btn">PLAY AGAIN</button>
+      </div>
+    </div>
+  </div><!-- /#app-container -->
+
+  <script type="module" src="/game_src/landing.js"></script>
+  <script type="module" src="/game_src/main.js"></script>
+</body>
+</html>

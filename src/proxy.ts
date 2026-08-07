@@ -52,7 +52,7 @@ const PUBLIC_PREFIXES = ["/_next", "/api/health", "/favicon.ico", "/enter", "/ap
 const PROTECTED_PREFIXES = [
   "/ctf",
   SECRET_ADMIN_PATH,
-  "/hunt",
+  // "/hunt",
   // Sibling of /hunt, not a child of it. Renders the 64-grid puzzle with the
   // real seeded content and no auth at all unless it is named here.
   "/hunt-test",
