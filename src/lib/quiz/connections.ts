@@ -160,7 +160,7 @@ export async function scoreConnections(
     "connections-2": ["gpu", "gpus", "graphics processing unit", "graphics card", "nvidia", "nvidia gpu"],
     "connections-3": ["blockchain", "block chain"],
     "connections-4": ["tensorflow", "tensor flow"],
-    "connections-5": ["api", "apis", "rest api", "web api", "application programming interface", "restful api", "endpoint"],
+    "connections-5": ["api", "apis", "rest api", "web api", "application programming interface", "restful api"],
   };
 
   const hardcodedAliases = PUZZLE_ALIASES[challenge.slug] ?? [];
