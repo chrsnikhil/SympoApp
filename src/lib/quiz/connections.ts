@@ -159,8 +159,8 @@ export async function scoreConnections(
     // already-awarded rank changes.
     "connections-2": ["gpu", "gpus", "graphics processing unit", "graphics card", "nvidia", "nvidia gpu"],
     "connections-3": ["blockchain", "block chain"],
-    "connections-4": ["pytorch", "py torch", "torch"],
-    "connections-5": ["api", "apis", "rest api", "web api", "application programming interface", "restful api", "endpoint"],
+    "connections-4": ["tensorflow", "tensor flow"],
+    "connections-5": ["api", "apis", "rest api", "web api", "application programming interface", "restful api"],
   };
 
   const hardcodedAliases = PUZZLE_ALIASES[challenge.slug] ?? [];

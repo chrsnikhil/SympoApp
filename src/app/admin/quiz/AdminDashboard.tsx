@@ -34,6 +34,7 @@ interface Overview {
   ended: boolean;
   started?: boolean;
   standings: StandingRow[];
+  comebackBottomN?: number;
   round1?: {
     games: Array<{ slug: string; title: string; format: string; points: number }>;
     perTeam: Array<{
@@ -71,6 +72,7 @@ export default function AdminDashboard() {
   const [assignTeamName, setAssignTeamName] = useState("");
   const [customCount, setCustomCount] = useState("");
   const [previewModal, setPreviewModal] = useState<{ teamName: string; dataUrl: string } | null>(null);
+  const [comebackBottomNInput, setComebackBottomNInput] = useState("2");
 
   const load = useCallback(async () => {
     try {
@@ -84,6 +86,12 @@ export default function AdminDashboard() {
       // Ignore network glitch on loop
     }
   }, [round]);
+
+  useEffect(() => {
+    if (data?.comebackBottomN !== undefined) {
+      setComebackBottomNInput(String(data.comebackBottomN));
+    }
+  }, [data?.comebackBottomN]);
 
   useEffect(() => {
     let cancelled = false;
@@ -353,6 +361,32 @@ export default function AdminDashboard() {
             )}
           </div>
         </section>
+
+        {/* COMEBACK METER THRESHOLD (Round 3 only) */}
+        {round === 3 && (
+          <section className="panel p-5">
+            <h2 className="display-title text-xl text-glitch-cyan mb-3">Comeback Meter — Eligible Teams</h2>
+            <p className="text-xs text-paper-white/60 mb-3">
+              Number of bottom-ranked teams that receive the Comeback Meter. Default: 2.
+            </p>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                min={1}
+                value={comebackBottomNInput}
+                onChange={(e) => setComebackBottomNInput(e.target.value)}
+                className="w-24 border border-paper-white/20 bg-ink-black px-3 py-1.5 font-mono text-sm text-paper-white outline-none focus:border-glitch-cyan"
+              />
+              <button
+                disabled={busy}
+                onClick={() => callAdvance({ action: "set-comeback-bottom-n", n: Number(comebackBottomNInput) })}
+                className="comic-btn comic-btn-cyan px-4 py-2 text-xs font-bold"
+              >
+                Apply
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* STANDINGS */}
         <section className="panel p-5">

@@ -59,10 +59,10 @@ export default function QuizEntry() {
           }
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
-  const looksLikeCode = value.includes("-") || value.trim() === "1684" || (value.trim().length >= 4 && parseCoin(value) === null);
+  const looksLikeCode = value.includes("-") || (value.trim().length >= 4 && parseCoin(value) === null);
   const parsedCoin = looksLikeCode ? null : parseCoin(value);
   const preview = parsedCoin === null ? null : avatarForCoin(parsedCoin);
 
@@ -172,7 +172,7 @@ export default function QuizEntry() {
                 setValue(e.target.value);
                 setError(null);
               }}
-              placeholder="e.g. 01 or 1684"
+              placeholder="e.g. 01"
               autoComplete="off"
               autoFocus
               spellCheck={false}
