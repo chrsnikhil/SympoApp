@@ -276,7 +276,25 @@ export async function settleQuestion(
   }
   console.log(`[comeback] rank team=${team} q=${slug} rank=#${rank + 1} outcome=${failed ? "failed" : "correct"}`);
 
-  // 3 ── Rank #1 FREEZES. Bars and any banked power are preserved exactly as
+  // 3 ── Eligibility gate — must run before any state writes. Only the bottom N
+  //      ranked teams participate in the comeback meter. N is read live from
+  //      quiz_state so the admin can change it mid-round without a restart.
+  //      Non-eligible teams exit here with zero side effects: no bar fill,
+  //      no power grant, no freeze/restore patch, nothing.
+  const stateCol = await collections.quizState();
+  const quizStateDoc = await stateCol.findOne({ _id: "quiz" });
+  const COMEBACK_ELIGIBLE_FROM_BOTTOM = typeof quizStateDoc?.comebackBottomN === "number" && quizStateDoc.comebackBottomN > 0
+    ? quizStateDoc.comebackBottomN
+    : 2;
+  if (rank < table.length - COMEBACK_ELIGIBLE_FROM_BOTTOM) {
+    // Flush any power-consumption patch (step 1) that was already built — a
+    // non-eligible team that consumed a power this question still needs that
+    // cleared from the state so the power isn't replayed, but nothing else.
+    if (Object.keys(patch).length > 0) await states.updateOne({ teamId, round }, { $set: patch });
+    return;
+  }
+
+  // 4 ── Rank #1 FREEZES. Bars and any banked power are preserved exactly as
   //      they are; the team simply cannot gain more while it leads. Nothing
   //      is zeroed, so dropping back to #2 needs no restore step — the values
   //      were never touched. The only write here is the freeze marker (and
@@ -300,26 +318,12 @@ export async function settleQuestion(
     patch.frozen = false;
   }
 
-  // 4 ── A stored power that hasn't fired yet keeps the meter dormant, so a
+  // 5 ── A stored power that hasn't fired yet keeps the meter dormant, so a
   //      team can never sit on two powers at once.
   if (holding) {
     if (Object.keys(patch).length > 0) await states.updateOne({ teamId, round }, { $set: patch });
     return;
   }
-
-  // 5 ── Only the bottom N ranked teams are eligible for meter progression.
-  //      N is set by the admin via comebackBottomN in quiz_state (default 2).
-  //      Teams ranked above the bottom N are not eligible; flush any patch
-  //      (e.g. freeze-restore) but do not touch their streak or grant powers.
-  const stateCol = await collections.quizState();
-  const quizState = await stateCol.findOne({ _id: "quiz" });
-  const COMEBACK_ELIGIBLE_FROM_BOTTOM = typeof quizState?.comebackBottomN === "number" && quizState.comebackBottomN > 0
-    ? quizState.comebackBottomN
-    : 2;
-  // 5 ── Only the bottom 2 ranked teams are eligible for meter progression.
-  //      Teams ranked above the bottom 2 are not eligible; flush any patch
-  //      (e.g. freeze-restore) but do not touch their streak or grant powers.
-
 
   // 6 ── Failure fills exactly one bar. Correct answers never fill.
   const before = bars;
