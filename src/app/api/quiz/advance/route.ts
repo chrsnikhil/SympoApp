@@ -73,6 +73,48 @@ async function handlePOST(request: Request) {
         });
       }
 
+      case "set-comeback-count": {
+        /**
+         * How many bottom-ranked teams hold the comeback meter.
+         *
+         * Coordinator-settable because it is a pacing decision made while
+         * watching the round, not a property of the software: with a wide
+         * spread the bottom two is right, and with a tight field the
+         * coordinator may want five. It was a constant, so changing it meant a
+         * deploy — not something to attempt with the field already seated.
+         *
+         * Bounded rather than trusted, though not for the reason it first
+         * looks: comeback.ts asks `idx >= table.length - N`, so a NEGATIVE N
+         * admits nobody rather than everyone — I asserted the opposite and the
+         * test corrected me. It is still refused, because a coordinator typing
+         * -1 means something they are not getting, and silently behaving like 0
+         * hides that.
+         *
+         * A very large N does admit the whole field, which is the
+         * "everyone except rank #1" behaviour the bottom-N rule was brought in
+         * to replace, so the upper bound is the one doing real work.
+         *
+         * 0 is allowed and meaningful: it turns the meter off for the round.
+         */
+        const raw = Number(body.count);
+        if (!Number.isInteger(raw) || raw < 0 || raw > 200) {
+          return NextResponse.json(
+            { error: "Comeback count must be a whole number between 0 and 200" },
+            { status: 400 }
+          );
+        }
+        const stateCol = await collections.quizState();
+        await stateCol.updateOne({ _id: "quiz" }, { $set: { comebackEligibleCount: raw } }, { upsert: true });
+        return NextResponse.json({
+          ok: true,
+          comebackEligibleCount: raw,
+          note:
+            raw === 0
+              ? "Comeback meter disabled — no team is eligible."
+              : `Bottom ${raw} team(s) now hold the comeback meter.`,
+        });
+      }
+
       case "unfreeze-team": {
         // Clears a team's proctoring freeze — the only way one lifts, per
         // `ProctorFreeze`'s design. Resets the strike count too: this is the
