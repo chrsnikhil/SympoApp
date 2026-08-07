@@ -85,6 +85,34 @@ async function platformEntry(
   request: Request,
   body: Record<string, unknown>,
 ): Promise<Response> {
+  /**
+   * Which set of team records this login belongs to.
+   *
+   * The CTF keeps its own teams, participants and access codes; the hunt and
+   * the code event share the originals. One form serves all three, so it has
+   * to know which host it is answering on — and it did not: every platform
+   * login wrote to the CTF's collections, whatever subdomain it came from.
+   *
+   * A hunt team therefore ended up in `teams_ctf` while every hunt route looks
+   * in `teams`, so the lookup missed and the 64 Grid and Blueprint Recovery
+   * answered "your login has no team number" to every entrant. The session was
+   * valid; the team it pointed at was in the wrong drawer.
+   *
+   * On a path-based deployment (localhost, ngrok) there is no subdomain to read
+   * and `event` is null. That falls to the shared collections, which is right
+   * for the hunt and the code event and wrong for local CTF testing — a CTF
+   * team created on localhost lands in `teams`. Production always has a host,
+   * so this only affects local runs, and getting it right there needs a signal
+   * the request does not carry.
+   */
+  const event = eventFromHost(request.headers.get("host"));
+  const isCtf = event === "ctf";
+  const teamsFor = () => (isCtf ? collections.teamsCtf() : collections.teams());
+  const participantsFor = () =>
+    isCtf ? collections.participantsCtf() : collections.participants();
+  const accessCodesFor = () =>
+    isCtf ? collections.accessCodesCtf() : collections.accessCodes();
+
   // Extract client IP address for rate limiting
   const forwarded = request.headers.get("x-forwarded-for");
   const clientIp = forwarded ? forwarded.split(",")[0].trim() : "127.0.0.1";
@@ -119,8 +147,8 @@ async function platformEntry(
 
     clearRateLimit(clientIp);
 
-    const teams = await collections.teamsCtf();
-    const participants = await collections.participantsCtf();
+    const teams = await teamsFor();
+    const participants = await participantsFor();
 
     let adminTeam = await teams.findOne({ name: "Admin Team" });
     if (!adminTeam) {
@@ -169,8 +197,8 @@ async function platformEntry(
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
-    const teams = await collections.teamsCtf();
-    const participants = await collections.participantsCtf();
+    const teams = await teamsFor();
+    const participants = await participantsFor();
     const nameKey = teamNameStr.toLowerCase().replace(/\s+/g, "_");
 
     // Match team by nameKey or exact case-insensitive name
@@ -281,7 +309,7 @@ async function platformEntry(
       return NextResponse.json({ error: "Access code invalid" }, { status: 400 });
     }
 
-    const codesCtf = await collections.accessCodesCtf();
+    const codesCtf = await accessCodesFor();
     const codesShared = await collections.accessCodes();
     let record = await codesCtf.findOne({ codeHash: hashCode(codeStr) });
     let codes = codesCtf;
