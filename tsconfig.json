@@ -34,6 +34,9 @@
     "node_modules",
     "spider-verse-quiz-site",
     "src/app/quiz/spider-verse-quiz-site",
+    // Supabase Edge Functions run on Deno, not Node – their URL imports and
+    // Deno globals are not resolvable by the Node/Next.js tsc config.
+    "**/supabase/functions",
     // Imports playwright, which is deliberately not a project dependency (its
     // postinstall pulls ~500MB of browsers). See the script's header comment.
     "scripts/audit-responsive.ts"
