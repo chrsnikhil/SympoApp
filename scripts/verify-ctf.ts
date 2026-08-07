@@ -19,7 +19,7 @@ if (existsSync(envPath)) {
   }
 }
 
-import { collections, ensureIndexes } from "../src/lib/db/client";
+import { collections, ensureIndexes, getDb } from "../src/lib/db/client";
 import { submit } from "../src/lib/submission/pipeline";
 import { materialize } from "../src/lib/leaderboard/materialize";
 import { calculateChallengeValue } from "../src/lib/ctf/scoring";
@@ -36,6 +36,14 @@ async function runVerification() {
   const subsCollection = await collections.submissionsCtf();
   const scoresCollection = await collections.scoreEventsCtf();
   const challengesCollection = await collections.challengesCtf();
+
+  // Set event state to started for test execution
+  const db = await getDb();
+  await db.collection("system_settings").updateOne(
+    { key: "ctf_event_state" },
+    { $set: { key: "ctf_event_state", state: "started", startedAt: new Date(), durationMinutes: 105 } },
+    { upsert: true }
+  );
 
   // Reset test data for CTF
   await subsCollection.deleteMany({});

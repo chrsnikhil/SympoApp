@@ -127,6 +127,31 @@ export async function submit(args: SubmitArgs): Promise<SubmitOutcome> {
   const teamId = new ObjectId(session.teamId);
   const participantId = new ObjectId(session.sub);
 
+  // Check event state for CTF
+  if (event === "ctf" && session.role !== "admin") {
+    const db = await getDb();
+    const setting = await db.collection("system_settings").findOne({ key: "ctf_event_state" });
+    const state = setting?.state ?? "waiting";
+    let isEnded = state === "ended";
+    if (state === "started" && setting?.startedAt) {
+      const startTime = new Date(setting.startedAt).getTime();
+      const duration = (setting.durationMinutes ?? 105) * 60 * 1000;
+      if (receivedAt.getTime() >= startTime + duration) {
+        isEnded = true;
+        await db.collection("system_settings").updateOne(
+          { key: "ctf_event_state" },
+          { $set: { state: "ended", updatedAt: new Date() } }
+        );
+      }
+    }
+    if (state === "waiting") {
+      return { ok: false, status: 403, error: "The CTF competition has not started yet." };
+    }
+    if (isEnded) {
+      return { ok: false, status: 403, error: "The CTF competition has ended. Answer submissions are closed." };
+    }
+  }
+
   // Check if team is banned
   const teamsColl = event === "ctf" ? await collections.teamsCtf() : await collections.teams();
   const teamDoc = await teamsColl.findOne({ _id: teamId });
