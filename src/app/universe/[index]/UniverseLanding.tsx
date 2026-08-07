@@ -203,18 +203,43 @@ export default function UniverseLanding({
     setWrong(false);
     setCheckError("");
     try {
-      const res = await fetch("/api/universe-word/verify", {
+      /**
+       * Submitted through the shared pipeline, not the standalone verify route.
+       *
+       * /api/universe-word/verify answers `{ correct }` and does nothing else —
+       * no score row, no hunt_progress, no leaderboard. This round was
+       * therefore unwinnable in the only sense that matters: a team could solve
+       * it and still finish on zero, with nothing recording that they played.
+       *
+       * /api/submit is what every other hunt puzzle uses. It stamps the server
+       * clock, rate-limits, claims the solve atomically so a double-tap cannot
+       * pay twice, deducts spent hints from the award and re-materialises the
+       * board. gradeHunt resolves which universe this team belongs to from the
+       * team record — the client's own idea of its index is deliberately not
+       * sent, because it is not trusted for grading.
+       */
+      const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ index: idx, guess: normalizedGuess }),
+        body: JSON.stringify({
+          event: "hunt",
+          challengeSlug: "hunt-universe",
+          payload: normalizedGuess,
+        }),
       });
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string };
         setCheckError(err.error ?? "Couldn't check that — try again.");
         return;
       }
-      const { correct } = (await res.json()) as { correct: boolean };
-      if (correct) {
+      const { correct, meta } = (await res.json()) as {
+        correct: boolean;
+        meta?: { reason?: string };
+      };
+      // "already-solved" comes back as correct:false. Treat it as solved — the
+      // team reached this state by solving it, and telling them they are wrong
+      // because they refreshed the page is its own bug report.
+      if (correct || meta?.reason === "already-solved") {
         setShowSuccess(true);
         setGridSolved(true);
       } else {

@@ -315,7 +315,7 @@ export default function ChallengeDetailPage() {
           </div>
 
           {/* Download Attachment Box */}
-          {canonicalSlug !== "easy-03" && challenge.attachments && challenge.attachments.length > 0 && (
+          {canonicalSlug !== "medium-03" && challenge.attachments && challenge.attachments.length > 0 && (
             <div className="bg-[#150a1d] border border-red-500/20 rounded-2xl p-4 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-red-950 border border-red-500/40 flex items-center justify-center text-red-400 font-bold text-xs">
@@ -339,7 +339,7 @@ export default function ChallengeDetailPage() {
           )}
 
           {/* SINGLE UNIFIED PANEL (Empty header title "") */}
-          {canonicalSlug === "easy-03" ? (
+          {canonicalSlug === "medium-03" ? (
             <div className="space-y-6">
               <QrPuzzle />
             </div>

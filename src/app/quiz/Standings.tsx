@@ -66,10 +66,25 @@ export default function Standings({
     }
 
     void load();
-    const id = setInterval(load, POLL_MS);
+
+    // Jittered, for the same reason as Round1Games' poll: 100 clients on a
+    // fixed interval all fire in the same millisecond and leave the rest of the
+    // window idle, and it is the per-second peak that throttles, not the
+    // average. Standings is an aggregation over the score ledger, so its peak
+    // is the expensive one to bunch up.
+    let timer = 0;
+    const tick = () => {
+      timer = window.setTimeout(async () => {
+        if (cancelled) return;
+        await load();
+        if (!cancelled) tick();
+      }, POLL_MS + Math.random() * POLL_MS * 0.3);
+    };
+    tick();
+
     return () => {
       cancelled = true;
-      clearInterval(id);
+      window.clearTimeout(timer);
     };
   }, [round]);
 

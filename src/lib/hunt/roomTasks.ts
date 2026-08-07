@@ -1,4 +1,4 @@
-import { CODES } from "./codes";
+import { ROOM_CODE } from "./codes";
 
 /**
  * The five locked sections of the Mystery Room, and the codes that open them.
@@ -145,5 +145,5 @@ export function fragmentsOf(code: string, count: number): string[] {
 
 /** The fragment each section shows once it is open, in rail order. */
 export function sectionFragments(): string[] {
-  return fragmentsOf(CODES.room, ROOM_SECTIONS.length);
+  return fragmentsOf(ROOM_CODE, ROOM_SECTIONS.length);
 }

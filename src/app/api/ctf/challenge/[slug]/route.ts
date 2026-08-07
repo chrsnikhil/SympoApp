@@ -35,19 +35,27 @@ export async function GET(
 
     const db = await getDb();
     const setting = await db.collection("system_settings").findOne({ key: SETTING_KEY });
-    const eventState = setting?.state ?? "waiting";
+    const rawState = setting?.state ?? "waiting";
     const startedAt = setting?.startedAt ? new Date(setting.startedAt).toISOString() : null;
 
     let remainingSeconds = DURATION_MINUTES * 60;
-    if (eventState === "started" && setting?.startedAt) {
+    let eventState = rawState;
+    if (rawState === "started" && setting?.startedAt) {
       const startTime = new Date(setting.startedAt).getTime();
       const endTime = startTime + DURATION_MINUTES * 60 * 1000;
       remainingSeconds = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+      if (remainingSeconds === 0) {
+        eventState = "ended";
+        await db.collection("system_settings").updateOne(
+          { key: SETTING_KEY },
+          { $set: { state: "ended", updatedAt: new Date() } }
+        );
+      }
     }
 
-    const challengesCollection = await collections.challenges();
-    const subsCollection = await collections.submissions();
-    const teamsCollection = await collections.teams();
+    const challengesCollection = await collections.challengesCtf();
+    const subsCollection = await collections.submissionsCtf();
+    const teamsCollection = await collections.teamsCtf();
 
     // Generate slug variants (e.g. "medium-2" -> ["medium-2", "medium-02", "medium2", "medium02"])
     const slugVariants = new Set<string>([

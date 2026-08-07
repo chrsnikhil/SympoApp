@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { ROOM_MANIFEST } from "@/lib/hunt/manifest";
-import { CODES } from "@/lib/hunt/codes";
+import { ROOM_CODE } from "@/lib/hunt/codes";
 import {
   ROOM_SECTIONS,
   fragmentsOf,
@@ -104,8 +104,8 @@ export default function MysteryRoom({ onAnswer, onSolve }: PuzzleProps) {
 
   useEffect(() => {
     if (complete) {
-      onSolve?.(CODES.room);
-      onAnswer?.(CODES.room);
+      onSolve?.(ROOM_CODE);
+      onAnswer?.(ROOM_CODE);
     }
   }, [complete, onSolve, onAnswer]);
 
@@ -247,8 +247,30 @@ export default function MysteryRoom({ onAnswer, onSolve }: PuzzleProps) {
   }
 
   return (
+    /**
+     * Sized to the column it is rendered into, not to the viewport.
+     *
+     * This was `h-screen w-screen`. A puzzle is rendered inside HuntShell's
+     * `mx-auto max-w-6xl` container, so on a 1920px display the box it lands in
+     * starts 384px from the left — and a 100vw child starting at 384px runs
+     * 384px off the right-hand edge. The room appeared shoved sideways with the
+     * page background showing down one side and its right-hand wall cut off.
+     * Nothing was wrong with the scene; it was being asked to be wider than the
+     * space it was given.
+     *
+     * `w-full` fills the column instead. The height stays viewport-relative
+     * because the room is a first-person scene and a fixed pixel height would
+     * letterbox it differently on every laptop, with `min-h` so it cannot
+     * collapse to nothing on a short window.
+     *
+     * The FULLSCREEN button is still how you get the immersive version — it
+     * requests fullscreen on documentElement, which is the right lever for
+     * "fill the display" and does not require this element to lie about its
+     * width.
+     */
     <div
-      className={`relative h-screen w-screen overflow-hidden bg-[#06040d] ${
+      data-room-root
+      className={`relative h-[78vh] min-h-[460px] w-full overflow-hidden bg-[#06040d] [&:fullscreen]:h-screen [&:fullscreen]:min-h-0 ${
         locked ? "cursor-none" : ""
       }`}
     >
@@ -581,9 +603,25 @@ function Hud({
 }: HudProps) {
   const [showClues, setShowClues] = useState(false);
 
+  /**
+   * Fullscreen the ROOM, not the document.
+   *
+   * Requesting it on documentElement only removes the browser's own chrome:
+   * the room stays inside HuntShell's `max-w-6xl` column, so on a wide display
+   * "fullscreen" bought a slightly taller letterbox and left the same margins
+   * either side. Fullscreening the room's own element is what the button says
+   * it does, and `[&:fullscreen]` on that element drops its height cap so it
+   * genuinely fills the display.
+   *
+   * Located by attribute rather than a ref because this HUD is a sibling
+   * component, not a child of the root — threading a ref across that boundary
+   * to satisfy one click handler is more moving parts than the lookup. Exactly
+   * one room is ever mounted.
+   */
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+      const root = document.querySelector("[data-room-root]") ?? document.documentElement;
+      root.requestFullscreen().catch(() => {});
     } else if (document.exitFullscreen) {
       document.exitFullscreen().catch(() => {});
     }

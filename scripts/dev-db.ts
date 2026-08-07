@@ -38,7 +38,7 @@ async function main() {
 
   console.log("\n🌱 Auto-seeding quiz questions, coordinator code (1684), and tokens (01-60)...");
   try {
-    execSync(`cmd /c npx tsx --env-file=.env.local scripts/seed-quiz.ts --if-empty`, { stdio: "inherit" });
+    execSync(`npx tsx --env-file=.env.local scripts/seed-quiz.ts --if-empty`, { stdio: "inherit", shell: "/bin/sh" });
     console.log("\n✨ DATABASE IS READY FOR OFFLINE / REMOTE TUNNEL TESTING!");
     console.log("----------------------------------------------------------------");
     console.log("🔑 Coordinator Code: 1684");

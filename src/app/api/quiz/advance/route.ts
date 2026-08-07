@@ -7,7 +7,8 @@ import { judgeAvailable } from "@/lib/quiz/judge";
 import { finalizeImageRound } from "@/lib/quiz/imageRound";
 import { ROUNDS, advanceFrom, eliminateTeam, restoreTeam } from "@/lib/quiz/rounds";
 import { resolveEstimate, resolvePromptImage } from "@/lib/quiz/scoring";
-import { avatarForCoin, formatCoin, parseCoin } from "@/lib/quiz/avatars";
+import { avatarForCoin, formatCoin, parseCoin, MAX_COIN } from "@/lib/quiz/avatars";
+import { clearFrameCache } from "@/lib/quiz/frameCache";
 import type { QuizRound } from "@/lib/db/types";
 
 /**
@@ -278,7 +279,7 @@ async function handlePOST(request: Request) {
         // (matched by name, given its coin). Same claim mechanics `/api/enter`
         // uses for self-service, just triggered by the coordinator instead.
         const parsed = parseCoin(String(body.coin));
-        if (parsed === null) return NextResponse.json({ error: "Coins are numbered 01 to 60" }, { status: 400 });
+        if (parsed === null) return NextResponse.json({ error: `Coins are numbered 01 to ${MAX_COIN}` }, { status: 400 });
         const forCoin = avatarForCoin(parsed);
         if (!forCoin) return NextResponse.json({ error: "That isn't a valid coin" }, { status: 400 });
 
@@ -334,7 +335,7 @@ async function handlePOST(request: Request) {
           return NextResponse.json({ error: "Missing coin" }, { status: 400 });
         }
         const parsed = parseCoin(String(body.coin));
-        if (parsed === null) return NextResponse.json({ error: "Coins are numbered 01 to 60" }, { status: 400 });
+        if (parsed === null) return NextResponse.json({ error: `Coins are numbered 01 to ${MAX_COIN}` }, { status: 400 });
 
         const coins = await collections.coins();
         const teams = await collections.teams();
@@ -351,7 +352,7 @@ async function handlePOST(request: Request) {
           return NextResponse.json({ error: "Missing coin" }, { status: 400 });
         }
         const parsed = parseCoin(String(body.coin));
-        if (parsed === null) return NextResponse.json({ error: "Coins are numbered 01 to 60" }, { status: 400 });
+        if (parsed === null) return NextResponse.json({ error: `Coins are numbered 01 to ${MAX_COIN}` }, { status: 400 });
 
         const coins = await collections.coins();
         await coins.updateOne({ _id: parsed }, { $set: { redeemedAt: null } });
@@ -379,6 +380,19 @@ async function handlePOST(request: Request) {
       }
 
       case "restart-quiz": {
+        /**
+         * Drop the cached dither frames first.
+         *
+         * They are keyed by team and hold a rendering of whatever the reference
+         * image was when they were built. A restart is exactly when that can
+         * change — a re-seed or a new set-reference run — and a stale entry
+         * would serve the OLD picture to a team for the rest of its TTL, which
+         * they would then be scored against the new one for. Per-replica, so
+         * this clears only the replica handling the request; the TTL is what
+         * bounds the others.
+         */
+        clearFrameCache();
+
         /**
          * Wipe gameplay and put the quiz back in its pre-start state.
          *
