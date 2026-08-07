@@ -10,7 +10,8 @@
     "check:bom": "node scripts/check-bom.mjs",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "seed:quiz": "tsx --env-file=.env.local scripts/seed-quiz.ts",
-    "db:local": "tsx scripts/dev-db.ts"
+    "db:local": "tsx scripts/dev-db.ts",
+    "check:client-secrets": "node scripts/check-client-secrets.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.0.6",

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { ROOM_MANIFEST } from "@/lib/hunt/manifest";
-import { CODES } from "@/lib/hunt/codes";
+import { ROOM_CODE } from "@/lib/hunt/codes";
 import {
   ROOM_SECTIONS,
   fragmentsOf,
@@ -104,8 +104,8 @@ export default function MysteryRoom({ onAnswer, onSolve }: PuzzleProps) {
 
   useEffect(() => {
     if (complete) {
-      onSolve?.(CODES.room);
-      onAnswer?.(CODES.room);
+      onSolve?.(ROOM_CODE);
+      onAnswer?.(ROOM_CODE);
     }
   }, [complete, onSolve, onAnswer]);
 
