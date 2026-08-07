@@ -12,59 +12,42 @@ export async function GET() {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 
-    const teamsColl = await collections.teams();
-    const partColl = await collections.participants();
-    const subsColl = await collections.submissions();
-    const scoresColl = await collections.scoreEvents();
+    const teamsColl = await collections.teamsCtf();
+    const legacyTeamsColl = await collections.teams();
+    const partColl = await collections.participantsCtf();
+    const legacyPartColl = await collections.participants();
+    const subsColl = await collections.submissionsCtf();
+    const scoresColl = await collections.scoreEventsCtf();
 
-    const participants = await partColl.find({ role: { $ne: "admin" } }).toArray();
-    const scores = await scoresColl.find({ event: "ctf" }).toArray();
-    const subs = await subsColl.find({ type: "ctf", "verdict.correct": true }).toArray();
+    // 1. Fetch CTF scores and correct CTF submissions
+    const scores = await scoresColl.find({}).toArray();
+    const subs = await subsColl.find({ "verdict.correct": true }).toArray();
 
-    /**
-     * Only teams that have turned up to the CTF belong in the CTF console.
-     *
-     * `teams` is one global collection with no event field — a Team is a name
-     * and a coin, shared by every event — so listing it unfiltered put all
-     * thirty teams in front of the CTF coordinator: the quiz's "Quiz Control"
-     * and "Test Team 1..6", and everyone who registered on the hunt. On a
-     * console whose buttons are penalty and ban, a row you cannot identify is a
-     * row you can act on by mistake, and the team it lands on has no CTF score
-     * for anyone to notice it against.
-     *
-     * Membership is ARRIVAL, not scoring. The obvious filter — teams with a CTF
-     * submission or score row — was measured against production first and cut
-     * the console from 30 teams to 1: twenty-nine had entered the CTF and not
-     * yet submitted. A coordinator who cannot see a team cannot help one, so
-     * that filter would have been worse than the noise it removed.
-     *
-     * `event_participation` records arrival instead, written when a team loads
-     * the CTF dashboard. Ledger activity is unioned in as a backstop so a team
-     * that scored before this existed — or during a restart that lost the
-     * in-process write guard — cannot vanish from the console.
-     */
-    const [arrived, ctfSubmitters, ctfScorers] = await Promise.all([
-      arrivedTeamIds("ctf"),
-      subsColl.distinct("teamId", { type: "ctf" }),
-      scoresColl.distinct("teamId", { event: "ctf" }),
-    ]);
-    const ctfTeamIds = [...arrived, ...ctfSubmitters, ...ctfScorers].map(
-      (id) => new ObjectId(String(id))
-    );
+    // 2. Fetch CTF teams from teams_ctf (and any legacy ctf-tagged teams)
+    const teamsCtfList = await teamsColl.find({ name: { $ne: "Admin Team" } }).toArray();
+    const legacyCtfTeams = await legacyTeamsColl.find({ event: "ctf", name: { $nin: ["Admin Team", "Quiz Control"] } }).toArray();
 
-    const teams = await teamsColl
-      .find({ _id: { $in: ctfTeamIds }, name: { $ne: "Admin Team" } })
-      .toArray();
+    const teamMap = new Map<string, typeof teamsCtfList[0]>();
+    for (const t of [...teamsCtfList, ...legacyCtfTeams]) {
+      teamMap.set(String(t._id), t);
+    }
+    const teams = Array.from(teamMap.values());
 
-    // Map participants to teams
+    // 3. Map participants to CTF teams
+    const allParticipants = [
+      ...(await partColl.find({ role: { $ne: "admin" } }).toArray()),
+      ...(await legacyPartColl.find({ role: { $ne: "admin" } }).toArray()),
+    ];
     const teamParticipantsMap = new Map<string, string[]>();
-    for (const p of participants) {
+    for (const p of allParticipants) {
       if (!p.teamId) continue;
       const tId = String(p.teamId);
       if (!teamParticipantsMap.has(tId)) {
         teamParticipantsMap.set(tId, []);
       }
-      teamParticipantsMap.get(tId)!.push(p.name);
+      if (!teamParticipantsMap.get(tId)!.includes(p.name)) {
+        teamParticipantsMap.get(tId)!.push(p.name);
+      }
     }
 
     // Calculate total score and penalty points per team
@@ -112,8 +95,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid or missing team ID" }, { status: 400 });
     }
 
-    const teamsColl = await collections.teams();
-    const scoresColl = await collections.scoreEvents();
+    const teamsColl = await collections.teamsCtf();
+    const scoresColl = await collections.scoreEventsCtf();
     const teamObjId = new ObjectId(teamId);
 
     const team = await teamsColl.findOne({ _id: teamObjId });

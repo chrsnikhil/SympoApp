@@ -13,7 +13,7 @@ import type { GradeInput, GradeResult } from "./types";
  */
 export async function gradeCtf(input: GradeInput): Promise<GradeResult> {
   const { challenge, teamId, payload } = input;
-  const subs = await collections.submissions();
+  const subs = await collections.submissionsCtf();
 
   // 1 ── Check duplicate solve for this team
   const alreadySolved = await subs.findOne({

@@ -12,14 +12,14 @@ import { calculateChallengeValue } from "@/lib/ctf/scoring";
  * For Hunt, Quiz, Code, and Overall: uses the existing score events pipeline.
  */
 export async function materialize(event: EventKey | "overall"): Promise<LeaderboardSnapshot> {
-  const teams = await collections.teams();
+  const teams = event === "ctf" ? await collections.teamsCtf() : await collections.teams();
   const teamDocs = await teams.find({}).project<{ _id: unknown; name: string; banned?: boolean; penaltyPoints?: number }>({ name: 1, banned: 1, penaltyPoints: 1 }).toArray();
   const names = new Map(teamDocs.map((t) => [String(t._id), t.name]));
   const bannedTeamIds = new Set(teamDocs.filter((t) => t.banned || t.name === "Admin Team").map((t) => String(t._id)));
 
   if (event === "ctf") {
-    const subsCollection = await collections.submissions();
-    const challengesCollection = await collections.challenges();
+    const subsCollection = await collections.submissionsCtf();
+    const challengesCollection = await collections.challengesCtf();
 
     const ctfChallenges = await challengesCollection.find({ type: "ctf" }).toArray();
     const correctSubmissions = await subsCollection
@@ -62,16 +62,7 @@ export async function materialize(event: EventKey | "overall"): Promise<Leaderbo
 
     const teamStats = new Map<string, TeamCtfStats>();
 
-    // Only teams that actually played the CTF belong on the CTF board.
-    //
-    // `teams` is one global collection — a Team is a coin, with no event field —
-    // so seeding this from every team document put the quiz's teams ("Quiz
-    // Control", "Test Team 1".."Smoke Test") onto the CTF leaderboard at 0 pts,
-    // alongside the hunt's and the code event's. Participation is derived from
-    // the CTF ledger instead: any submission of type "ctf", or any
-    // {event: "ctf"} score row — which is how an admin penalty reaches a team
-    // that has not solved anything yet.
-    const scoreEventsCollection = await collections.scoreEvents();
+    const scoreEventsCollection = await collections.scoreEventsCtf();
     const [submittedIds, scoredIds] = await Promise.all([
       subsCollection.distinct("teamId", { type: "ctf" }),
       scoreEventsCollection.distinct("teamId", { event: "ctf" }),
