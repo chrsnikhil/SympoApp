@@ -584,6 +584,18 @@ export interface QuizState {
   round1StartedAt?: Date | null;
   round2StartedAt?: Date | null;
   round3StartedAt?: Date | null;
+  /**
+   * How many teams at the BOTTOM of the live table hold the comeback meter.
+   *
+   * Was a constant of 2, written out twice in comeback.ts, so changing it meant
+   * a deploy — no use to a coordinator watching a round go badly with the field
+   * already in the room. Stored here so the dashboard can set it, and read
+   * through `comebackEligibleCount()` so the two call sites cannot drift apart
+   * again.
+   *
+   * Absent on an older document, which reads as the previous hardcoded 2.
+   */
+  comebackEligibleCount?: number;
   [key: string]: unknown;
 }
 

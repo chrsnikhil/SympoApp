@@ -142,6 +142,35 @@ async function loadState(teamId: ObjectId, round: QuizRound): Promise<ComebackSt
   return (await states.findOne({ teamId, round })) ?? (blank as ComebackState);
 }
 
+/**
+ * How many teams at the bottom of the live table hold the meter.
+ *
+ * Read from `quiz_state` so the coordinator can change it mid-event from the
+ * dashboard — it used to be a literal 2 written out twice in this file, which
+ * meant a deploy to change, and a deploy is not something you do with the field
+ * already seated.
+ *
+ * ONE accessor rather than two reads, because the two call sites decide
+ * different halves of the same rule: `getComebackView` paints the meter and
+ * `applyComebackProgress` fills it. If they ever disagreed, a team would watch
+ * a meter that never advanced, or advance one it could not see.
+ *
+ * Falls back to 2 — the previous hardcoded value — when unset, out of range, or
+ * not a number, so an older `quiz_state` document behaves exactly as before and
+ * a bad write cannot disable the feature silently.
+ */
+export async function comebackEligibleCount(): Promise<number> {
+  try {
+    const stateCol = await collections.quizState();
+    const state = await stateCol.findOne({ _id: "quiz" });
+    const n = state?.comebackEligibleCount;
+    if (typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= 200) return n;
+  } catch {
+    // A read failure must not decide gameplay. Fall through to the default.
+  }
+  return 2;
+}
+
 /** Public read model. Cached standings are fine here — this only paints a screen. */
 export async function getComebackView(teamId: ObjectId, round: QuizRound = 3): Promise<ComebackView> {
   const table = await standings(round);
@@ -150,14 +179,14 @@ export async function getComebackView(teamId: ObjectId, round: QuizRound = 3): P
   const inRound = idx !== -1;
 
   const s = await loadState(teamId, round);
-  // Bottom TWO of the live Round 3 table, per the coordinator's call — it used
-  // to be everyone except rank #1. The meter exists to give a trailing team a
-  // route back, and handing it to nearly the whole field made it ordinary
-  // rather than a comeback. Read off `standings`, so it moves as the round
-  // does: a team that climbs out of the bottom two stops being eligible, and
-  // `frozen` below preserves whatever it had banked rather than clearing it.
-  const COMEBACK_ELIGIBLE_FROM_BOTTOM = 2;
-  const eligible = inRound && idx >= table.length - COMEBACK_ELIGIBLE_FROM_BOTTOM;
+  // The bottom N of the live Round 3 table, N set by the coordinator (default
+  // 2). It used to be everyone except rank #1; handing the meter to nearly the
+  // whole field made it ordinary rather than a comeback. Read off `standings`,
+  // so it moves as the round does: a team that climbs out of the bottom N stops
+  // being eligible, and `frozen` below preserves whatever it had banked rather
+  // than clearing it.
+  const fromBottom = await comebackEligibleCount();
+  const eligible = inRound && idx >= table.length - fromBottom;
   const holdsProgress = s.bottomStreak > 0 || s.ability !== null;
 
   // A power that was ALREADY firing when the team climbed to #1 keeps being
@@ -306,11 +335,12 @@ export async function settleQuestion(
     return;
   }
 
-  // 5 ── Only the bottom 2 ranked teams are eligible for meter progression.
-  //      Teams ranked above the bottom 2 are not eligible; flush any patch
-  //      (e.g. freeze-restore) but do not touch their streak or grant powers.
-  const COMEBACK_ELIGIBLE_FROM_BOTTOM = 2;
-  if (rank < table.length - COMEBACK_ELIGIBLE_FROM_BOTTOM) {
+  // 5 ── Only the bottom N ranked teams are eligible for meter progression,
+  //      N being the coordinator's setting. Teams above that band are not
+  //      eligible; flush any patch (e.g. freeze-restore) but do not touch their
+  //      streak or grant powers.
+  const fromBottom = await comebackEligibleCount();
+  if (rank < table.length - fromBottom) {
     if (Object.keys(patch).length > 0) await states.updateOne({ teamId, round }, { $set: patch });
     return;
   }

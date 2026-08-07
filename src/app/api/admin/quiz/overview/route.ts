@@ -336,6 +336,11 @@ export async function GET(request: Request) {
     }
 
     const quizState = await (await collections.quizState()).findOne({ _id: "quiz" });
+    // Surfaced so the dashboard input shows what is actually in force rather
+    // than an empty box the coordinator has to guess at. Same default the
+    // grader falls back to when the field is unset.
+    payload.comebackEligibleCount =
+      typeof quizState?.comebackEligibleCount === "number" ? quizState.comebackEligibleCount : 2;
     payload.ended = quizState?.ended ?? false;
     payload.started = quizState?.started ?? false;
 

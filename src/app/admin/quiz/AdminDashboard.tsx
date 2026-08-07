@@ -47,6 +47,8 @@ interface Overview {
   judgeQueue?: Array<{ teamId: string; teamName: string; submittedAt: string; imageId: string | null; dataUrl?: string | null }>;
   judgedImages?: Array<{ teamId: string; teamName: string; points: number; similarity: number | null; summary: string | null; rejected?: boolean; rejectedConfidence?: string | null; dataUrl: string | null; judgedAt: string; judgedBy?: string | null }>;
   connectionsPuzzles?: ConnectionsPuzzleInfo[];
+  /** Bottom-N teams currently holding the comeback meter; 2 when unset. */
+  comebackEligibleCount?: number;
   comeback?: Array<{ teamId: string; teamName: string; bottomStreak: number; ability: string | null; usableOnSlug: string | null; used: boolean }>;
   flags?: Array<{ teamId: string; teamName: string; tabSwitch: number; windowBlur: number; fullscreenExit: number; lastAt: string }>;
   freezes?: Array<{ teamId: string; teamName: string; round: number; strikes: number; reason: string | null; frozenAt: string | null }>;
@@ -70,6 +72,7 @@ export default function AdminDashboard() {
   const [assignCoin, setAssignCoin] = useState("");
   const [assignTeamName, setAssignTeamName] = useState("");
   const [customCount, setCustomCount] = useState("");
+  const [comebackCount, setComebackCount] = useState("");
   const [previewModal, setPreviewModal] = useState<{ teamName: string; dataUrl: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -812,6 +815,40 @@ export default function AdminDashboard() {
             >
               Assign
             </button>
+          </div>
+
+          {/* How many bottom-ranked teams hold the comeback meter. A pacing
+              decision made while watching the round, so it belongs on the
+              dashboard rather than in a constant that needs a deploy. */}
+          <div className="mb-4 flex flex-wrap items-end gap-2 border-t border-paper-white/10 pt-4">
+            <div>
+              <label className="mb-1 block text-xs uppercase tracking-widest font-bold text-paper-white/85">
+                Comeback meter — bottom N teams
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={200}
+                value={comebackCount}
+                onChange={(e) => setComebackCount(e.target.value)}
+                placeholder={String(data.comebackEligibleCount ?? 2)}
+                className="w-32 border border-paper-white/20 bg-ink-black px-3 py-1.5 text-xs text-paper-white outline-none focus:border-gadget-pink"
+              />
+            </div>
+            <button
+              disabled={busy || comebackCount.trim() === ""}
+              onClick={async () => {
+                await callAdvance({ action: "set-comeback-count", count: Number(comebackCount.trim()) });
+                setComebackCount("");
+              }}
+              className="comic-btn comic-btn-pink px-4 py-2 text-xs"
+            >
+              Set
+            </button>
+            <span className="text-xs text-paper-white/55">
+              Currently <span className="font-mono text-comic-yellow">{data.comebackEligibleCount ?? 2}</span>
+              {(data.comebackEligibleCount ?? 2) === 0 ? " — meter disabled" : " lowest-ranked team(s)"}
+            </span>
           </div>
 
           <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-glitch-cyan">
