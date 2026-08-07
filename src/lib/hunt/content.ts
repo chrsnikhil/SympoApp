@@ -22,6 +22,9 @@ export const HUNT_SLUGS = [
   "circuit-5",
   // Shift-Verse: a hunt round, not its own event. See seed-shiftverse.ts.
   "hunt-shiftverse",
+  // Blueprint Recovery: a physical-sector round. Also a hunt round rather than
+  // its own app — see scripts/seed-hunt.ts.
+  "hunt-blueprint",
 ] as const;
 export type HuntSlug = (typeof HUNT_SLUGS)[number];
 
@@ -41,7 +44,7 @@ export type HuntSlug = (typeof HUNT_SLUGS)[number];
  * it cannot be imported here because it pulls in React components, and this
  * module is used by route handlers.
  */
-export const PLAYABLE_HUNT_SLUGS = ["hunt-universe", "hunt-room", "circuit-1", "hunt-shiftverse"] as const satisfies readonly HuntSlug[];
+export const PLAYABLE_HUNT_SLUGS = ["hunt-universe", "hunt-room", "circuit-1", "hunt-shiftverse", "hunt-blueprint"] as const satisfies readonly HuntSlug[];
 
 /**
  * Puzzles that live at their own route instead of rendering inside HuntShell.
@@ -57,6 +60,8 @@ export const PUZZLE_HREFS: Partial<Record<HuntSlug, string>> = {
   // Shift-Verse is a three-page flow (landing, board, result) with its own
   // layout, not a component that fits in a card next to an answer box.
   "hunt-shiftverse": "/shiftverse",
+  // A briefing, a sector reveal and a code entry — a flow, not a card.
+  "hunt-blueprint": "/blueprint",
 };
 
 export const CIPHER = {
@@ -141,6 +146,10 @@ export const HINTS: Record<HuntSlug, [string, string]> = {
   "hunt-shiftverse": [
     "Every letter in the board shifted by the same amount. Find the shift on one letter you can guess and the rest follow.",
     "The word is a Spider-Verse name. If the letters look close but wrong, you are one or two shifts out.",
+  ],
+  "hunt-blueprint": [
+    "The code is not on any screen. It is on a card at the sector you were assigned — if you are still looking at this page, you are looking in the wrong place.",
+    "Sectors are named by colour and dimension. Check you are at the one the reveal screen gave you and not a neighbour's.",
   ],
   "hunt-room": [
     "All five objects are somewhere in front of you — drag to look left and right, and check up on the walls as well as down near the floor.",

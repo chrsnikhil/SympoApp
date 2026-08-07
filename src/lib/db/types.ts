@@ -116,7 +116,7 @@ export interface Challenge {
      * cannot silently route it back to the word check and mark every correct
      * answer wrong.
      */
-    flow?: "shiftverse";
+    flow?: "shiftverse" | "blueprint";
     /** quiz mcq: option index that scores. */
     correctIndex?: number;
     /** quiz mcq: seconds allowed from serve to answer (round 1 legacy path, unused by rounds 2/3). */

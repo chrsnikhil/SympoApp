@@ -29,8 +29,22 @@ async function main() {
   const challenges = await collections.challenges();
   const progress = await collections.huntProgress();
 
-  await challenges.deleteMany({ type: "hunt", slug: { $in: [...HUNT_SLUGS] } });
-  await progress.deleteMany({ challengeSlug: { $in: [...HUNT_SLUGS] } });
+  /**
+   * Delete only the rounds THIS script owns.
+   *
+   * HUNT_SLUGS is every hunt round, and hunt-shiftverse is seeded by
+   * seed-shiftverse.ts — it needs the 40 team slots written alongside it, which
+   * this script knows nothing about. Deleting the whole list here removed it and
+   * never put it back, so running the two seeds in the wrong order silently
+   * unshipped Shift-Verse, and re-running this one later would have done it
+   * again long after anybody connected the two.
+   *
+   * A seed may only clear what it can restore.
+   */
+  const OWNED = HUNT_SLUGS.filter((s) => s !== "hunt-shiftverse");
+
+  await challenges.deleteMany({ type: "hunt", slug: { $in: [...OWNED] } });
+  await progress.deleteMany({ challengeSlug: { $in: [...OWNED] } });
 
   const cipherConfig = {
     answerHash: hashAnswer(CIPHER.code),
@@ -104,6 +118,23 @@ async function main() {
      * them so a team unlocks level 2 by solving level 1 rather than by knowing
      * the URL.
      */
+    /**
+     * Blueprint Recovery.
+     *
+     * No answerHash: there are ten codes, one per sector, and a team is sent to
+     * the sector its number selects. gradeBlueprint resolves that from the team
+     * record and compares against the server-only table — seeding one code here
+     * would leave nine teams failing against another sector's answer.
+     */
+    {
+      type: "hunt" as const,
+      slug: "hunt-blueprint",
+      title: "Blueprint Recovery",
+      points: 100,
+      opensAt: null,
+      closesAt: null,
+      config: { flow: "blueprint" as const, hintCosts: [15, 25] },
+    },
     ...LEVELS.map((level, i) => ({
       type: "hunt" as const,
       slug: `circuit-${level.id}`,
