@@ -4,6 +4,7 @@ import { gradeHunt } from "./hunt";
 import { gradeCtf } from "./ctf";
 import { gradeQuiz } from "./quiz";
 import { gradeCode } from "./code";
+import { gradeShiftverse } from "./shiftverse";
 
 /**
  * The registry. This is the ONLY place the pipeline learns which event does
@@ -15,6 +16,7 @@ const registry: GraderRegistry = {
   ctf: gradeCtf,
   quiz: gradeQuiz,
   code: gradeCode,
+  shiftverse: gradeShiftverse,
 };
 
 export function graderFor(event: EventKey): Grader {

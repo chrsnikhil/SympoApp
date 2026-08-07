@@ -23,8 +23,26 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: package-lock.json
 
-      - run: npm ci
+      - name: Install system dependencies (libvips for sharp)
+        # Must run before npm install so sharp can link against libvips during install
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libvips-dev build-essential python3
+
+      - name: Clean install dependencies
+        # All platform-specific native binaries are listed in optionalDependencies
+        # in package.json. A fresh npm install ensures they resolve for linux-x64.
+        run: |
+          rm -rf node_modules
+          npm install
+          # Fallback: explicitly install the oxide binary if npm skipped it
+          npm install --no-save @tailwindcss/oxide-linux-x64-gnu@4.3.3 || true
+
+      - name: Verify native bindings
+        # Fail fast with a clear message if critical native binaries are missing
+        run: |
+          node -e "require('@tailwindcss/oxide'); console.log('✅ tailwind oxide OK')"
+          node -e "require('sharp'); console.log('✅ sharp OK')"
 
       - name: Check for UTF-8 BOMs
         # A BOM in globals.css breaks the Tailwind build with an error that
@@ -42,6 +60,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      - name: Test
+        run: npm test
+
       - name: Build
         # Placeholders only — the build must never need real secrets, and this
         # job asserts that. If a build starts failing without them, something
@@ -52,5 +73,6 @@ jobs:
         run: npm run build
 
       - name: Build Docker image
+        # --no-cache ensures no stale host node_modules bleed into the image.
         # Proves the Dockerfile still works before a deploy discovers it doesn't.
-        run: docker build -t xplore26-events:ci .
+        run: docker build --no-cache -t xplore26-events:ci .

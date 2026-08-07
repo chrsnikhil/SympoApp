@@ -59,6 +59,7 @@ const PROTECTED_PREFIXES = [
   "/code",
   "/quiz",
   "/universe",
+  "/shiftverse",
 ];
 
 /**
@@ -84,6 +85,13 @@ const NO_REWRITE_PREFIXES = [
   "/canon-protocol",
   "/universe",
   "/hunt-test",
+  // An event AND a top-level tree, so it needs both lists for a reason the
+  // others do not. On shiftverse.<domain> the rewrite is already correct
+  // either way — "/" does not match this prefix, so it still becomes
+  // /shiftverse. What this adds is the cross-subdomain case: without it,
+  // ctf.<domain>/shiftverse rewrites to /ctf/shiftverse and 404s, which is
+  // exactly how /universe broke.
+  "/shiftverse",
 ];
 
 /** `pathname === p || pathname.startsWith(p + "/")` — segment-aware, so /hunt never covers /hunt-test. */

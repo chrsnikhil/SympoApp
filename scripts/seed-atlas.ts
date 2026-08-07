@@ -68,7 +68,7 @@ async function seedAtlas() {
   }
 
   const hash = hashCode("1684");
-  let codeDoc = await codesColl.findOne({ codeHash: hash });
+  const codeDoc = await codesColl.findOne({ codeHash: hash });
   if (!codeDoc) {
     await codesColl.insertOne({
       codeHash: hash,
