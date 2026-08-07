@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabaseClient';
-import { getVariantNumber } from '@/lib/constants';
+import { getVariantNumber, getVariantForTeam } from '@/lib/constants';
 
 /**
  * Service layer for all Supabase operations concerning Teams & Coordinator Dashboard.
@@ -61,32 +61,25 @@ export async function registerOrResumeTeam(rawTeamNumber) {
   try {
     const variantNumber = getVariantNumber(num);
 
-    // Single network call: ON CONFLICT DO NOTHING (ignoreDuplicates: true).
-    // If team exists, returns existing row without modifying status or start_time.
-    // If team is new, inserts new team with status='in_progress'.
-    const { data: existingOrNew, error: upsertErr } = await supabase
+    // Step 1: Try to fetch existing team
+    const { data: existing, error: fetchError } = await supabase
       .from('teams')
-      .upsert({
-        team_number: num,
-        variant_number: variantNumber,
-        status: 'in_progress',
-        start_time: new Date().toISOString(),
-      }, { onConflict: 'team_number', ignoreDuplicates: true })
-      .select()
+      .select('*')
+      .eq('team_number', num)
       .maybeSingle();
 
-    if (upsertErr) {
-      throw upsertErr;
+    if (fetchError) {
+      throw fetchError;
     }
 
-    if (existingOrNew) {
-      // If team already exists in a active state past 'in_progress' / 'not_started'
-      if (existingOrNew.status !== 'not_started' && existingOrNew.status !== 'in_progress') {
-        return { data: existingOrNew, isAlreadyRegistered: true, error: 'ALREADY_REGISTERED' };
+    // Step 2: If team already exists, handle resume
+    if (existing) {
+      if (existing.status !== 'not_started' && existing.status !== 'in_progress') {
+        return { data: existing, isAlreadyRegistered: true, error: 'ALREADY_REGISTERED' };
       }
 
       // If team existed with 'not_started' status, update to 'in_progress'
-      if (existingOrNew.status === 'not_started') {
+      if (existing.status === 'not_started') {
         const { data: updated, error: updateErr } = await supabase
           .from('teams')
           .update({
@@ -98,16 +91,29 @@ export async function registerOrResumeTeam(rawTeamNumber) {
           .single();
 
         if (updateErr) throw updateErr;
-        return { data: updated, isNew: true, error: null };
+        return { data: updated, isNew: false, error: null };
       }
 
-      return { data: existingOrNew, isNew: true, error: null };
+      return { data: existing, isNew: false, error: null };
     }
 
-    // Fallback if row returned empty
-    const { data: fetched, error: fetchErr } = await getTeamByNumber(num);
-    if (fetchErr) throw fetchErr;
-    return { data: fetched, isNew: true, error: null };
+    // Step 3: Team doesn't exist — insert new
+    const { data: inserted, error: insertErr } = await supabase
+      .from('teams')
+      .insert({
+        team_number: num,
+        variant_number: variantNumber,
+        status: 'in_progress',
+        start_time: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (insertErr) {
+      throw insertErr;
+    }
+
+    return { data: inserted, isNew: true, error: null };
   } catch (err) {
     return { data: null, error: handleServiceError(err, 'Database unavailable or failed to register team.') };
   }

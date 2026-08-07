@@ -224,7 +224,27 @@ export default function EvidenceSecured({ teamData, onRevealUnlocked }) {
               <div className="mt-4 pt-2">
                 <button
                   type="button"
-                  onClick={() => onRevealUnlocked?.({ team_number: effectiveTeamNum, status: 'checkpoint_a_done' })}
+                  onClick={async () => {
+                    try {
+                      const coordPassword = process.env.NEXT_PUBLIC_COORDINATOR_PASSWORD || '';
+                      // Ensure team is in 'awaiting_reveal' status first (may already be)
+                      await supabase
+                        .from('teams')
+                        .update({ status: 'awaiting_reveal' })
+                        .eq('team_number', effectiveTeamNum);
+                      // Use coordinator_action RPC to bypass RLS and set checkpoint_a_done
+                      const { data, error } = await supabase.rpc('coordinator_action', {
+                        p_action: 'reveal',
+                        p_team_number: effectiveTeamNum,
+                        p_password: coordPassword,
+                      });
+                      if (error) console.warn('[simulate] RPC error:', error);
+                      if (data && !data.success) console.warn('[simulate] RPC failed:', data.error);
+                    } catch (e) {
+                      console.warn('[simulate] DB update error:', e);
+                    }
+                    onRevealUnlocked?.({ team_number: effectiveTeamNum, status: 'checkpoint_a_done' });
+                  }}
                   className="px-4 py-2 bg-[#00fbfb]/10 border border-[#00fbfb]/40 text-[#00fbfb] font-['Space_Mono'] text-xs font-bold uppercase tracking-wider hover:bg-[#00fbfb] hover:text-[#0e0e0e] transition-all cursor-pointer"
                 >
                   &gt; REVEAL LOCATION (SIMULATE COORDINATOR APPROVAL) &rarr;

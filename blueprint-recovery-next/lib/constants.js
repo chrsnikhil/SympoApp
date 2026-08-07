@@ -19,16 +19,16 @@ export const TOTAL_TEAMS = 60;
 export const TOTAL_VARIANTS = 10;
 
 export const VARIANT_COLORS = {
-  1:  { color: 'Red',    sectorName: 'Earth-616',   defaultAccessCode: 'PETER-PARKER-616' },
-  2:  { color: 'Blue',   sectorName: 'Earth-928',   defaultAccessCode: 'SPIDER-MAN-2099' },
-  3:  { color: 'Green',  sectorName: 'Earth-138',   defaultAccessCode: 'SPIDER-PUNK-138' },
-  4:  { color: 'Yellow', sectorName: 'Earth-1610',  defaultAccessCode: 'MILES-MORALES-1610' },
-  5:  { color: 'Orange', sectorName: 'Earth-50101', defaultAccessCode: 'SPIDER-INDIA-50101' },
-  6:  { color: 'Purple', sectorName: 'Earth-22191', defaultAccessCode: 'SPIDER-BYTE-22191' },
-  7:  { color: 'Black',  sectorName: 'Earth-90214', defaultAccessCode: 'SPIDER-NOIR-1935' },
-  8:  { color: 'White',  sectorName: 'Earth-65',    defaultAccessCode: 'SPIDER-GWEN-65' },
-  9:  { color: 'Pink',   sectorName: 'Earth-14512', defaultAccessCode: 'SP//DR-14512' },
-  10: { color: 'Brown',  sectorName: 'Earth-8311',  defaultAccessCode: 'SPIDER-HAM-8311' },
+  1:  { color: 'Red',    sectorName: 'Earth-616',   defaultAccessCode: 'PARKER-616' },
+  2:  { color: 'Blue',   sectorName: 'Earth-928',   defaultAccessCode: 'SPIDER-2099' },
+  3:  { color: 'Green',  sectorName: 'Earth-138',   defaultAccessCode: 'PUNK-138' },
+  4:  { color: 'Yellow', sectorName: 'Earth-1610',  defaultAccessCode: 'MILES-1610' },
+  5:  { color: 'Orange', sectorName: 'Earth-50101', defaultAccessCode: 'INDIA-50101' },
+  6:  { color: 'Purple', sectorName: 'Earth-22191', defaultAccessCode: 'BYTE-22191' },
+  7:  { color: 'Black',  sectorName: 'Earth-90214', defaultAccessCode: 'NOIR-90214' },
+  8:  { color: 'White',  sectorName: 'Earth-65',    defaultAccessCode: 'GWEN-65' },
+  9:  { color: 'Pink',   sectorName: 'Earth-14512', defaultAccessCode: 'SPDR-14512' },
+  10: { color: 'Brown',  sectorName: 'Earth-8311',  defaultAccessCode: 'HAM-8311' },
 };
 
 /**
