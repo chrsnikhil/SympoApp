@@ -96,8 +96,10 @@ export async function POST(request: Request) {
     }
 
     const outcome = await submit({
-      event: "shiftverse",
-      challengeSlug: "shiftverse",
+      // A hunt round, so it scores into the hunt's leaderboard like every
+      // other one. gradeHunt routes it to gradeShiftverse on config.flow.
+      event: "hunt",
+      challengeSlug: "hunt-shiftverse",
       payload: guessed,
       session,
     });

@@ -20,6 +20,8 @@ export const HUNT_SLUGS = [
   "circuit-3",
   "circuit-4",
   "circuit-5",
+  // Shift-Verse: a hunt round, not its own event. See seed-shiftverse.ts.
+  "hunt-shiftverse",
 ] as const;
 export type HuntSlug = (typeof HUNT_SLUGS)[number];
 
@@ -39,7 +41,7 @@ export type HuntSlug = (typeof HUNT_SLUGS)[number];
  * it cannot be imported here because it pulls in React components, and this
  * module is used by route handlers.
  */
-export const PLAYABLE_HUNT_SLUGS = ["hunt-universe", "hunt-room", "circuit-1"] as const satisfies readonly HuntSlug[];
+export const PLAYABLE_HUNT_SLUGS = ["hunt-universe", "hunt-room", "circuit-1", "hunt-shiftverse"] as const satisfies readonly HuntSlug[];
 
 /**
  * Puzzles that live at their own route instead of rendering inside HuntShell.
@@ -52,6 +54,9 @@ export const PLAYABLE_HUNT_SLUGS = ["hunt-universe", "hunt-room", "circuit-1"] a
  */
 export const PUZZLE_HREFS: Partial<Record<HuntSlug, string>> = {
   "hunt-universe": "/universe",
+  // Shift-Verse is a three-page flow (landing, board, result) with its own
+  // layout, not a component that fits in a card next to an answer box.
+  "hunt-shiftverse": "/shiftverse",
 };
 
 export const CIPHER = {
@@ -132,6 +137,10 @@ export const HINTS: Record<HuntSlug, [string, string]> = {
   "circuit-5": [
     "Two modifiers cancel. Finding which pair saves you most of the board.",
     "The core needs the full path lit — a circuit that hits the number but stops short of the end node scores nothing.",
+  ],
+  "hunt-shiftverse": [
+    "Every letter in the board shifted by the same amount. Find the shift on one letter you can guess and the rest follow.",
+    "The word is a Spider-Verse name. If the letters look close but wrong, you are one or two shifts out.",
   ],
   "hunt-room": [
     "All five objects are somewhere in front of you — drag to look left and right, and check up on the walls as well as down near the floor.",

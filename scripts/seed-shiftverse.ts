@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { caesarEncrypt } from '../src/lib/cipher';
+import type { EventKey } from "../src/lib/config";
 import { collections, ensureIndexes } from '../src/lib/db/client';
 
 /**
@@ -99,20 +100,38 @@ async function seed() {
   await coll.insertMany(teamDocs);
   console.log(`\nSeeded ${teamDocs.length} shiftverse teams successfully.`);
 
-  // The pipeline resolves a challenge by {type, slug} before grading a guess —
-  // without this row every shiftverse submission 404s at that lookup.
+  // Shift-Verse is a HUNT ROUND, not its own event.
+  //
+  // It was type "shiftverse", which needed a fifth entry in EVENTS and a
+  // shiftverse.<domain> subdomain that was never bound — so the only front door
+  // it had was a URL nobody was given, and it appeared on no event's list. As a
+  // hunt round it sits alongside the 64 Grid, the Mystery Room and the circuit,
+  // scores into the same leaderboard, and needs no DNS.
+  //
+  // `flow` names the sub-grader: gradeHunt sees it and hands off to
+  // gradeShiftverse, which still compares against the team's own slot and still
+  // enforces the board deadline. Matching on the slug instead would mean a
+  // rename silently sends every correct answer to the word check.
+  //
+  // The old type:"shiftverse" row is removed rather than left behind — nothing
+  // reads it now, and a stale copy is the kind of thing someone edits for an
+  // hour before realising it is not the one being served.
   const challenges = await collections.challenges();
+  // Cast because "shiftverse" is no longer an EventKey — that is the point.
+  // These are the legacy rows from when it was its own event, and they have to
+  // be nameable in order to be removed.
+  await challenges.deleteMany({ type: "shiftverse" as unknown as EventKey });
   await challenges.updateOne(
-    { type: "shiftverse", slug: "shiftverse" },
+    { type: "hunt", slug: "hunt-shiftverse" },
     {
       $set: {
-        type: "shiftverse",
-        slug: "shiftverse",
+        type: "hunt",
+        slug: "hunt-shiftverse",
         title: "Shift-Verse",
         points: 100,
         opensAt: null,
         closesAt: null,
-        config: {},
+        config: { flow: "shiftverse" as const, hintCosts: [15, 25] },
       },
     },
     { upsert: true }
