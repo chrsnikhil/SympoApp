@@ -131,7 +131,7 @@ async function runVerification() {
   await submit({
     event: "ctf",
     challengeSlug: "easy-03",
-    payload: "SPIDER{qr_brooklyn_dimension_rift_42}",
+    payload: "SPIDER{auditor_memory_never_lies}",
     session: sessionA,
   });
 
