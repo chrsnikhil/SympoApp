@@ -130,29 +130,52 @@ export default function CoordinatorDashboard() {
     setActionLoading((prev) => ({ ...prev, [teamNumber]: null }));
   }
 
+  const [confirmResetTeam, setConfirmResetTeam] = useState(null);
+  const [confirmOverrideTeam, setConfirmOverrideTeam] = useState(null);
+
   // Handler for Reset button click
   async function handleReset(teamNumber) {
-    if (!window.confirm(`Are you sure you want to reset Team #${teamNumber} back to not_started?`)) return;
+    if (confirmResetTeam !== teamNumber) {
+      setConfirmResetTeam(teamNumber);
+      setTimeout(() => {
+        setConfirmResetTeam((curr) => (curr === teamNumber ? null : curr));
+      }, 4000);
+      return;
+    }
+
+    setConfirmResetTeam(null);
     setActionLoading((prev) => ({ ...prev, [teamNumber]: 'reset' }));
     
     // Instant optimistic UI update
     setTeams((prev) =>
       prev.map((t) =>
         t.team_number === teamNumber
-          ? { ...t, status: 'not_started', start_time: null, checkpoint_a_time: null, complete_time: null }
+          ? { ...t, status: 'not_started', start_time: null, checkpoint_a_time: null, complete_time: null, wrong_attempts_b: 0 }
           : t
       )
     );
 
-    await resetTeam(teamNumber, authToken);
+    const { data: resData } = await resetTeam(teamNumber, authToken);
     const { data } = await fetchDashboardTeams();
-    if (data) setTeams(data);
+    if (data && data.length > 0) {
+      setTeams(data);
+    } else if (resData) {
+      setTeams((prev) => prev.map((t) => (t.team_number === teamNumber ? { ...t, ...resData } : t)));
+    }
     setActionLoading((prev) => ({ ...prev, [teamNumber]: null }));
   }
 
   // Handler for Override to complete
   async function handleOverride(teamNumber) {
-    if (!window.confirm(`Manually override Team #${teamNumber} status to COMPLETE?`)) return;
+    if (confirmOverrideTeam !== teamNumber) {
+      setConfirmOverrideTeam(teamNumber);
+      setTimeout(() => {
+        setConfirmOverrideTeam((curr) => (curr === teamNumber ? null : curr));
+      }, 4000);
+      return;
+    }
+
+    setConfirmOverrideTeam(null);
     setActionLoading((prev) => ({ ...prev, [teamNumber]: 'override' }));
     
     // Instant optimistic UI update
@@ -164,9 +187,13 @@ export default function CoordinatorDashboard() {
       )
     );
 
-    await overrideTeamComplete(teamNumber, authToken);
+    const { data: resData } = await overrideTeamComplete(teamNumber, authToken);
     const { data } = await fetchDashboardTeams();
-    if (data) setTeams(data);
+    if (data && data.length > 0) {
+      setTeams(data);
+    } else if (resData) {
+      setTeams((prev) => prev.map((t) => (t.team_number === teamNumber ? { ...t, ...resData } : t)));
+    }
     setActionLoading((prev) => ({ ...prev, [teamNumber]: null }));
   }
 
@@ -364,26 +391,45 @@ export default function CoordinatorDashboard() {
                         <div className="flex items-center justify-end gap-2">
                           {team.status === 'awaiting_reveal' && (
                             <button
+                              type="button"
                               onClick={() => handleReveal(team.team_number)}
                               disabled={isBusy}
                               className="px-3 py-1 bg-[#00fbfb] text-[#141313] font-['Anton'] text-sm uppercase hover:bg-[#ffffff] transition-colors"
                             >
-                              REVEAL
+                              {isBusy === 'reveal' ? 'REVEALING...' : 'REVEAL'}
                             </button>
                           )}
                           <button
+                            type="button"
                             onClick={() => handleReset(team.team_number)}
                             disabled={isBusy}
-                            className="px-2 py-1 border border-[#8e9192] text-[#8e9192] hover:border-[#ffb4ab] hover:text-[#ffb4ab] transition-colors uppercase text-[10px]"
+                            className={`px-2 py-1 border transition-colors uppercase text-[10px] ${
+                              confirmResetTeam === team.team_number
+                                ? 'bg-[#93000a] text-[#ffffff] border-[#ffb4ab] font-bold animate-pulse'
+                                : 'border-[#8e9192] text-[#8e9192] hover:border-[#ffb4ab] hover:text-[#ffb4ab]'
+                            }`}
                           >
-                            RESET
+                            {isBusy === 'reset'
+                              ? 'RESETTING...'
+                              : confirmResetTeam === team.team_number
+                              ? 'SURE RESET?'
+                              : 'RESET'}
                           </button>
                           <button
+                            type="button"
                             onClick={() => handleOverride(team.team_number)}
                             disabled={isBusy}
-                            className="px-2 py-1 border border-[#444748] text-[#8e9192] hover:border-[#00fbfb] hover:text-[#00fbfb] transition-colors uppercase text-[10px]"
+                            className={`px-2 py-1 border transition-colors uppercase text-[10px] ${
+                              confirmOverrideTeam === team.team_number
+                                ? 'bg-[#00fbfb]/20 text-[#00fbfb] border-[#00fbfb] font-bold animate-pulse'
+                                : 'border-[#444748] text-[#8e9192] hover:border-[#00fbfb] hover:text-[#00fbfb]'
+                            }`}
                           >
-                            OVERRIDE
+                            {isBusy === 'override'
+                              ? 'OVERRIDING...'
+                              : confirmOverrideTeam === team.team_number
+                              ? 'SURE OVERRIDE?'
+                              : 'OVERRIDE'}
                           </button>
                         </div>
                       </td>

@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { getTeamByNumber } from '@/services/teamService';
+import { supabase } from '@/lib/supabaseClient';
 import GlitchTransition from '@/components/GlitchTransition';
 
 import InitializingScreen from '@/components/pages/InitializingScreen';
@@ -60,15 +61,16 @@ export default function App() {
     }
   }
 
-  // Resume active team session on mount
+  // Resume active team session on mount & subscribe to realtime status changes (e.g. coordinator reset/override)
   useEffect(() => {
     if (!hasTeamToResume) {
       setResumeLoading(false);
       return;
     }
 
+    const teamNum = parseInt(savedTeamNumber, 10);
+
     async function attemptResume() {
-      const teamNum = parseInt(savedTeamNumber, 10);
       const { data } = await getTeamByNumber(teamNum);
 
       if (data && data.status && data.status !== 'not_started') {
@@ -96,6 +98,34 @@ export default function App() {
     }
 
     attemptResume();
+
+    // Subscribe to realtime status changes for this team
+    const channel = supabase
+      .channel(`team-session-${teamNum}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'teams', filter: `team_number=eq.${teamNum}` },
+        (payload) => {
+          const updated = payload.new;
+          if (!updated) return;
+          if (updated.status === 'not_started') {
+            localStorage.removeItem('blueprint_team_number');
+            sessionStorage.removeItem('blueprint_current_screen');
+            setTeamData(null);
+            changeScreen('hero');
+          } else if (updated.status === 'complete') {
+            setTeamData(updated);
+            changeScreen('sector_sealed');
+          } else {
+            setTeamData(updated);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   function statusToScreen(status) {
