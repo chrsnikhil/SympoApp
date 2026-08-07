@@ -5,6 +5,7 @@ import { isUniverseWord, universeIndexFor } from "@/lib/universe/words";
 import type { Challenge } from "@/lib/db/types";
 import { gradeCircuit } from "./circuit";
 import { gradeShiftverse } from "./shiftverse";
+import { gradeBlueprint } from "./blueprint";
 import type { GradeInput, GradeResult } from "./types";
 
 /** The universe round grades against the team's own universe, not a fixed hash. */
@@ -66,6 +67,12 @@ export async function gradeHunt(input: GradeInput): Promise<GradeResult> {
   // shared hash, and enforces its own fifteen-minute board deadline.
   if (challenge.config.flow === "shiftverse") {
     return gradeShiftverse(input);
+  }
+
+  // Blueprint Recovery checks a physical sector's access code against the
+  // sector this team was sent to, which is derived from their team number.
+  if (challenge.config.flow === "blueprint") {
+    return gradeBlueprint(input);
   }
   const progress = await collections.huntProgress();
 

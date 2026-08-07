@@ -60,6 +60,7 @@ const PROTECTED_PREFIXES = [
   "/quiz",
   "/universe",
   "/shiftverse",
+  "/blueprint",
 ];
 
 /**
@@ -92,6 +93,7 @@ const NO_REWRITE_PREFIXES = [
   // ctf.<domain>/shiftverse rewrites to /ctf/shiftverse and 404s, which is
   // exactly how /universe broke.
   "/shiftverse",
+  "/blueprint",
 ];
 
 /** `pathname === p || pathname.startsWith(p + "/")` — segment-aware, so /hunt never covers /hunt-test. */
