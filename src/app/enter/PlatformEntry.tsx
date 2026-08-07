@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import SpiderBackgroundFX from "@/components/SpiderBackgroundFX";
-import { eventFromHost } from "@/lib/config";
+import { eventFromHost, type EventKey } from "@/lib/config";
 import { safeRedirectTarget } from "@/lib/auth/safeRedirect";
 
 /**
@@ -22,7 +22,44 @@ function postLoginPath(): string {
   return eventFromHost(window.location.hostname) ? "/" : "/ctf";
 }
 
-export default function PlatformEntry() {
+/**
+ * What this form calls itself, per event.
+ *
+ * One form serves the CTF, the hunt and the code event — they post the same
+ * body, so splitting the component would duplicate the logic to change two
+ * strings. But it was hardcoded to the CTF's, so a treasure hunt entrant who
+ * typed hunt.<domain> was told they had reached the "Cyber Security & CTF
+ * Arena" and asked for credentials "to access the CTF arena". Nothing was
+ * broken — the login worked and led to the hunt — but every participant's first
+ * impression was that they were in the wrong place, and reporting that as "the
+ * hunt shows the CTF page" is the correct read of what it says.
+ *
+ * The event comes from the server component, which already resolves it from the
+ * Host header. Deriving it here from window.location would render the wrong
+ * copy on the server and swap it after hydration.
+ */
+const EVENT_COPY: Record<string, { tagline: string; prompt: string }> = {
+  hunt: {
+    tagline: "Treasure Hunt Arena",
+    prompt: "Enter your team credentials to start the hunt",
+  },
+  ctf: {
+    tagline: "Cyber Security & CTF Arena",
+    prompt: "Enter your team credentials to access the CTF arena",
+  },
+  code: {
+    tagline: "Code Arena",
+    prompt: "Enter your team credentials to enter the code arena",
+  },
+  // Path-based deployments (localhost, ngrok) have no subdomain to read, so the
+  // form cannot know which event the participant is here for.
+  default: {
+    tagline: "Symposium Arena",
+    prompt: "Enter your team credentials to continue",
+  },
+};
+
+export default function PlatformEntry({ event }: { event: EventKey | null }) {
   const [teamName, setTeamName] = useState("");
   const [partPassword, setPartPassword] = useState("");
   const [showPartPassword, setShowPartPassword] = useState(false);
@@ -102,7 +139,7 @@ export default function PlatformEntry() {
           <span className="text-red-600">MULTIVERSE BREACH</span>
         </h1>
         <p className="text-gray-400 text-xs md:text-sm mt-2 font-medium tracking-wide">
-          Cyber Security & CTF Arena
+          {EVENT_COPY[event ?? "default"].tagline}
         </p>
       </div>
 
@@ -113,7 +150,7 @@ export default function PlatformEntry() {
             Participant Portal
           </h2>
           <p className="text-xs text-gray-400 mt-1 font-medium">
-            Enter your team credentials to access the CTF arena
+            {EVENT_COPY[event ?? "default"].prompt}
           </p>
         </div>
 

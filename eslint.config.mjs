@@ -43,8 +43,9 @@ const eslintConfig = defineConfig([
             },
             {
               name: "@/lib/hunt/codes",
+              importNames: ["CODES"],
               message:
-                "Puzzles never import the reveal codes. Importing CODES for one field ships all four in the client bundle. Report the player's input via onAnswer(text); /api/submit compares it to answerHash server-side.",
+                "Never import the CODES object into a puzzle. A bundler cannot drop unused properties of an object read by member expression, so importing it for one field ships all four reveal codes — including puzzles the team has not reached yet. Import the single binding you need (ROOM_CODE, GRID_CODE, CIPHER_CODE, CIRCUIT_CODE); those ARE dropped when unused. Better still, report the player's input via onAnswer(text) and let /api/submit compare it to answerHash server-side — a puzzle that reveals its own answer in-scene, like the Mystery Room, is the only case that legitimately needs a code on the client.",
             },
           ],
         },
