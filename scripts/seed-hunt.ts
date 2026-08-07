@@ -16,6 +16,7 @@
 import { hashAnswer } from "../src/lib/auth/session";
 import { collections, ensureIndexes } from "../src/lib/db/client";
 import { CIPHER, GRID, HINTS, HUNT_SLUGS, ROOM } from "../src/lib/hunt/content";
+import { LEVELS } from "../src/lib/octovius/levels";
 import { buildGrid } from "../src/lib/hunt/grid";
 
 async function main() {
@@ -94,6 +95,28 @@ async function main() {
       opensAt: null, closesAt: null,
       config: universeConfig,
     },
+    /**
+     * The Octavius Circuit levels.
+     *
+     * No answerHash: a circuit is not a word. `levelId` points at the
+     * server-side LEVELS table, and gradeHunt routes any challenge carrying one
+     * to gradeCircuit, which rebuilds the board and decides. `nextSlug` chains
+     * them so a team unlocks level 2 by solving level 1 rather than by knowing
+     * the URL.
+     */
+    ...LEVELS.map((level, i) => ({
+      type: "hunt" as const,
+      slug: `circuit-${level.id}`,
+      title: `Octavius Circuit${i === 0 ? "" : " " + "I".repeat(i + 1).replace("IIII", "IV").replace("IIIII", "V")}`,
+      points: 100,
+      opensAt: null,
+      closesAt: null,
+      config: {
+        levelId: level.id,
+        hintCosts: [15, 25],
+        nextSlug: LEVELS[i + 1] ? `circuit-${LEVELS[i + 1].id}` : undefined,
+      },
+    })),
   ]);
 
   console.log(`\n  Seeded ${HUNT_SLUGS.length} hunt puzzles.`);
