@@ -79,7 +79,30 @@ export class Board {
   }
 
   _startLoop() {
+    /**
+     * Rendered at a capped frame rate, not as fast as the display will go.
+     *
+     * A full redraw is expensive out of proportion to what is on screen: every
+     * cell is drawn from scratch, and the tile art uses canvas shadowBlur more
+     * than fifty times per pass. shadowBlur is a software blur — it is the most
+     * costly thing a 2D context does — so the board was running thousands of
+     * blur passes a second to animate a slow pulse and a few sparks. On a phone
+     * that is the whole frame budget, and the game felt like it was dragging
+     * even though nothing was happening.
+     *
+     * 30fps is imperceptible for a puzzle whose fastest motion is a tile
+     * popping in, and halves the cost outright. The phases below are still
+     * derived from the real timestamp, so every animation runs at the same
+     * speed it did — they are simply sampled half as often.
+     */
+    const FRAME_MS = 1000 / 30;
+    let lastDraw = 0;
+
     const loop = (ts) => {
+      this.rafId = requestAnimationFrame(loop);
+      if (ts - lastDraw < FRAME_MS) return;
+      lastDraw = ts;
+
       this.flowPhase   = (ts / 650)   % 1;
       this.pulsePhase  = (ts / 1000)  * Math.PI * 2;
       this.xShakePhase = (ts / 1800)  * Math.PI * 2;
@@ -105,7 +128,6 @@ export class Board {
       }
 
       this._render();
-      this.rafId = requestAnimationFrame(loop);
     };
     this.rafId = requestAnimationFrame(loop);
   }
