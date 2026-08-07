@@ -56,14 +56,20 @@ export function initLanding() {
       
       setTimeout(() => {
         landingPage.style.display = 'none';
-        // Show How To Play Page
-        htpPage.style.display = 'flex';
-        // Force reflow
-        htpPage.offsetHeight;
-        htpPage.style.opacity = '1';
         
-        // Auto-skip after 60 seconds
-        autoSkipTimer = setTimeout(dismissHtp, 60000);
+        if (htpPage) {
+          // Show How To Play Page
+          htpPage.style.display = 'flex';
+          // Force reflow
+          htpPage.offsetHeight;
+          htpPage.style.opacity = '1';
+          
+          // Auto-skip after 60 seconds
+          autoSkipTimer = setTimeout(dismissHtp, 60000);
+        } else {
+          // Directly transition to game if HTP page is missing
+          transitionToGame();
+        }
       }, 500); // Wait for opacity fade
     }, 250);
   });
