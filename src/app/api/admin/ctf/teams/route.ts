@@ -13,9 +13,7 @@ export async function GET() {
     }
 
     const teamsColl = await collections.teamsCtf();
-    const legacyTeamsColl = await collections.teams();
     const partColl = await collections.participantsCtf();
-    const legacyPartColl = await collections.participants();
     const subsColl = await collections.submissionsCtf();
     const scoresColl = await collections.scoreEventsCtf();
 
@@ -23,21 +21,11 @@ export async function GET() {
     const scores = await scoresColl.find({}).toArray();
     const subs = await subsColl.find({ "verdict.correct": true }).toArray();
 
-    // 2. Fetch CTF teams from teams_ctf (and any legacy ctf-tagged teams)
-    const teamsCtfList = await teamsColl.find({ name: { $ne: "Admin Team" } }).toArray();
-    const legacyCtfTeams = await legacyTeamsColl.find({ event: "ctf", name: { $nin: ["Admin Team", "Quiz Control"] } }).toArray();
+    // 2. Fetch CTF teams from teams_ctf ONLY
+    const teams = await teamsColl.find({ name: { $ne: "Admin Team" } }).toArray();
 
-    const teamMap = new Map<string, typeof teamsCtfList[0]>();
-    for (const t of [...teamsCtfList, ...legacyCtfTeams]) {
-      teamMap.set(String(t._id), t);
-    }
-    const teams = Array.from(teamMap.values());
-
-    // 3. Map participants to CTF teams
-    const allParticipants = [
-      ...(await partColl.find({ role: { $ne: "admin" } }).toArray()),
-      ...(await legacyPartColl.find({ role: { $ne: "admin" } }).toArray()),
-    ];
+    // 3. Map participants to CTF teams from participants_ctf ONLY
+    const allParticipants = await partColl.find({ role: { $ne: "admin" } }).toArray();
     const teamParticipantsMap = new Map<string, string[]>();
     for (const p of allParticipants) {
       if (!p.teamId) continue;
